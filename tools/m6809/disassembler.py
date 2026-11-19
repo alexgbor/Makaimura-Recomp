@@ -134,9 +134,9 @@ def hex16(value):
     return f"${value & 0xFFFF:04X}"
 
 
-def signed_text(value):
-    """An offset as MAME writes it: -$xx or $xx."""
-    return f"-${-value:X}" if value < 0 else f"${value:X}"
+def signed_text(value, digits=0):
+    """An offset as MAME's 6x09dasm.cpp writes it: -$xx or $xx (digits: 2 for 8-bit offsets, 4 for 16-bit)."""
+    return ("-" if value < 0 else "") + f"${abs(value):0{digits}X}"
 
 
 def indexed(r):
@@ -168,21 +168,21 @@ def indexed(r):
     elif mode == 0x8:
         offset = s8(r.u8())
         op, text = Operand("indexed", value=post, base=base, kind="offset", offset=offset), \
-            f"{signed_text(offset)},{base}"
+            f"{signed_text(offset, 2)},{base}"
     elif mode == 0x9:
         offset = s16(r.u16())
         op, text = Operand("indexed", value=post, base=base, kind="offset", offset=offset), \
-            f"{signed_text(offset)},{base}"
+            f"{signed_text(offset, 4)},{base}"
     elif mode == 0xC:
         offset = s8(r.u8())
         address = (r.pc + offset) & 0xFFFF
         op, text = Operand("indexed", value=post, base="PC", kind="offset", offset=offset, address=address), \
-            f"{signed_text(offset)},PC"
+            f"{hex16(address)},PCR"
     elif mode == 0xD:
         offset = s16(r.u16())
         address = (r.pc + offset) & 0xFFFF
         op, text = Operand("indexed", value=post, base="PC", kind="offset", offset=offset, address=address), \
-            f"{signed_text(offset)},PC"
+            f"{hex16(address)},PCR"
     elif mode == 0xF and indirect:
         address = r.u16()
         op = Operand("indexed", value=post, base=None, kind="offset", offset=0, address=address, indirect=True)
@@ -200,6 +200,32 @@ def indexed(r):
 def stack_registers(post, user):
     names = PUSH_U if user else PUSH_S
     return tuple(names[bit] for bit in range(8) if post & (1 << bit))
+
+
+def stack_text(post, user, push):
+    """The registers as MAME writes them: a push from PC down, a pull from CC up, A and B together as D."""
+    other = "S" if user else "U"
+    if push:
+        order = (("PC", 0x80), (other, 0x40), ("Y", 0x20), ("X", 0x10), ("DP", 0x08), ("D", 0x06), ("B", 0x04),
+                 ("A", 0x02), ("CC", 0x01))
+    else:
+        order = (("CC", 0x01), ("D", 0x06), ("A", 0x02), ("B", 0x04), ("DP", 0x08), ("X", 0x10), ("Y", 0x20),
+                 (other, 0x40), ("PC", 0x80))
+    names = []
+    for name, mask in order:
+        if name == "D":
+            if post & 0x06 == 0x06:
+                names.append("D")
+                post &= ~0x06
+            continue
+        if post & mask:
+            names.append(name)
+    return ",".join(names)
+
+
+def extended_text(address):
+    """MAME writes '>' before an extended address of the first page (an assembler would make it direct)."""
+    return (">" if address < 0x100 else "") + hex16(address)
 
 
 def decode(read, address):
@@ -222,7 +248,7 @@ def decode(read, address):
 
 
 def finish(r, opcode, mnemonic, operand, flow="next", target=None, text_operand=None):
-    text = mnemonic if text_operand is None else f"{mnemonic:<6}{text_operand}"
+    text = mnemonic if not text_operand else f"{mnemonic:<7}{text_operand}"
     return Instruction(r.start, (r.pc - r.start) & 0xFFFF, opcode, mnemonic, operand, flow, target, text,
                        bytes(r.bytes))
 
@@ -241,7 +267,7 @@ def memory_operand(r, column, sixteen):
     if column == 0xA:
         return indexed(r)
     value = r.u16()
-    return Operand("extended", value=value, address=value), hex16(value)
+    return Operand("extended", value=value, address=value), extended_text(value)
 
 
 def decode_page0(r, opcode):
@@ -260,7 +286,7 @@ def decode_page0(r, opcode):
                 return finish(r, opcode, "ILLEGAL", Operand("inherent"), "illegal")
         else:
             value = r.u16()
-            op, text = Operand("extended", value=value, address=value), hex16(value)
+            op, text = Operand("extended", value=value, address=value), extended_text(value)
         if name == "JMP":
             if op.mode == "indexed":
                 return finish(r, opcode, name, op, "ijump", None, text)
@@ -321,13 +347,10 @@ def decode_page0(r, opcode):
             name = ("PSHS", "PULS", "PSHU", "PULU")[low - 4]
             registers = stack_registers(post, user)
             op = Operand("stack", value=post, registers=registers)
-            if name == "PSHS" or name == "PSHU":
-                text = ",".join(reversed(registers))
-            else:
-                text = ",".join(registers)
+            text = stack_text(post, user, name.startswith("PSH"))
             flow = "return" if name == "PULS" and post & 0x80 else ("ijump" if name == "PULU" and post & 0x80
                                                                      else "next")
-            return finish(r, opcode, name, op, flow, None, text or "#$00")
+            return finish(r, opcode, name, op, flow, None, text)
         if opcode == 0x3C:
             value = r.u8()
             return finish(r, opcode, "CWAI", Operand("immediate", value=value), "wait", None, f"#{hex8(value)}")
@@ -360,6 +383,8 @@ def decode_page0(r, opcode):
 def decode_page23(r, page, opcode, full):
     high, low = opcode >> 4, opcode & 0x0F
     if page == 0x10 and high == 0x2:
+        if low == 0x0:    # (1020: MAME's undocumented XLBRA; LBRA is 16)
+            return finish(r, full, "ILLEGAL", Operand("inherent"), "illegal")
         offset = s16(r.u16())
         target = (r.pc + offset) & 0xFFFF
         name = "L" + BRANCHES[low]
