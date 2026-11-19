@@ -241,7 +241,21 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "makaimura: %s\n", SDL_GetError());
 		return 1;
 	}
-	if (!read_regions(path) || !find_region("audiocpu"))
+	int found = read_regions(path);
+	if (!found && argc <= 1)
+	{
+		/* started from its own folder (build/bin): the regions are in build/ */
+		char *base = SDL_GetBasePath();
+		if (base)
+		{
+			static char beside[1024];
+			snprintf(beside, sizeof(beside), "%s../makaimurg.regions", base);
+			SDL_free(base);
+			region_count = 0;
+			found = read_regions(beside);
+		}
+	}
+	if (!found || !find_region("audiocpu"))
 	{
 		char message[512];
 		snprintf(message, sizeof(message), "No ROM regions in %s.\nMake them from your makaimurg.zip and gng.zip with:\n"
