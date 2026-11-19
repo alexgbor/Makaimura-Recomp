@@ -1,0 +1,20 @@
+# Makaimura (MAME set 'makaimurg', Japan revision G) - the 6809 program's symbols
+#
+# Addresses and names only: no game data lives in this file.
+# Format:  ADDRESS  KIND  NAME  [key=value ...]   [# comment]   (tools/symbols.py)
+#   ADDRESS  hex 0000-FFFF; in the banked window 4000-5FFF, "B:XXXX" with its bank 0-4
+#   KIND     func, code, data, var (RAM), table (count=N: 16-bit code addresses; bank=N: their targets' bank)
+# The analysis (tools/disassemble.py) starts at the vectors (RESET 6000, IRQ 65C4); these lines name what it
+# finds and add what it cannot work out alone.
+
+# ======== the vectors ========
+6000  func  reset            # ORCC #$50, sprite RAM filled with F8, 100 frames waited (SYNC), DP = 0, the layers
+                             # cleared, bank 3, then JMP $553A with the return address in Y (607D)
+65C4  func  irq              # the VBLANK: the sprite DMA (STB $3C00) first, the frame counter (<$20), the
+                             # frame's jobs, then the game state's routine in bank 3; the bank put back from <$D9
+
+# ======== the interrupt's dispatch ========
+65BC  table  irq_states      count=4 bank=3   # by the game state <$02 (JSR [B,X] at 65F3, bank 3 selected)
+65FB  func  irq_round_robin                   # one of four jobs a frame: <$21 & 3, its bank from 660D
+6611  table  irq_round_robin_jobs  count=4    # (JMP [B,X] at 660B; banks 3, 4, 4, 4 from the table at 660D)
+660D  data  irq_round_robin_banks             # 4 bytes: the bank of each job

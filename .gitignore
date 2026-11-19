@@ -1,0 +1,17 @@
+# Nothing from the ROM set is ever committed (AGENTS.md, rule 1)
+/rom/
+*.zip
+/src/
+/assets/
+/build/
+*.dat
+*.lst
+*.wav
+*.ppm
+*.bmp
+__pycache__/
+/release/
+# what a game run keeps
+*.hiscore
+*.state
+*.log
