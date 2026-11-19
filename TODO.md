@@ -219,7 +219,9 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] The keys and buttons changed from the menu (CONTROLS: Enter, then the key, the pad's button or trigger; a key
       taken from whatever had it; Delete: its defaults; Esc: as it was), kept in makaimura.ini; checked with
       `makaimura --menu N --menu-keys LIST --shot N FILE` (the keys pressed on the menu, the settings saved)
-- [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
+- [x] The second player's own controls (3002), as the board's: the program reads them for a cocktail cabinet's
+      second player (691C) and for either player's buttons at the continue (76D8); MAME's keys (R F D G, A, S) and
+      the second gamepad; in the menu's CONTROLS page (which scrolls)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
 
 ## Later, maybe

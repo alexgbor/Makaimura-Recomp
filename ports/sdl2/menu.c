@@ -45,7 +45,8 @@ static void add(int kind, int dip, const char *label)
 }
 
 static const char *const action_labels[ACTIONS] = {
-	"UP", "DOWN", "LEFT", "RIGHT", "ATTACK", "JUMP", "START 1P", "START 2P", "COIN 1", "COIN 2", "SERVICE" };
+	"UP", "DOWN", "LEFT", "RIGHT", "ATTACK", "JUMP", "START 1P", "START 2P", "COIN 1", "COIN 2", "SERVICE",
+	"UP", "DOWN", "LEFT", "RIGHT", "ATTACK", "JUMP" };
 static const char *const hotkey_labels[HOTKEYS] = { "RESET", "PAUSE", "FULL SCREEN", "QUIT", "MENU", "RECORD" };
 
 static void build_controls(void)
@@ -53,13 +54,14 @@ static void build_controls(void)
 	items = control_items;
 	item_count = 0;
 	add(HEADER, 0, "CONTROLS");
-	for (int a = 0; a < ACTIONS; a++)
+	for (int a = 0; a < ACTION_P2_FIRST; a++)
 		add(ACTION, a, action_labels[a]);
-	add(BLANK, 0, "");
+	add(HEADER, 0, "PLAYER 2: 2ND PAD");
+	for (int a = ACTION_P2_FIRST; a < ACTIONS; a++)
+		add(ACTION, a, action_labels[a]);
 	add(HEADER, 0, "THE WINDOW'S KEYS");
 	for (int h = 0; h < HOTKEYS; h++)
 		add(HOTKEY, h, hotkey_labels[h]);
-	add(BLANK, 0, "");
 	add(DEFAULTS, 0, "ALL TO DEFAULTS");
 	add(BACK, 0, "BACK");
 	control_count = item_count;
@@ -164,12 +166,16 @@ static void bind_key(settings *s, SDL_Scancode code)
 	slot[0] = code;
 }
 
-/* The pad's button or trigger now the selected action's only one (the menu's own: its button) */
+/* The pad's button or trigger now the selected action's only one (the menu's own: its button), taken from the
+   others of the same gamepad (player 2's actions are the second one's) */
 static void bind_pad(settings *s, pad_input input)
 {
+	const int second = items[selected].kind == ACTION && items[selected].dip >= ACTION_P2_FIRST;
 	for (int a = 0; a < ACTIONS; a++)
-		clear_pad(s->buttons[a], input);
-	clear_pad(s->menu_buttons, input);
+		if ((a >= ACTION_P2_FIRST) == second)
+			clear_pad(s->buttons[a], input);
+	if (!second)
+		clear_pad(s->menu_buttons, input);
 	pad_input *slot = NULL;
 	if (items[selected].kind == ACTION)
 		slot = s->buttons[items[selected].dip];
@@ -475,7 +481,15 @@ void menu_draw(uint32_t *pixels, const settings *s)
 	put_text(pixels, 8, 0, "MAKAIMURA RECOMP", yellow);
 	int row = 2;
 	char buffer[64];
-	for (int i = 0; i < item_count && row < 27; i++, row++)
+	/* rows 2-26: a longer page scrolls with the selection */
+	const int rows = 25;
+	int first = 0;
+	if (item_count > rows)
+	{
+		first = selected - rows / 2;
+		first = first < 0 ? 0 : first > item_count - rows ? item_count - rows : first;
+	}
+	for (int i = first; i < item_count && row < 27; i++, row++)
 	{
 		const item *it = &items[i];
 		if (it->kind == BLANK)

@@ -58,7 +58,7 @@ static SDL_Renderer *renderer;
 static SDL_Texture *picture;          /* the board's 256 x 224 */
 static SDL_Texture *prescaled;        /* sharp pixels: the picture enlarged a whole number of times, then smoothed */
 static int prescaled_width, prescaled_height;
-static SDL_GameController *pad;
+static SDL_GameController *pads[2];  /* player 1's (and the coins, the starts, the menu), player 2's */
 static int sound_on;
 static uint32_t pixels[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 static Uint64 next_frame;
@@ -276,47 +276,76 @@ static int is_hotkey(SDL_Scancode code, int hotkey)
 	return 0;
 }
 
+/* a player's port (3001, 3002) from its six actions, from 'first' (ACTION_UP or ACTION_P2_FIRST) */
+static uint8_t player_port(int *on, int first)
+{
+	/* the board's joystick is 4-way (PORT_4WAY): one direction at a time, the vertical one first */
+	if (on[first + ACTION_UP] || on[first + ACTION_DOWN])
+		on[first + ACTION_LEFT] = on[first + ACTION_RIGHT] = 0;
+	uint8_t player = 0xFF;
+	if (on[first + ACTION_RIGHT]) player &= ~0x01;
+	if (on[first + ACTION_LEFT]) player &= ~0x02;
+	if (on[first + ACTION_DOWN]) player &= ~0x04;
+	if (on[first + ACTION_UP]) player &= ~0x08;
+	if (on[first + ACTION_ATTACK]) player &= ~0x10;
+	if (on[first + ACTION_JUMP]) player &= ~0x20;
+	return player;
+}
+
 static void read_controls(void)
 {
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
 	int on[ACTIONS];
 	for (int a = 0; a < ACTIONS; a++)
 	{
+		/* player 2's buttons are the second gamepad's; the rest the first one's */
+		SDL_GameController *pad = pads[a >= ACTION_P2_FIRST];
 		on[a] = key_down(keys, options.keys[a]);
 		if (pad)
 			for (int i = 0; i < BINDINGS_MAX; i++)
 				on[a] |= settings_pad_pressed(pad, options.buttons[a][i]);
 	}
-	if (pad && options.left_stick)
-	{
-		const int dead = 32767 * options.stick_dead / 100;
-		const int x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
-		const int y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
-		on[ACTION_LEFT] |= x < -dead;
-		on[ACTION_RIGHT] |= x > dead;
-		on[ACTION_UP] |= y < -dead;
-		on[ACTION_DOWN] |= y > dead;
-	}
-	/* the board's joystick is 4-way (PORT_4WAY): one direction at a time, the vertical one first */
-	if (on[ACTION_UP] || on[ACTION_DOWN])
-		on[ACTION_LEFT] = on[ACTION_RIGHT] = 0;
-	uint8_t system = 0xFF, player = 0xFF;
-	if (on[ACTION_RIGHT]) player &= ~0x01;
-	if (on[ACTION_LEFT]) player &= ~0x02;
-	if (on[ACTION_DOWN]) player &= ~0x04;
-	if (on[ACTION_UP]) player &= ~0x08;
-	if (on[ACTION_ATTACK]) player &= ~0x10;
-	if (on[ACTION_JUMP]) player &= ~0x20;
+	for (int p = 0; p < 2; p++)
+		if (pads[p] && options.left_stick)
+		{
+			const int first = p ? ACTION_P2_FIRST : ACTION_UP;
+			const int dead = 32767 * options.stick_dead / 100;
+			const int x = SDL_GameControllerGetAxis(pads[p], SDL_CONTROLLER_AXIS_LEFTX);
+			const int y = SDL_GameControllerGetAxis(pads[p], SDL_CONTROLLER_AXIS_LEFTY);
+			on[first + ACTION_LEFT] |= x < -dead;
+			on[first + ACTION_RIGHT] |= x > dead;
+			on[first + ACTION_UP] |= y < -dead;
+			on[first + ACTION_DOWN] |= y > dead;
+		}
+	uint8_t system = 0xFF;
 	if (on[ACTION_START1]) system &= ~0x01;
 	if (on[ACTION_START2]) system &= ~0x02;
 	if (on[ACTION_SERVICE]) system &= ~0x20;
 	if (on[ACTION_COIN1]) system &= ~0x40;
 	if (on[ACTION_COIN2]) system &= ~0x80;
 	gng.inputs.system = system;
-	/* one set of controls: the upright cabinet's players take turns on player 1's (the program reads 3002 only for
-	   the second player of a cocktail cabinet: the same controls there too) */
-	gng.inputs.p1 = player;
-	gng.inputs.p2 = player;
+	/* each player's own, as the board's: the program reads 3002 for a cocktail cabinet's second player (691C:
+	   <$48 on player 2's turn when <$53 is set) and for either player's buttons at the continue (76D8: <$46 | <$48);
+	   the upright cabinet's players take turns on player 1's */
+	gng.inputs.p1 = player_port(on, ACTION_UP);
+	gng.inputs.p2 = player_port(on, ACTION_P2_FIRST);
+}
+
+/* a gamepad plugged in: player 1's if it has none, else player 2's (each opened once) */
+static void open_pad(int device)
+{
+	if (!SDL_IsGameController(device))
+		return;
+	const SDL_JoystickID id = SDL_JoystickGetDeviceInstanceID(device);
+	for (int p = 0; p < 2; p++)
+		if (pads[p] && SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[p])) == id)
+			return;
+	for (int p = 0; p < 2; p++)
+		if (!pads[p])
+		{
+			pads[p] = SDL_GameControllerOpen(device);
+			return;
+		}
 }
 
 static int read_script(const char *path)
@@ -453,13 +482,16 @@ static void handle_event(const SDL_Event *event)
 			update_title();
 		}
 	}
-	else if (event->type == SDL_CONTROLLERDEVICEADDED && !pad)
-		pad = SDL_GameControllerOpen(event->cdevice.which);
-	else if (event->type == SDL_CONTROLLERDEVICEREMOVED && pad &&
-		event->cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad)))
+	else if (event->type == SDL_CONTROLLERDEVICEADDED)
+		open_pad(event->cdevice.which);
+	else if (event->type == SDL_CONTROLLERDEVICEREMOVED)
 	{
-		SDL_GameControllerClose(pad);
-		pad = NULL;
+		for (int p = 0; p < 2; p++)
+			if (pads[p] && event->cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[p])))
+			{
+				SDL_GameControllerClose(pads[p]);
+				pads[p] = NULL;
+			}
 	}
 }
 
@@ -748,9 +780,8 @@ int main(int argc, char *argv[])
 	}
 
 	sound_on = options.sound && audio_out_open(options.volume, options.latency);
-	for (int i = 0; i < SDL_NumJoysticks() && !pad; i++)
-		if (SDL_IsGameController(i))
-			pad = SDL_GameControllerOpen(i);
+	for (int i = 0; i < SDL_NumJoysticks(); i++)
+		open_pad(i);
 
 	if (record_path)
 		start_recording(record_path);

@@ -26,8 +26,12 @@ enum
 {
 	ACTION_UP, ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_ATTACK, ACTION_JUMP,
 	ACTION_START1, ACTION_START2, ACTION_COIN1, ACTION_COIN2, ACTION_SERVICE,
+	/* the second player's (3002): a cocktail cabinet's second player, and either player's buttons where the
+	   program takes both (the continue: 76D8); their gamepad buttons are the second gamepad's */
+	ACTION_P2_UP, ACTION_P2_DOWN, ACTION_P2_LEFT, ACTION_P2_RIGHT, ACTION_P2_ATTACK, ACTION_P2_JUMP,
 	ACTIONS
 };
+#define ACTION_P2_FIRST ACTION_P2_UP
 
 /* What the port does itself */
 enum

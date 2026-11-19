@@ -65,6 +65,7 @@ game starts:
 | Coin | 5 (6: the second coin slot) | Back |
 | Start | 1 (one player), 2 (two players) | Start (one player) |
 | Service switch | 9 | |
+| Player 2 (cocktail cabinet; the continue's buttons) | R F D G, A (attack), S (jump) | the second gamepad |
 | Reset the board | F3 | |
 | Menu (options, picture, sound, reset, quit) | Esc or F1 | right stick (pressed) or guide |
 | Pause | P or Pause | |
@@ -72,7 +73,8 @@ game starts:
 | Record (start, stop) | F12 | |
 
 The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
-upright cabinet (the default) the two players take turns on the same controls. Every control can be changed in
+upright cabinet (the default) the two players take turns on player 1's controls; in the cocktail cabinet player 2
+plays on their own, as on the board. Every control can be changed in
 the menu (CONTROLS: Enter, then the key or the pad's button; Delete gives it its default back) or in
 `makaimura.ini` (up to four keys or buttons each).
 

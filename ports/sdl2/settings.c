@@ -18,10 +18,13 @@
 #include <string.h>
 
 const char *const settings_action_names[ACTIONS] = {
-	"up", "down", "left", "right", "attack", "jump", "start1", "start2", "coin1", "coin2", "service" };
+	"up", "down", "left", "right", "attack", "jump", "start1", "start2", "coin1", "coin2", "service",
+	"p2_up", "p2_down", "p2_left", "p2_right", "p2_attack", "p2_jump" };
 static const char *const action_help[ACTIONS] = {
 	NULL, NULL, NULL, NULL, "button 1: the weapon thrown", "button 2", "one player", "two players",
-	"the coin slots", NULL, "the service switch" };
+	"the coin slots", NULL, "the service switch",
+	"the second player's controls (a cocktail cabinet's second player; on the gamepad, the second gamepad)",
+	NULL, NULL, NULL, NULL, NULL };
 static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit", "menu", "record" };
 const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
 const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
@@ -157,6 +160,12 @@ void settings_defaults(settings *s)
 	keys(s->keys[ACTION_COIN1], SDL_SCANCODE_5, 0);
 	keys(s->keys[ACTION_COIN2], SDL_SCANCODE_6, 0);
 	keys(s->keys[ACTION_SERVICE], SDL_SCANCODE_9, 0);
+	keys(s->keys[ACTION_P2_UP], SDL_SCANCODE_R, 0);          /* (MAME's player 2 keys) */
+	keys(s->keys[ACTION_P2_DOWN], SDL_SCANCODE_F, 0);
+	keys(s->keys[ACTION_P2_LEFT], SDL_SCANCODE_D, 0);
+	keys(s->keys[ACTION_P2_RIGHT], SDL_SCANCODE_G, 0);
+	keys(s->keys[ACTION_P2_ATTACK], SDL_SCANCODE_A, 0);
+	keys(s->keys[ACTION_P2_JUMP], SDL_SCANCODE_S, 0);
 	keys(s->hot_keys[HOTKEY_RESET], SDL_SCANCODE_F3, 0);
 	keys(s->hot_keys[HOTKEY_PAUSE], SDL_SCANCODE_P, SDL_SCANCODE_PAUSE);
 	keys(s->hot_keys[HOTKEY_FULLSCREEN], SDL_SCANCODE_F11, 0);
@@ -174,6 +183,12 @@ void settings_defaults(settings *s)
 	buttons(s->buttons[ACTION_COIN1], SDL_CONTROLLER_BUTTON_BACK, -1);
 	buttons(s->buttons[ACTION_COIN2], -1, -1);
 	buttons(s->buttons[ACTION_SERVICE], -1, -1);
+	buttons(s->buttons[ACTION_P2_UP], SDL_CONTROLLER_BUTTON_DPAD_UP, -1);
+	buttons(s->buttons[ACTION_P2_DOWN], SDL_CONTROLLER_BUTTON_DPAD_DOWN, -1);
+	buttons(s->buttons[ACTION_P2_LEFT], SDL_CONTROLLER_BUTTON_DPAD_LEFT, -1);
+	buttons(s->buttons[ACTION_P2_RIGHT], SDL_CONTROLLER_BUTTON_DPAD_RIGHT, -1);
+	buttons(s->buttons[ACTION_P2_ATTACK], SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_X);
+	buttons(s->buttons[ACTION_P2_JUMP], SDL_CONTROLLER_BUTTON_A, -1);
 	buttons(s->menu_buttons, SDL_CONTROLLER_BUTTON_RIGHTSTICK, SDL_CONTROLLER_BUTTON_GUIDE);
 	s->left_stick = true;
 	s->stick_dead = 50;
@@ -490,12 +505,13 @@ const char *settings_save(const settings *s, const char *path)
 	for (int i = 0; i < HOTKEYS; i++)
 		write_keys(file, hotkey_names[i], s->hot_keys[i]);
 	fprintf(file, "\n[gamepad]\n; the Xbox layout's names: a, b, x, y, back, start, leftshoulder, rightshoulder, "
-		"lefttrigger,\n; righttrigger, dpup, dpdown, dpleft, dpright, leftstick, rightstick\n");
+		"lefttrigger,\n; righttrigger, dpup, dpdown, dpleft, dpright, leftstick, rightstick. The first gamepad "
+		"is player 1's (and\n; the coins, the starts, the menu), the second one player 2's (p2_...)\n");
 	for (int i = 0; i < ACTIONS; i++)
 		write_buttons(file, settings_action_names[i], s->buttons[i]);
 	fprintf(file, "; the menu (pressing the right stick, or the guide button)\n");
 	write_buttons(file, "menu", s->menu_buttons);
-	fprintf(file, "; the left stick moves too; how far it goes before it counts, in %%\nleft_stick = %s\n"
+	fprintf(file, "; the left stick moves too (each gamepad's); how far it goes before it counts, in %%\nleft_stick = %s\n"
 		"stick_dead_zone = %d\n", s->left_stick ? "true" : "false", s->stick_dead);
 	return fclose(file) == 0 ? NULL : "it could not be written";
 }
