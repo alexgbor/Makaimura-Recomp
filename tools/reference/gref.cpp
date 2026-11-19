@@ -34,6 +34,7 @@
  *      --sound-marks FILE  with --sound: the Z80's RAM as it makes each YM2203 write, "write hash pc" (MAME's
  *                        run hashes it at the first write after each frame: tools/mame/trace.lua's MK_MARKS)
  *      --wav FILE        with --sound: the mix as MAME routes it, at the chips' 125 kHz
+ *      --sound-executed FILE  with --sound: every address the Z80 started an instruction at, one a line (hex)
  *      --latch-writes FILE  every write of the sound latch: "time value" (6809 cycles)
  *      --pictures N FILE every Nth frame's picture (from frame 0), 256x224 RGB bytes each, as MAME's (trace.lua)
  *      --picture-hashes FILE   each frame's picture sampled as --pictures 1 samples it, its FNV-1a: "frame hash"
@@ -254,6 +255,7 @@ int main(int argc, char **argv)
 	int text_frame = -1, dump_frame = -1;
 	int dsw1 = GNG_DSW1_DEFAULT, dsw2 = GNG_DSW2_DEFAULT;
 	const char *sound_path = nullptr, *ym_path = nullptr, *wav_path = nullptr, *marks_path = nullptr;
+	const char *sound_executed_path = nullptr;
 	for (int i = 1; i < argc; i++)
 	{
 		std::string a = argv[i];
@@ -273,6 +275,7 @@ int main(int argc, char **argv)
 		else if (a == "--sound") { sound = true; sound_path = next(); }
 		else if (a == "--ym-writes") ym_path = next();
 		else if (a == "--sound-marks") marks_path = next();
+		else if (a == "--sound-executed") sound_executed_path = next();
 		else if (a == "--wav") wav_path = next();
 		else if (a == "--latch-writes") latch_log = std::fopen(next(), "w");
 		else if (a == "--pictures") { pictures_every = std::atoi(next()); pictures_path = next(); }
@@ -476,6 +479,15 @@ int main(int argc, char **argv)
 		std::fclose(ym_out);
 	if (marks_out)
 		std::fclose(marks_out);
+	if (sound && sound_executed_path)
+	{
+		FILE *out = std::fopen(sound_executed_path, "w");
+		const uint8_t *bits = gs_executed();
+		for (unsigned address = 0; address < 0x10000; address++)
+			if (bits[address >> 3] & (1u << (address & 7)))
+				std::fprintf(out, "%04X\n", address);
+		std::fclose(out);
+	}
 	if (wav_out)
 		gs_close_wav();
 

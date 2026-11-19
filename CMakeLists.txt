@@ -109,3 +109,13 @@ if(MAKAIMURA_PROGRAM)
 else()
 	message(STATUS "No translated program (python tools/m6809/translate.py): gng_headless is not built")
 endif()
+
+# The sound lift's oracle: MAME 0.289's Z80 running one instruction (or the IRQ's entry) from given states
+# (tools/z80cpu/compare_lift_with_mame.py)
+add_executable(oracle_z80_step tools/reference/sound/oracle_z80_step.cpp ${MAKAIMURA_GENERATED}/cpu/z80/z80.hxx)
+target_include_directories(oracle_z80_step PRIVATE ${CMAKE_SOURCE_DIR}/tools/core/system32/reference/sound
+	${MAKAIMURA_Z80} ${MAKAIMURA_YMFM} ${MAKAIMURA_GENERATED})
+target_compile_features(oracle_z80_step PRIVATE cxx_std_20)
+if(MSVC)
+	target_compile_options(oracle_z80_step PRIVATE /wd4244 /wd4146 /wd4102 /wd4267 /wd4305 /bigobj)
+endif()
