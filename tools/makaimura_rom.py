@@ -161,9 +161,29 @@ def load_program(paths):
     return Program(load_regions(paths, needed)["maincpu"])
 
 
+def write_regions(path, regions):
+    """The regions as the reference and the headless tools read them (build/makaimurg.regions, never committed):
+    "MKRG", then each region's name (16 bytes, NUL padded), size (4 bytes, little endian) and bytes."""
+    with open(path, "wb") as out:
+        out.write(b"MKRG")
+        for name, data in regions.items():
+            out.write(name.encode().ljust(16, bytes(1)))
+            out.write(len(data).to_bytes(4, "little"))
+            out.write(data)
+
+
 if __name__ == "__main__":
     import sys
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if len(sys.argv) > 2 and sys.argv[1] == "--extract":
+        paths = sys.argv[3:] or default_paths(root)
+        found, missing = find_files(paths)
+        have = {f.region for f in FILES} - {f.region for f in missing}
+        regions = load_regions(paths, tuple(f for f in FILES if f.region in have))
+        write_regions(sys.argv[2], regions)
+        print(f"{sys.argv[2]}: " + ", ".join(regions) + (f" (missing: {', '.join(sorted({f.region for f in missing}))})"
+                                                        if missing else ""))
+        sys.exit(0)
     paths = sys.argv[1:] or default_paths(root)
     found, missing = find_files(paths)
     for rom in FILES:

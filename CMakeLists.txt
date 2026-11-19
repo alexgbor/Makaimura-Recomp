@@ -39,3 +39,26 @@ set(MAKAIMURA_MAME ${CMAKE_SOURCE_DIR}/tools/reference/mame)
 add_executable(oracle_m6809 tools/reference/oracle_m6809.cpp ${MAKAIMURA_MAME}/m6809/6x09dasm.cpp)
 target_include_directories(oracle_m6809 PRIVATE tools/reference/stub ${MAKAIMURA_MAME}/m6809)
 target_compile_features(oracle_m6809 PRIVATE cxx_std_20)
+
+# ---- The board (runtime/): the game's own code ----
+add_library(gng_runtime STATIC runtime/src/board.c)
+target_include_directories(gng_runtime PUBLIC runtime/include)
+
+# ---- The reference: the original program on MAME's MC6809 core (m6809make.py writes the core's states from
+# m6809.lst at build time, as MAME's build does) ----
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(MAKAIMURA_M6809 ${MAKAIMURA_MAME}/m6809)
+set(MAKAIMURA_GENERATED ${CMAKE_BINARY_DIR}/generated)
+add_custom_command(OUTPUT ${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx
+	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/reference/stdout_to.py
+		${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx ${MAKAIMURA_M6809}/m6809make.py ${MAKAIMURA_M6809}/m6809.lst
+	DEPENDS ${MAKAIMURA_M6809}/m6809make.py ${MAKAIMURA_M6809}/m6809.lst ${MAKAIMURA_M6809}/base6x09.lst
+	VERBATIM)
+add_executable(gref tools/reference/gref.cpp ${MAKAIMURA_M6809}/m6809.cpp ${MAKAIMURA_M6809}/6x09dasm.cpp
+	${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx)
+target_include_directories(gref PRIVATE tools/reference/stub ${MAKAIMURA_M6809} ${MAKAIMURA_GENERATED})
+target_compile_features(gref PRIVATE cxx_std_20)
+target_link_libraries(gref PRIVATE gng_runtime)
+if(MSVC)
+	target_compile_options(gref PRIVATE /wd4244 /wd4146 /wd4102)
+endif()
