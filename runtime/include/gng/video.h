@@ -32,6 +32,9 @@ void gng_video_render(uint32_t *pixels);
 /* The same as palette indexes (0-255): what the checks compare, before the colours */
 void gng_video_render_indexed(uint8_t *indexes);
 
+/* A pixel of the text layer's character 'code' (0-1023): its pen, 0-3 (3 transparent), after gng_video_decode */
+int gng_video_char_pen(int code, int x, int y);
+
 #ifdef __cplusplus
 }
 #endif

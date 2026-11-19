@@ -29,6 +29,7 @@
  *      --pictures N FILE every Nth frame's picture, sampled as gref's (frame N's indexes in frame N+1's colours)
  *      --picture-hashes FILE   each frame's picture sampled as gref's, its FNV-1a: "frame hash"
  *      --ppm FRAME FILE  that frame's picture as a PPM image
+ *      --charset FILE    the text layer's 1024 characters, 32 a row, as a PPM image (pens as greys), and quit
  */
 #include "gng/board.h"
 #include "gng/rom_set.h"
@@ -303,6 +304,7 @@ int main(int argc, char **argv)
 {
 	const char *regions_path = "build/makaimurg.regions";
 	const char *write_path = NULL;
+	const char *charset_path = NULL;
 	int rom_places = 0;
 	gng_rom_set_clear(&rom_set);
 	long frames = 600;
@@ -329,6 +331,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--pictures")) { pictures_every = atoi(NEXT()); pictures = fopen(NEXT(), "wb"); }
 		else if (!strcmp(a, "--picture-hashes")) { picture_hashes = fopen(NEXT(), "w"); pictures_every = 1; }
 		else if (!strcmp(a, "--ppm")) { ppm_frame = atoi(NEXT()); ppm_path = NEXT(); }
+		else if (!strcmp(a, "--charset")) charset_path = NEXT();
 		else { fprintf(stderr, "gng_headless: unknown option %s\n", a); return 2; }
 #undef NEXT
 	}
@@ -369,6 +372,25 @@ int main(int argc, char **argv)
 	gng.inputs.dsw1 = (uint8_t)dsw1;
 	gng.inputs.dsw2 = (uint8_t)dsw2;
 	gng_video_decode();
+	if (charset_path)
+	{
+		FILE *ppm = fopen(charset_path, "wb");
+		if (!ppm)
+			return 2;
+		fprintf(ppm, "P6\n%d %d\n255\n", 32 * 9, 32 * 9);
+		for (int y = 0; y < 32 * 9; y++)
+			for (int x = 0; x < 32 * 9; x++)
+			{
+				const int code = (y / 9) * 32 + x / 9;
+				const int edge = x % 9 == 8 || y % 9 == 8;
+				const int pen = edge ? -1 : gng_video_char_pen(code, x % 9, y % 9);
+				const uint8_t grey = (uint8_t)(edge ? 0x40 : pen == 3 ? 0 : 255 - pen * 70);
+				const uint8_t rgb[3] = { edge ? (uint8_t)0x80 : grey, grey, grey };
+				fwrite(rgb, 1, 3, ppm);
+			}
+		fclose(ppm);
+		return 0;
+	}
 	if (sound)
 	{
 		if (!roms.audiocpu)

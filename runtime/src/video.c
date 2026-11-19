@@ -41,6 +41,11 @@ static inline int bit(const uint8_t *region, uint32_t offset)
 	return (region[offset >> 3] >> (7 - (offset & 7))) & 1;
 }
 
+int gng_video_char_pen(int code, int x, int y)
+{
+	return char_pens[code & (CHARS - 1)][y & 7][x & 7];
+}
+
 void gng_video_decode(void)
 {
 	static const int char_x[8] = { 0, 1, 2, 3, 8, 9, 10, 11 };

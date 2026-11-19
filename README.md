@@ -40,8 +40,9 @@ python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt 
 `rom/` (from `build/bin`) and in the folder it is started from; or give it a zip or a folder
 (`makaimura D:/roms`), or name one in `makaimura.ini`. A folder of MAME's loose files works too.
 
-`makaimura.ini`, beside the program, is written with every setting and what it does the first time the game
-starts:
+The menu (Esc) pauses the game and changes its options, the picture and the volume as it plays; it keeps them in
+`makaimura.ini`. That file, beside the program, is written with every setting and what it does the first time the
+game starts:
 
 - **[game]**: the board's DIP switches, by MAME's names: lives (3, 4, 5, 7), difficulty, bonus life, coinage
   (free play too), demo sounds, flip screen, cabinet, service mode. They are read as the board starts (and at F3).
@@ -63,9 +64,9 @@ starts:
 | Start | 1 (one player), 2 (two players) | Start (one player) |
 | Service switch | 9 | |
 | Reset the board | F3 | |
+| Menu (options, picture, sound, reset, quit) | Esc or F1 | right stick (pressed) or guide |
 | Pause | P or Pause | |
 | Full screen | F11 or Alt+Enter | |
-| Quit | Esc | |
 
 The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
 upright cabinet (the default) the two players take turns on the same controls. Every control can be changed in

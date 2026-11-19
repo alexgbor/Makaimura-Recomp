@@ -22,9 +22,11 @@ const char *const settings_action_names[ACTIONS] = {
 static const char *const action_help[ACTIONS] = {
 	NULL, NULL, NULL, NULL, "button 1: the weapon thrown", "button 2", "one player", "two players",
 	"the coin slots", NULL, "the service switch" };
-static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit" };
-static const char *const aspect_names[ASPECTS] = { "4:3", "pixels" };
-static const char *const scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
+static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit", "menu" };
+const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
+const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
+#define aspect_names settings_aspect_names
+#define scaling_names settings_scaling_names
 static const char *const sync_names[SYNCS] = { "board", "display" };
 
 /* ---- the DIP switches (mame makaimurg -listxml) ---- */
@@ -79,6 +81,35 @@ static const dip dips[] = {
 
 static uint8_t *dip_port(settings *s, const dip *d) { return d->port == 1 ? &s->dsw1 : &s->dsw2; }
 
+/* the value's index, or -1 if the bits are none of its values */
+static int dip_index(const settings *s, int i)
+{
+	const uint8_t port = dips[i].port == 1 ? s->dsw1 : s->dsw2;
+	for (int v = 0; v < dips[i].count; v++)
+		if ((port & dips[i].mask) == dips[i].values[v].bits)
+			return v;
+	return -1;
+}
+
+int settings_dip_count(void) { return DIPS; }
+
+const char *settings_dip_name(int i) { return dips[i].name; }
+
+const char *settings_dip_value(const settings *s, int i)
+{
+	const int v = dip_index(s, i);
+	return v < 0 ? "?" : dips[i].values[v].name;
+}
+
+void settings_dip_step(settings *s, int i, int direction)
+{
+	const int count = dips[i].count;
+	int v = dip_index(s, i);
+	v = v < 0 ? 0 : (v + direction + count) % count;
+	uint8_t *port = dip_port(s, &dips[i]);
+	*port = (uint8_t)((*port & ~dips[i].mask) | dips[i].values[v].bits);
+}
+
 /* ---- defaults ---- */
 
 static void keys(SDL_Scancode *slot, SDL_Scancode a, SDL_Scancode b)
@@ -129,7 +160,8 @@ void settings_defaults(settings *s)
 	keys(s->hot_keys[HOTKEY_RESET], SDL_SCANCODE_F3, 0);
 	keys(s->hot_keys[HOTKEY_PAUSE], SDL_SCANCODE_P, SDL_SCANCODE_PAUSE);
 	keys(s->hot_keys[HOTKEY_FULLSCREEN], SDL_SCANCODE_F11, 0);
-	keys(s->hot_keys[HOTKEY_QUIT], SDL_SCANCODE_ESCAPE, 0);
+	keys(s->hot_keys[HOTKEY_QUIT], 0, 0);
+	keys(s->hot_keys[HOTKEY_MENU], SDL_SCANCODE_ESCAPE, SDL_SCANCODE_F1);
 	buttons(s->buttons[ACTION_UP], SDL_CONTROLLER_BUTTON_DPAD_UP, -1);
 	buttons(s->buttons[ACTION_DOWN], SDL_CONTROLLER_BUTTON_DPAD_DOWN, -1);
 	buttons(s->buttons[ACTION_LEFT], SDL_CONTROLLER_BUTTON_DPAD_LEFT, -1);
@@ -141,6 +173,7 @@ void settings_defaults(settings *s)
 	buttons(s->buttons[ACTION_COIN1], SDL_CONTROLLER_BUTTON_BACK, -1);
 	buttons(s->buttons[ACTION_COIN2], -1, -1);
 	buttons(s->buttons[ACTION_SERVICE], -1, -1);
+	buttons(s->menu_buttons, SDL_CONTROLLER_BUTTON_RIGHTSTICK, SDL_CONTROLLER_BUTTON_GUIDE);
 	s->left_stick = true;
 	s->stick_dead = 50;
 }
@@ -311,6 +344,8 @@ static int set(settings *s, const char *section, const char *name, char *value)
 	{
 		if ((i = choice(name, settings_action_names, ACTIONS)) >= 0)
 			return parse_buttons(value, s->buttons[i]);
+		if (!SDL_strcasecmp(name, "menu"))
+			return parse_buttons(value, s->menu_buttons);
 		if (!SDL_strcasecmp(name, "left_stick") && (n = boolean(value)) >= 0)
 			return s->left_stick = n, 1;
 		if (!SDL_strcasecmp(name, "stick_dead_zone"))
@@ -439,13 +474,15 @@ const char *settings_save(const settings *s, const char *path)
 			fprintf(file, "; %s\n", action_help[i]);
 		write_keys(file, settings_action_names[i], s->keys[i]);
 	}
-	fprintf(file, "; the port's own: the board's reset, pause, full screen, quit\n");
+	fprintf(file, "; the port's own: the board's reset, pause, full screen, quit (also in the menu), the menu\n");
 	for (int i = 0; i < HOTKEYS; i++)
 		write_keys(file, hotkey_names[i], s->hot_keys[i]);
 	fprintf(file, "\n[gamepad]\n; the Xbox layout's names: a, b, x, y, back, start, leftshoulder, rightshoulder, "
 		"lefttrigger,\n; righttrigger, dpup, dpdown, dpleft, dpright, leftstick, rightstick\n");
 	for (int i = 0; i < ACTIONS; i++)
 		write_buttons(file, settings_action_names[i], s->buttons[i]);
+	fprintf(file, "; the menu (pressing the right stick, or the guide button)\n");
+	write_buttons(file, "menu", s->menu_buttons);
 	fprintf(file, "; the left stick moves too; how far it goes before it counts, in %%\nleft_stick = %s\n"
 		"stick_dead_zone = %d\n", s->left_stick ? "true" : "false", s->stick_dead);
 	return fclose(file) == 0 ? NULL : "it could not be written";

@@ -11,6 +11,7 @@
  *      --settings FILE  another settings file than makaimura.ini beside the program
  *      --frames N       quit after N frames
  *      --hidden         (for checks) the window not shown
+ *      --menu N         (for checks) the menu opened at frame N (with --shot N: its picture)
  *      --inputs FILE    (for checks) the controls from an input script instead, as gng_headless takes it:
  *                       "FRAME PORT VALUE" (system, p1, p2; hex, active low) from that frame's VBLANK on
  *      --shot N FILE    (for checks) the window hidden; frame N's window, as the renderer drew it, into FILE (BMP),
@@ -29,6 +30,7 @@
 #include "gng/sound.h"
 #include "gng/video.h"
 #include "m6809/cpu.h"
+#include "menu.h"
 #include "settings.h"
 
 #include <math.h>
@@ -51,13 +53,15 @@ static SDL_GameController *pad;
 static int sound_on;
 static uint32_t pixels[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 static Uint64 next_frame;
-static int reset_requested, quit_requested, paused;
+static int reset_requested, quit_requested, paused, menu_shown;
+static uint32_t menu_pixels[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 static double speed = 1.0;            /* the board's pace against its own time (display sync) */
 static int display_sync;
 static long frames_to_run = -1;
 static long shot_frame = -1;
 static const char *shot_path;
 static int hidden;
+static long menu_frame = -1;
 
 /* an input script (--inputs) */
 typedef struct input_change { long frame; int port; uint8_t value; } input_change;
@@ -261,15 +265,68 @@ static void play_script(uint64_t frame)
 	}
 }
 
+static void open_menu(void)
+{
+	menu_open();
+	menu_shown = 1;
+	audio_out_pause(1);
+}
+
+/* The menu closed: its settings kept in makaimura.ini, the DIP switches set on the board (the program reads most
+   of them as the board starts: F3) */
+static void close_menu(void)
+{
+	menu_shown = 0;
+	gng.inputs.dsw1 = options.dsw1;
+	gng.inputs.dsw2 = options.dsw2;
+	settings_save(&options, settings_path);
+	audio_out_pause(paused);
+}
+
+static void menu_input(const SDL_Event *event)
+{
+	int changed = 0;
+	const int result = menu_event(event, &options, &changed);
+	if (changed & MENU_CHANGED_FULLSCREEN)
+		toggle_fullscreen();
+	if (changed & MENU_CHANGED_VOLUME)
+		audio_out_volume(options.volume);
+	if (result == MENU_STAY)
+		return;
+	close_menu();
+	if (result == MENU_RESET)
+		reset_requested = 1;
+	else if (result == MENU_QUIT)
+		quit_requested = 1;
+}
+
+static int is_menu_button(int button)
+{
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		if (options.menu_buttons[i].kind == PAD_BUTTON && options.menu_buttons[i].index == button)
+			return 1;
+	return 0;
+}
+
 static void handle_event(const SDL_Event *event)
 {
 	if (event->type == SDL_QUIT)
 		quit_requested = 1;
+	else if (event->type == SDL_KEYDOWN && event->key.keysym.scancode == SDL_SCANCODE_RETURN &&
+		(event->key.keysym.mod & KMOD_ALT))
+	{
+		if (!event->key.repeat)
+			toggle_fullscreen();
+	}
+	else if (menu_shown && (event->type == SDL_KEYDOWN || event->type == SDL_CONTROLLERBUTTONDOWN))
+		menu_input(event);
+	else if (event->type == SDL_CONTROLLERBUTTONDOWN && is_menu_button(event->cbutton.button))
+		open_menu();
 	else if (event->type == SDL_KEYDOWN && !event->key.repeat)
 	{
 		const SDL_Scancode code = event->key.keysym.scancode;
-		if (code == SDL_SCANCODE_RETURN && (event->key.keysym.mod & KMOD_ALT))
-			toggle_fullscreen();
+		if (is_hotkey(code, HOTKEY_MENU))
+			open_menu();
 		else if (is_hotkey(code, HOTKEY_QUIT))
 			quit_requested = 1;
 		else if (is_hotkey(code, HOTKEY_RESET))
@@ -344,21 +401,38 @@ static void on_vblank(uint64_t frame)
 	if (sound_on)
 		audio_out_frame(speed);
 	gng_video_render(pixels);
-	SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
+	if ((long)frame == menu_frame)
+	{
+		menu_open();
+		memcpy(menu_pixels, pixels, sizeof(pixels));
+		menu_draw(menu_pixels, &options);
+		SDL_UpdateTexture(picture, NULL, menu_pixels, GNG_SCREEN_WIDTH * 4);
+	}
+	else
+		SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
 	show_picture();
 
 	while (SDL_PollEvent(&event))
 		handle_event(&event);
-	while (paused && !quit_requested && !reset_requested)
+	while ((paused || menu_shown) && !quit_requested && !reset_requested)
 	{
 		if (SDL_WaitEventTimeout(&event, 50))
 			handle_event(&event);
+		if (menu_shown)
+		{
+			memcpy(menu_pixels, pixels, sizeof(pixels));
+			menu_draw(menu_pixels, &options);
+			SDL_UpdateTexture(picture, NULL, menu_pixels, GNG_SCREEN_WIDTH * 4);
+		}
+		else
+			SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
 		show_picture();
 		next_frame = 0;
 	}
 	if (quit_requested || reset_requested)
 	{
 		paused = 0;
+		menu_shown = 0;
 		audio_out_pause(0);
 		SDL_SetWindowTitle(window, TITLE);
 		m6809_request_stop();
@@ -453,6 +527,8 @@ int main(int argc, char *argv[])
 				return 2;
 			}
 		}
+		else if (!strcmp(argv[i], "--menu") && i + 1 < argc)
+			menu_frame = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--hidden"))
 			hidden = 1;
 		else if (!strcmp(argv[i], "--frames") && i + 1 < argc)

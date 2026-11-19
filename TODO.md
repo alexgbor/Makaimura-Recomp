@@ -178,8 +178,12 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] DIP switches as game options, by MAME's names (mame makaimurg -listxml): lives, difficulty, bonus life,
       coinage, coinage affects, demo sounds, flip screen, cabinet, service mode (makaimurg has no invulnerability
       DIP: DSW2's eighth switch is unused); lives = 7 checked on the picture
-- [ ] A menu in the window for the settings (and, with board mode, the choice of MAME's or the board's behaviour:
-      both kept playable)
+- [x] A menu in the window (`ports/sdl2/menu.c`; Esc, F1, the pad's right stick): the game's options, the
+      accuracy mode (MAME 1:1 only until board mode differs), the picture's shape, scaling, pixels, full screen, the
+      volume, reset, quit; written with the game's own font (its text layer's characters are ASCII), kept in
+      makaimura.ini as it closes
+- [ ] The menu's accuracy choice, once board mode differs: "MAME 1:1" or "the board" (both kept playable)
+- [ ] The keys and buttons changed from the menu (now in makaimura.ini only)
 - [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
 

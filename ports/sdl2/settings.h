@@ -36,6 +36,7 @@ enum
 	HOTKEY_PAUSE,
 	HOTKEY_FULLSCREEN,
 	HOTKEY_QUIT,
+	HOTKEY_MENU,           /* the menu (menu.h): the game's options, the picture, the sound */
 	HOTKEYS
 };
 
@@ -75,11 +76,21 @@ typedef struct settings
 	SDL_Scancode keys[ACTIONS][BINDINGS_MAX];
 	SDL_Scancode hot_keys[HOTKEYS][BINDINGS_MAX];
 	pad_input buttons[ACTIONS][BINDINGS_MAX];
+	pad_input menu_buttons[BINDINGS_MAX];
 	bool left_stick;      /* the left stick moves too */
 	int stick_dead;       /* how far it goes before it counts, in % */
 } settings;
 
 extern const char *const settings_action_names[ACTIONS];
+extern const char *const settings_aspect_names[ASPECTS];
+extern const char *const settings_scaling_names[SCALINGS];
+
+/* The game's options (the DIP switches) for the menu: how many, each one's name ("bonus_life") and value's name
+   ("20k 70k every 70k"), the next or previous value (direction 1 or -1) */
+int settings_dip_count(void);
+const char *settings_dip_name(int dip);
+const char *settings_dip_value(const settings *s, int dip);
+void settings_dip_step(settings *s, int dip, int direction);
 
 void settings_defaults(settings *s);
 
