@@ -7,7 +7,8 @@ Created:     19-11-2026
 A line is   ADDRESS  KIND  NAME  [key=value ...]   [# comment]
     ADDRESS  hex, 0000-FFFF; in the banked window (4000-5FFF) "B:XXXX" with the bank 0-4
     KIND     func (a routine), code (a label the analysis should start from), data, var (RAM),
-             table (a jump table of 16-bit code addresses: count=N), file (where the C's files begin)
+             table (a jump table of 16-bit code addresses: count=N), file (where the C's files begin),
+             overlay (RAM the program copies code to and runs: from=B:XXXX size=N, the bytes it copies)
     keys     count=N (table), noreturn (a func that never returns to its caller), bank=N (a table's targets'
              bank, where they are in 4000-5FFF); a table in the window itself is "B:XXXX" (the bank it is read in)
 Addresses and names only: no game data lives in symbols.txt.
@@ -40,6 +41,24 @@ class Symbols:
                 result.append((None if target_bank is None else int(target_bank), s.address,
                                int(s.keys.get("count", "1"), 0), s.name, s.bank))
         return result
+
+    def overlays(self):
+        """(RAM address, (bank, source address), size) of each overlay"""
+        result = []
+        for s in self.entries:
+            if s.kind == "overlay":
+                source, bank = parse_address(s.keys["from"])
+                result.append((s.address, (bank, source), int(s.keys["size"], 16)))
+        return result
+
+    def ram_code(self, program):
+        """{RAM address: byte} of the overlays, read from the ROM they are copied from"""
+        code = {}
+        for address, (bank, source), size in self.overlays():
+            read = program.reader(bank)
+            for offset in range(size):
+                code[address + offset] = read(source + offset)
+        return code
 
     def no_return(self):
         return [s.address for s in self.entries if s.kind == "func" and "noreturn" in s.keys]

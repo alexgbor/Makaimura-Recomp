@@ -45,7 +45,7 @@ def main():
     program = rom.load_program(args.rom or rom.default_paths(ROOT))
     syms = symbols.load(os.path.join(ROOT, "symbols.txt"))
     entries = vector_entries(program) + [(s.bank, s.address, s.name) for s in syms.code()]
-    code = analysis.explore(program, entries, syms.tables(), syms.no_return())
+    code = analysis.explore(program, entries, syms.tables(), syms.no_return(), syms.ram_code(program))
 
     covered = analysis.coverage(code)
     print(f"instructions: {len(code.instructions)}, routines called: {len(code.calls)}, "
@@ -75,7 +75,7 @@ def main():
                     ran.add((bank, address))
         found = set(code.instructions)
         order = lambda k: (-1 if k[0] is None else k[0], k[1])    # noqa: E731
-        missed = sorted((k for k in ran if k not in found and k[1] >= 0x4000), key=order)
+        missed = sorted((k for k in ran if k not in found), key=order)
         in_ram = sorted((k for k in ran if k[1] < 0x4000), key=order)
         print(f"executed by the reference: {len(ran)}; in RAM: {len(in_ram)}"
               f" ({in_ram[0][1]:04X}-{in_ram[-1][1]:04X})" if in_ram else f"executed by the reference: {len(ran)}")

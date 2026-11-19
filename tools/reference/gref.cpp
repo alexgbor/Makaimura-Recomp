@@ -18,6 +18,8 @@
  *      --hashes FILE     each frame's state hash (at its VBLANK, before the IRQ): "frame hash"
  *      --bus-hashes FILE each frame's hash of the bus 0000-2FFF and the PC, as tools/mame/trace.lua writes MAME's
  *      --bus-dumps FILE  the bus bytes 0000-2FFF of every frame
+ *      --irq-hashes FILE as the CPU takes each IRQ (its state pushed): "n hash pc cycle", the bus 0000-2FFF's
+ *                        FNV-1a, the PC it comes back to and the board's time (what the translation is checked by)
  *      --executed FILE   every instruction address the program ran, with its bank where 4000-5FFF: "bank:addr"
  *      --jumps FILE      every transfer of control the program made (from the instruction before), "from to",
  *                        each as the --executed addresses: the jumps through registers and tables, checked
@@ -73,8 +75,20 @@ static std::vector<std::pair<u64, u8>> latch_writes;
 static u8 host_read(u16 address) { return gng_read(address); }
 static void host_write(u16 address, u8 data) { gng_write(address, data); }
 
+static FILE *irq_hashes;
+static u64 irqs_taken;
+
 static void host_acknowledge(int line)
 {
+	if (line == M6809_IRQ_LINE && irq_hashes)
+	{
+		// the bus as the CPU takes the IRQ (its state pushed), the PC it will come back to, the board's time
+		u32 hash = 2166136261u;
+		for (unsigned address = 0; address < 0x3000; address++)
+			hash = (hash ^ gng_read(u16(address))) * 16777619u;
+		std::fprintf(irq_hashes, "%llu %08x %04x %llu\n", (unsigned long long)irqs_taken++, hash, cpu->pc(),
+			(unsigned long long)(cycle_base + u64(run_length - cpu->icount())));
+	}
 	if (line == M6809_IRQ_LINE && irq_held)
 	{
 		irq_held = false;    // HOLD_LINE: cleared as the CPU takes it
@@ -225,6 +239,7 @@ int main(int argc, char **argv)
 		else if (a == "--hashes") hashes_path = next();
 		else if (a == "--bus-hashes") bus_hashes_path = next();
 		else if (a == "--bus-dumps") bus_dumps_path = next();
+		else if (a == "--irq-hashes") irq_hashes = std::fopen(next(), "w");
 		else if (a == "--pictures") { pictures_every = std::atoi(next()); pictures_path = next(); }
 		else if (a == "--ppm") { ppm_frame = std::atoi(next()); ppm_path = next(); }
 		else if (a == "--executed") executed_path = next();
@@ -380,6 +395,8 @@ int main(int argc, char **argv)
 		std::fclose(bus_dumps);
 	if (pictures)
 		std::fclose(pictures);
+	if (irq_hashes)
+		std::fclose(irq_hashes);
 
 	if (executed_path)
 	{

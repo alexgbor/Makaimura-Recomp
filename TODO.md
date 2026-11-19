@@ -89,10 +89,21 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] The IRQ's timing (MAME's core): an instruction always runs to its end, and interrupts are looked at in MAIN
       only, before the next one, so the IRQ held from the VBLANK is taken at the first instruction boundary at or
       after it (the arcade's slowdown: the frame's work interrupted where its cycles say)
-- [ ] A first translation (instruction by instruction, every flag) that boots and runs the attract mode,
-      identical to the reference frame by frame
-- [ ] Banked code: one C function per (bank, routine); the RAM overlay
-- [ ] The whole game, both loops, frame by frame against the reference
+- [x] The translation scaffold (`tools/m6809/translate.py` -> build/generated/program, never committed): every
+      instruction the C of its IR, the board's time set before each data access to the end of its bus cycle;
+      regions entered at any instruction, a trampoline (`runtime/src/m6809.c`) that dispatches the address a
+      region leaves for (the bank's in the window), so the 6809's stack is the only one; the IRQ taken at the
+      first instruction boundary at or after the VBLANK, its handler run nested until its RTI comes back;
+      SYNC and CWAI in the runtime; an address the analysis did not find is a fault (logged), never run
+- [x] Banked code keyed by (bank, address), dispatched with the latch's bank; the RAM overlay at 1A00 translated
+      from the ROM bytes the boot copies (symbols.txt's `overlay`), checked in RAM before it runs
+- [x] `build/bin/gng_headless` (`ports/headless/main.c`): the translated program on the board model, gref's
+      outputs; `tools/check_translation.py`: against gref, the bus at every IRQ taken (with its PC and cycle), at
+      every VBLANK, and every picture: the attract mode (1200 frames, 890 IRQs) and walk_right (7596 frames,
+      7286 IRQs) the same; `tools/mame_trace.py --against gng_headless`: against MAME itself, walk_right's 7001
+      frames and 7000 pictures the same. 7001 frames run in 3.9 s with a picture each
+- [ ] The whole game, both loops, frame by frame against the reference (input scripts that reach every stage)
+- [ ] The 3 illegal opcodes the analysis reaches (B131, BA80, 4:40F3: tables read too far) are faults if run
 
 ## M5. The sound program (Z80)
 

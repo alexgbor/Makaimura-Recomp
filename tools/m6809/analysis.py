@@ -10,7 +10,9 @@ The code is keyed by (bank, address): an address in 6000-FFFF is the same in eve
 4000-5FFF needs the bank the latch selects. Each path carries the bank it runs with (None: not known) and the
 constants A and B hold, so that "LDB #$03 / STB $3E00" switches the path to bank 3. A call keeps the caller's
 bank on its return (the program's routines that switch banks put them back; the reference's traces check it).
-Jump tables the symbols describe (symbols.txt: "table" entries) add their entries as code.
+Jump tables the symbols describe (symbols.txt: "table" entries) add their entries as code. Code the program
+copies to RAM and runs there (symbols.txt's "overlay": the bytes it copies) is read from those bytes, keyed by its
+RAM address with no bank.
 """
 from dataclasses import dataclass, field
 
@@ -38,7 +40,7 @@ class Code:
 
 
 def key(bank, address):
-    return (None if address >= FIXED_START else bank, address)
+    return (None if address >= FIXED_START or address < 0x4000 else bank, address)
 
 
 def bank_of(value):
@@ -144,13 +146,20 @@ def read_table(program, bank, table, code):
     return targets
 
 
-def explore(program, entries, tables=(), stop=()):
+def explore(program, entries, tables=(), stop=(), ram_code=None):
     """The code reached from 'entries' ((bank, address, why)); 'tables' are (bank, address, count, why):
     jump tables of 16-bit addresses whose targets run in 'bank'; 'stop' are addresses of routines that do
-    not return to their caller."""
+    not return to their caller; 'ram_code' {address: byte} the RAM that holds code (the overlays)."""
     code = Code()
     work = []
     seen = set()
+    ram_code = ram_code or {}
+
+    def reader(bank):
+        base = program.reader(bank)
+        if not ram_code:
+            return base
+        return lambda address: ram_code[address] if address in ram_code else base(address)
 
     def add(bank, address, why):
         k = key(bank, address)
@@ -175,23 +184,23 @@ def explore(program, entries, tables=(), stop=()):
             if (bank, address) in seen:
                 break
             seen.add((bank, address))
-            if address < 0x4000:
+            if address < 0x4000 and address not in ram_code:
                 code.outside.append((bank, None, address))
                 break
-            if address < FIXED_START and bank is None:
+            if 0x4000 <= address < FIXED_START and bank is None:
                 code.unknown_bank.append((None, address))
                 break
             k = key(bank, address)
-            ins = code.instructions.get(k) or dis.decode(program.reader(bank), address)
+            ins = code.instructions.get(k) or dis.decode(reader(bank), address)
             code.instructions[k] = ins
             if ins.flow == "illegal":
                 code.illegal.append((bank, ins))
                 break
             if ins.target is not None and ins.flow in ("branch", "jump", "call"):
                 target = ins.target
-                if target < 0x4000:
+                if target < 0x4000 and target not in ram_code:
                     code.outside.append((bank, ins, target))
-                elif target < FIXED_START and bank is None:
+                elif 0x4000 <= target < FIXED_START and bank is None:
                     code.unknown_bank.append((ins, target))
                 else:
                     if ins.flow == "call":

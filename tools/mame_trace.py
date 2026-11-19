@@ -1,7 +1,8 @@
 """
 Name:        mame_trace.py
 Description: MAME's own run of makaimurg, frame by frame (tools/mame/trace.lua), compared with the reference's
-             (build/bin/gref --bus-hashes): the board model and its timing checked against all of MAME
+             (build/bin/gref --bus-hashes) or the translated program's (--against gng_headless): the board model,
+             its timing and the translation checked against all of MAME
 Version:     0.1.0
 Created:     19-11-2026
 
@@ -47,8 +48,8 @@ def run_mame(mame, frames, inputs, out, dumps, pictures=None, every=0, dsw=(None
     subprocess.run(command, env=env, check=True, cwd=os.path.join(ROOT, "build"))
 
 
-def run_gref(frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None)):
-    command = [os.path.join(ROOT, "build", "bin", "gref" + EXE), "--frames", str(frames), "--bus-hashes", out]
+def run_gref(frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None), program="gref"):
+    command = [os.path.join(ROOT, "build", "bin", program + EXE), "--frames", str(frames), "--bus-hashes", out]
     for name, value in zip(("--dsw1", "--dsw2"), dsw):
         if value:
             command += [name, value]
@@ -56,7 +57,7 @@ def run_gref(frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None
         command += ["--pictures", str(every), pictures]
     if inputs:
         command += ["--inputs", inputs]
-    if dumps:
+    if dumps and program == "gref":
         command += ["--bus-dumps", dumps]
     subprocess.run(command, check=True, cwd=ROOT, stdout=subprocess.DEVNULL)
 
@@ -111,6 +112,8 @@ def main():
     parser.add_argument("--dumps", action="store_true", help="compare the first differing frame byte by byte")
     parser.add_argument("--pictures", type=int, default=0, metavar="N",
                         help="compare every Nth frame's picture with MAME's screen, pixel by pixel")
+    parser.add_argument("--against", choices=("gref", "gng_headless"), default="gref",
+                        help="what MAME is compared with: the reference (default) or the translated program")
     parser.add_argument("--dsw1", help="DIP switches 1 from power-on, hex as the board reads them (default DF)")
     parser.add_argument("--dsw2", help="DIP switches 2 (default FB)")
     args = parser.parse_args()
@@ -123,7 +126,7 @@ def main():
     mame_pictures = os.path.join(build, "mame_pictures.bin") if args.pictures else None
     gref_pictures = os.path.join(build, "gref_pictures.bin") if args.pictures else None
     run_mame(args.mame, args.frames, args.inputs, mame_out, mame_dumps, mame_pictures, args.pictures, dsw)
-    run_gref(args.frames, args.inputs, gref_out, gref_dumps, gref_pictures, args.pictures, dsw)
+    run_gref(args.frames, args.inputs, gref_out, gref_dumps, gref_pictures, args.pictures, dsw, args.against)
     pictures_ok = True
     if args.pictures:
         pictures_ok = compare_pictures(mame_pictures, gref_pictures, args.pictures)
@@ -136,12 +139,12 @@ def main():
             same += 1
         elif first is None:
             first = frame
-    print(f"{len(mame)} frames from MAME, {len(gref)} from gref: {same} the same")
+    print(f"{len(mame)} frames from MAME, {len(gref)} from {args.against}: {same} the same")
     if first is None:
         print("every frame the same as MAME's")
         return 0 if pictures_ok else 1
     print(f"first difference at frame {first}: MAME {mame[first][1]} (PC {mame[first][2]}), "
-          f"gref {gref[first][1]} (PC {gref[first][2]})")
+          f"{args.against} {gref[first][1]} (PC {gref[first][2]})")
     if args.dumps:
         with open(mame_dumps, "rb") as a, open(gref_dumps, "rb") as b:
             a.seek(first * BUS)

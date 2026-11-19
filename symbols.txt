@@ -19,6 +19,11 @@
 6611  table  irq_round_robin_jobs  count=4    # (JMP [B,X] at 660B; banks 3, 4, 4, 4 from the table at 660D)
 660D  data  irq_round_robin_banks             # 4 bytes: the bank of each job
 
+# ======== code in RAM ========
+1A00  overlay  rom_test_in_ram  from=3:560C size=4E   # the boot copies bank 3's 560C-5659 to 1A00 and runs it
+                                                      # there (JMP $1A00): it switches banks, which the window
+                                                      # cannot do under itself
+
 # ======== the boot's continuation ========
 607D  code  reset_after_ram_test   # where bank 3's RAM and ROM test (553A) returns: PSHS Y there, RTS
 6134  code  main_loop_start        # the main loop's setup: the frame counters, the DSWs, sound off, then IRQs on

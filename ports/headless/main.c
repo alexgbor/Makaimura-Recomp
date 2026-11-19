@@ -1,0 +1,229 @@
+/**
+ *    Name:        main.c
+ *    Description: gng_headless: the translated program (build/generated/program) on the board model, with no
+ *                 window: frame by frame, the same outputs as the reference's (tools/reference/gref.cpp), to be
+ *                 compared with it and with MAME
+ *    Version:     0.1.0
+ *    Created:     19-11-2026
+ *
+ *    license:BSD-3-Clause
+ *    gng_headless [options]
+ *      --regions FILE    the ROM regions (python tools/makaimura_rom.py --extract FILE); default build/makaimurg.regions
+ *      --frames N        how many frames (VBLANKs) to run (default 600)
+ *      --accuracy MODE   mame or board (docs/accuracy.md)
+ *      --bus-hashes FILE at each VBLANK the bus 0000-2FFF's FNV-1a: "frame hash pc" (pc 0000: the translation has
+ *                        no PC in the middle of an instruction), as gref --bus-hashes writes it
+ *      --irq-hashes FILE as the CPU takes each IRQ (its state pushed): "n hash pc cycle", as gref --irq-hashes
+ *      --inputs FILE     an input script: "FRAME PORT VALUE" (system, p1, p2, dsw1, dsw2; hex, active low),
+ *                        applied at that frame's VBLANK for the frames after
+ *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on
+ *      --pictures N FILE every Nth frame's picture, sampled as gref's (frame N's indexes in frame N+1's colours)
+ *      --ppm FRAME FILE  that frame's picture as a PPM image
+ */
+#include "gng/board.h"
+#include "gng/video.h"
+#include "m6809/cpu.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct region { char name[17]; uint32_t size; uint8_t *data; } region;
+static region regions[16];
+static int region_count;
+
+static const uint8_t *find_region(const char *name)
+{
+	for (int i = 0; i < region_count; i++)
+		if (!strcmp(regions[i].name, name))
+			return regions[i].data;
+	return NULL;
+}
+
+static int read_regions(const char *path)
+{
+	FILE *file = fopen(path, "rb");
+	if (!file)
+		return 0;
+	char magic[4];
+	if (fread(magic, 1, 4, file) != 4 || memcmp(magic, "MKRG", 4))
+	{
+		fclose(file);
+		return 0;
+	}
+	while (region_count < 16)
+	{
+		region *r = &regions[region_count];
+		memset(r->name, 0, sizeof(r->name));
+		if (fread(r->name, 1, 16, file) != 16)
+			break;
+		uint8_t size[4];
+		if (fread(size, 1, 4, file) != 4)
+			break;
+		r->size = size[0] | (size[1] << 8) | (size[2] << 16) | ((uint32_t)size[3] << 24);
+		r->data = malloc(r->size);
+		if (!r->data || fread(r->data, 1, r->size, file) != r->size)
+			break;
+		region_count++;
+	}
+	fclose(file);
+	return region_count > 0;
+}
+
+typedef struct input_change { int frame; char port[16]; uint8_t value; } input_change;
+static input_change *inputs;
+static int input_count, next_input;
+
+static void read_inputs(const char *path)
+{
+	FILE *file = fopen(path, "r");
+	if (!file)
+	{
+		fprintf(stderr, "gng_headless: no input script %s\n", path);
+		exit(2);
+	}
+	char line[256];
+	int capacity = 0;
+	while (fgets(line, sizeof(line), file))
+	{
+		if (line[0] == '#')
+			continue;
+		input_change change;
+		unsigned value;
+		if (sscanf(line, "%d %15s %x", &change.frame, change.port, &value) == 3)
+		{
+			change.value = (uint8_t)value;
+			if (input_count == capacity)
+			{
+				capacity = capacity ? capacity * 2 : 64;
+				inputs = realloc(inputs, (size_t)capacity * sizeof(*inputs));
+			}
+			inputs[input_count++] = change;
+		}
+	}
+	fclose(file);
+}
+
+static void apply_input(const input_change *change)
+{
+	if (!strcmp(change->port, "system")) gng.inputs.system = change->value;
+	else if (!strcmp(change->port, "p1")) gng.inputs.p1 = change->value;
+	else if (!strcmp(change->port, "p2")) gng.inputs.p2 = change->value;
+	else if (!strcmp(change->port, "dsw1")) gng.inputs.dsw1 = change->value;
+	else if (!strcmp(change->port, "dsw2")) gng.inputs.dsw2 = change->value;
+	else fprintf(stderr, "gng_headless: unknown port %s\n", change->port);
+}
+
+static uint32_t bus_hash(void)
+{
+	uint32_t hash = 2166136261u;
+	for (unsigned address = 0; address < 0x3000; address++)
+		hash = (hash ^ gng_read((uint16_t)address)) * 16777619u;
+	return hash;
+}
+
+static FILE *bus_hashes, *irq_hashes, *pictures;
+static int pictures_every, ppm_frame = -1;
+static const char *ppm_path;
+static uint8_t check_indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+static uint64_t irqs;
+
+static void write_check_picture(void)
+{
+	static uint8_t rgb[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT * 3];
+	for (size_t i = 0; i < sizeof(check_indexes); i++)
+	{
+		const uint8_t index = check_indexes[i];
+		rgb[3 * i] = (uint8_t)((gng.palette_ext[index] >> 4) * 17);
+		rgb[3 * i + 1] = (uint8_t)((gng.palette_ext[index] & 15) * 17);
+		rgb[3 * i + 2] = (uint8_t)((gng.palette_base[index] >> 4) * 17);
+	}
+	fwrite(rgb, 1, sizeof(rgb), pictures);
+}
+
+static void on_vblank(uint64_t frame)
+{
+	if (bus_hashes)
+		fprintf(bus_hashes, "%llu %08x %04x\n", (unsigned long long)frame, bus_hash(), 0);
+	if (pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
+		write_check_picture();
+	if (pictures && frame % pictures_every == 0)
+		gng_video_render_indexed(check_indexes);
+	if ((int64_t)frame == ppm_frame)
+	{
+		static uint32_t picture[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+		gng_video_render(picture);
+		FILE *ppm = fopen(ppm_path, "wb");
+		fprintf(ppm, "P6\n%d %d\n255\n", GNG_SCREEN_WIDTH, GNG_SCREEN_HEIGHT);
+		for (size_t i = 0; i < sizeof(picture) / 4; i++)
+		{
+			const uint8_t rgb[3] = { (uint8_t)(picture[i] >> 16), (uint8_t)(picture[i] >> 8), (uint8_t)picture[i] };
+			fwrite(rgb, 1, 3, ppm);
+		}
+		fclose(ppm);
+	}
+	while (next_input < input_count && inputs[next_input].frame <= (int64_t)frame)
+		apply_input(&inputs[next_input++]);
+}
+
+static void on_irq(uint16_t pc, uint64_t cycles)
+{
+	if (irq_hashes)
+		fprintf(irq_hashes, "%llu %08x %04x %llu\n", (unsigned long long)irqs, bus_hash(), pc, (unsigned long long)cycles);
+	irqs++;
+}
+
+static void on_fault(const char *what, uint16_t pc)
+{
+	fprintf(stderr, "gng_headless: %s at %04X (bank %u, cycle %llu)\n", what, pc, gng.bank, (unsigned long long)cpu.cycles);
+}
+
+int main(int argc, char **argv)
+{
+	const char *regions_path = "build/makaimurg.regions";
+	long frames = 600;
+	int dsw1 = GNG_DSW1_DEFAULT, dsw2 = GNG_DSW2_DEFAULT;
+	gng_accuracy_mode accuracy = GNG_ACCURACY_MAME;
+	for (int i = 1; i < argc; i++)
+	{
+		const char *a = argv[i];
+#define NEXT() (i + 1 < argc ? argv[++i] : (fprintf(stderr, "gng_headless: %s needs a value\n", a), exit(2), ""))
+		if (!strcmp(a, "--regions")) regions_path = NEXT();
+		else if (!strcmp(a, "--frames")) frames = atol(NEXT());
+		else if (!strcmp(a, "--accuracy")) accuracy = !strcmp(NEXT(), "board") ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
+		else if (!strcmp(a, "--bus-hashes")) bus_hashes = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--irq-hashes")) irq_hashes = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--inputs")) read_inputs(NEXT());
+		else if (!strcmp(a, "--dsw1")) dsw1 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
+		else if (!strcmp(a, "--dsw2")) dsw2 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
+		else if (!strcmp(a, "--pictures")) { pictures_every = atoi(NEXT()); pictures = fopen(NEXT(), "wb"); }
+		else if (!strcmp(a, "--ppm")) { ppm_frame = atoi(NEXT()); ppm_path = NEXT(); }
+		else { fprintf(stderr, "gng_headless: unknown option %s\n", a); return 2; }
+#undef NEXT
+	}
+	if (!read_regions(regions_path) || !find_region("maincpu"))
+	{
+		fprintf(stderr, "gng_headless: no ROM regions in %s (python tools/makaimura_rom.py --extract %s)\n",
+			regions_path, regions_path);
+		return 2;
+	}
+	gng_roms roms = { 0 };
+	roms.maincpu = find_region("maincpu");
+	roms.audiocpu = find_region("audiocpu");
+	roms.chars = find_region("chars");
+	roms.tiles = find_region("tiles");
+	roms.sprites = find_region("sprites");
+	gng_power_on(&roms);
+	gng.accuracy = accuracy;
+	gng.inputs.dsw1 = (uint8_t)dsw1;
+	gng.inputs.dsw2 = (uint8_t)dsw2;
+	gng_video_decode();
+
+	m6809_host host = { on_vblank, on_irq, on_fault };
+	m6809_power_on(&host);
+	const int result = m6809_run((uint64_t)frames);
+	if (bus_hashes) fclose(bus_hashes);
+	if (irq_hashes) fclose(irq_hashes);
+	if (pictures) fclose(pictures);
+	return result ? 1 : 0;
+}
