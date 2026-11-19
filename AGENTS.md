@@ -31,8 +31,9 @@ cores running the original program, and MAME itself for the picture and the soun
 5. **Two accuracy modes, always switchable** (`docs/accuracy.md`): *MAME mode* is MAME 0.289's board exactly and
    must keep matching MAME (`tools/mame_trace.py`); *board mode* adds what the real PCB does and MAME does not
    (the sprite DMA halting the CPU, the palette's bus conflicts..., after jotego's jt_gng research: facts only,
-   jt_gng is GPL-3). Board mode is the final goal and the game's default once done. Differences live in the
-   board model behind `gng.accuracy`, never in the translated program; list each one in `docs/accuracy.md`.
+   jt_gng is GPL-3). Board mode is the final goal and the game's default once done, but both stay playable: the
+   player chooses "1:1 with MAME" or "the board" in the game. Differences live in the board model behind
+   `gng.accuracy`, never in the translated program; list each one in `docs/accuracy.md`.
 6. **`tools/core` is a submodule** (arcade-decomp, CapsLock4284's `timing-model` branch). Do not edit it in
    place; the 6809 frontend lives in this repository (`tools/m6809/`) until it is worth contributing upstream.
 
@@ -50,19 +51,30 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 
 | Path | What |
 |---|---|
-| `tools/makaimura_rom.py` | the ROM set (files, CRC32, SHA-1, regions), the 6809's view of its ROM and banks |
-| `tools/m6809/` | the 6809 frontend: `disassembler.py` (decode, flow, text), `analysis.py` (code discovery with bank tracking); later `lift.py`, `timing.py`, `emit.py` |
+| `tools/makaimura_rom.py` | the ROM set (files, CRC32, SHA-1, regions), the 6809's view of its ROM and banks; `--extract` writes `build/makaimurg.regions` for the tools |
+| `tools/m6809/` | the 6809 frontend: `disassembler.py`, `analysis.py` (code discovery with bank tracking), `lift.py` (each instruction into the core's IR, cycle by cycle as MAME's microcode), `interpreter.py` and `compare_lift_with_mame.py` (the lift against MAME's core), `translate.py` (the program as C: `build/generated/program`) |
+| `tools/z80cpu/` | the same for the sound program (Z80): `analysis.py`, `lift.py`, `interpreter.py`, `compare_lift_with_mame.py`, `translate.py` (`build/generated/sound`) |
 | `tools/disassemble.py` | the static analysis summary and the listing (`build/makaimurg.lst`) |
-| `tools/symbols.py`, `symbols.txt` | the program's names: routines, tables, RAM |
-| `tools/core/` | arcade-decomp (submodule): the decompiler, the Z80 frontend, the verification tools' patterns |
-| `tools/reference/` | (planned) `gref`: the original program on MAME's 6809 and Z80 cores against the board model |
-| `runtime/` | (planned) the board model in C: bus, banks, video, DMA, inputs, sound latch, Z80 + YM2203s |
-| `ports/` | (planned) `headless/` for checks, `sdl2/` for the game in a window |
-| `tests/` | (planned) frame-by-frame checks against the reference |
-| `docs/hardware.md` | the board as MAME describes it, and what the program was found to do |
+| `tools/symbols.py`, `symbols.txt` | the program's names: routines, tables, overlays, RAM |
+| `tools/core/` | arcade-decomp (submodule): the IR, its C printer, the decompiler |
+| `tools/reference/` | `gref.cpp`: the original program on MAME 0.289's 6809 core against the board model; `sound/`: the sound board on MAME's Z80 and ymfm (`gsound`), `ymcheck`, `oracle_z80_step`; `oracle_m6809*`; `mame/`: MAME's and ymfm's vendored sources (never in the game) |
+| `tools/mame/trace.lua`, `tools/mame_trace.py` | MAME itself traced and compared with gref or gng_headless (bus, IRQs, pictures, sound) |
+| `tools/check_translation.py` | the translated game (gng_headless) against gref: bus, IRQs, pictures, YM2203 writes, the sound's WAV |
+| `tools/check_resampler.py` | the window's resampler against scipy's |
+| `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `sound.c`, `ym2203.c` (after ymfm), `rom_set.c` and `inflate.c` (the set from its zips) |
+| `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks |
+| `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`. Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--settings` |
+| `tests/` | `controls/*.txt` input scripts (walk_right, long_play), `resample_check.c` |
+| `docs/hardware.md`, `docs/accuracy.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ |
 
 ## Working
 
+- Build and check: `python tools/m6809/translate.py`, `python tools/z80cpu/translate.py`, `cmake -S . -B build/msvc
+  && cmake --build build/msvc --config Release`, then `python tools/check_translation.py` (the three scripts, about
+  5 minutes) after any change to the runtime or the translators.
+- Check the window without disturbing whoever uses the computer: `makaimura --hidden` or `--shot N FILE`, sound
+  through `SDL_AUDIODRIVER=disk` (or `volume = 0` in a `--settings` file); never show windows or capture the
+  desktop.
 - Python 3.10+, run tools from the repository root: `python tools/disassemble.py --unresolved --listing`.
   Python that reads ROM-derived data runs with `-I` when it reads untrusted downloads.
 - C: CMake 3.20+ and MSVC (Visual Studio 2022 Build Tools are installed) or gcc/clang. C11 for the runtime,
