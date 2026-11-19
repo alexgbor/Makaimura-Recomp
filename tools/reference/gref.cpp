@@ -36,6 +36,7 @@
  *      --wav FILE        with --sound: the mix as MAME routes it, at the chips' 125 kHz
  *      --latch-writes FILE  every write of the sound latch: "time value" (6809 cycles)
  *      --pictures N FILE every Nth frame's picture (from frame 0), 256x224 RGB bytes each, as MAME's (trace.lua)
+ *      --picture-hashes FILE   each frame's picture sampled as --pictures 1 samples it, its FNV-1a: "frame hash"
  *      --ppm FRAME FILE  that frame's picture as a PPM image
  *      --text FRAME      the text layer's codes at that frame, as hex
  *      --dump FRAME FILE the board's memories at that frame (RAM, sprites, layers, palette), raw
@@ -84,6 +85,7 @@ static u8 host_read(u16 address) { return gng_read(address); }
 static void host_write(u16 address, u8 data) { gng_write(address, data); }
 
 static FILE *irq_hashes;
+static FILE *picture_hashes;
 static u64 irqs_taken;
 
 static void host_acknowledge(int line)
@@ -274,6 +276,7 @@ int main(int argc, char **argv)
 		else if (a == "--wav") wav_path = next();
 		else if (a == "--latch-writes") latch_log = std::fopen(next(), "w");
 		else if (a == "--pictures") { pictures_every = std::atoi(next()); pictures_path = next(); }
+		else if (a == "--picture-hashes") { picture_hashes = std::fopen(next(), "w"); pictures_every = 1; }
 		else if (a == "--ppm") { ppm_frame = std::atoi(next()); ppm_path = next(); }
 		else if (a == "--executed") executed_path = next();
 		else if (a == "--jumps") jumps_path = next();
@@ -348,6 +351,7 @@ int main(int argc, char **argv)
 	FILE *bus_hashes = bus_hashes_path ? std::fopen(bus_hashes_path, "w") : nullptr;
 	FILE *bus_dumps = bus_dumps_path ? std::fopen(bus_dumps_path, "wb") : nullptr;
 	FILE *pictures = pictures_path ? std::fopen(pictures_path, "wb") : nullptr;
+	const bool sample_pictures = pictures || picture_hashes;
 	static uint32_t picture[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 	static uint8_t check_indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 	auto picture_rgb = [&](std::vector<u8> &rgb) {
@@ -392,7 +396,7 @@ int main(int argc, char **argv)
 		// one VBLANK, and screen:pixels() at the next frame notifier turns them into colours with the palette of
 		// that next VBLANK. So frame N's picture for the check is frame N's indexes in frame N+1's colours,
 		// written at frame N+1 (what the board shows is frame N's indexes in frame N's colours: --ppm)
-		if (pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
+		if (sample_pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
 		{
 			std::vector<u8> rgb(sizeof(check_indexes) * 3);
 			for (size_t i = 0; i < sizeof(check_indexes); i++)
@@ -403,9 +407,17 @@ int main(int argc, char **argv)
 				rgb[3 * i + 1] = u8(g * 17);
 				rgb[3 * i + 2] = u8(b * 17);
 			}
-			std::fwrite(rgb.data(), 1, rgb.size(), pictures);
+			if (pictures)
+				std::fwrite(rgb.data(), 1, rgb.size(), pictures);
+			if (picture_hashes)
+			{
+				u32 hash = 2166136261u;
+				for (u8 byte : rgb)
+					hash = (hash ^ byte) * 16777619u;
+				std::fprintf(picture_hashes, "%d %08x\n", frame - 1, hash);
+			}
 		}
-		if (pictures && frame % pictures_every == 0)
+		if (sample_pictures && frame % pictures_every == 0)
 			gng_video_render_indexed(check_indexes);
 		if (frame == ppm_frame)
 		{
@@ -454,6 +466,8 @@ int main(int argc, char **argv)
 		std::fclose(pictures);
 	if (irq_hashes)
 		std::fclose(irq_hashes);
+	if (picture_hashes)
+		std::fclose(picture_hashes);
 	if (latch_log)
 		std::fclose(latch_log);
 	if (sound_out)

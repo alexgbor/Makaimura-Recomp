@@ -28,13 +28,18 @@ Roughly in order; each milestone is checked against the reference before it is t
       jump tables found from `LDr #table` before `JMP/JSR [acc,r]` and `LDr acc,r / JSR ,r` (76% of the fixed
       ROM so far); every instruction the reference ran in 1200 frames of the attract mode is found
 - [~] The dispatch tables in `symbols.txt` (IRQ states, round robin jobs, the main loop's tasks, the objects')
-- [ ] Still unresolved: 6F76 `JMP [B,X]`, AA36 `JSR [B,U]`; 6 illegal opcodes reached (tables read too far:
-      B0B9/B131, BA80, 40F3) and a 0000 entry: give those tables their sizes in `symbols.txt`
-- [~] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing);
-      every instruction they run is found statically (16636 instructions, 78.7% of the fixed ROM); to do: the
-      whole game, both loops, every weapon and enemy
-- [ ] Data-driven dispatches (U from an object's record at 9AF4: 9C97, 9ECC; the two-level table at 6F6B): find
-      where those values come from, so that the tables are complete without traces
+- [x] No illegal opcode reached, no flow out of the ROM: the tables the analysis read past their end have their
+      sizes in symbols.txt (7EFF, 9AA8, B103, B196: data after them that looked like addresses), and a table in the
+      window is read in its own bank (4:55E4 at DD71, 4:4942 at A0BE: read with no bank they gave FFFF); a size in
+      symbols.txt wins over the analysis's guess
+- [ ] Still unresolved: 6F76 `JMP [B,X]`, AA36 `JSR [B,U]` (and 9AF4, 9F2D's described in symbols.txt)
+- [~] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing),
+      long_play (`make_long_play.py`: 40000 frames, four credits, a two-player game, pseudo-random moves, the
+      service switch); every instruction they run is found statically (6945 addresses); to do: the whole game,
+      both loops, every weapon and enemy (scripts that get further: the stages need a player who survives)
+- [x] The object dispatch at 9AF4: U from the table of tables at 9AFE by the object's type (0-5), JSR [A,U] by its
+      state (0-3): its six tables in symbols.txt (long_play met the types walk_right had not)
+- [ ] The two-level table at 6F6B (by <$72 and <$0B): its counts are what the traces saw; find them in the code
 - [ ] A safety net for the translation: an address the static analysis missed is reported (crash log), never
       run wrongly
 - [ ] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check)
@@ -108,11 +113,10 @@ Roughly in order; each milestone is checked against the reference before it is t
       from the ROM bytes the boot copies (symbols.txt's `overlay`), checked in RAM before it runs
 - [x] `build/bin/gng_headless` (`ports/headless/main.c`): the translated program on the board model, gref's
       outputs; `tools/check_translation.py`: against gref, the bus at every IRQ taken (with its PC and cycle), at
-      every VBLANK, and every picture: the attract mode (1200 frames, 890 IRQs) and walk_right (7596 frames,
-      7286 IRQs) the same; `tools/mame_trace.py --against gng_headless`: against MAME itself, walk_right's 7001
+      every VBLANK, and every picture (`--picture-hashes`): the attract mode (1200 frames, 890 IRQs), walk_right
+      (7596 frames, 7286 IRQs) and long_play (39700 frames, 39390 IRQs) the same; `tools/mame_trace.py --against gng_headless`: against MAME itself, walk_right's 7001
       frames and 7000 pictures the same. 7001 frames run in 3.9 s with a picture each
 - [ ] The whole game, both loops, frame by frame against the reference (input scripts that reach every stage)
-- [ ] The 3 illegal opcodes the analysis reaches (B131, BA80, 4:40F3: tables read too far) are faults if run
 
 ## M5. The sound program (Z80)
 

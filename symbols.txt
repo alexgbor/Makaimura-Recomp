@@ -33,13 +33,27 @@
 
 # ======== the objects ========
 7E6D  func  objects_frame          # bank 4, then the objects' routines (8F0E, 9ACE, 9F0C)
-9C97  table object_states_9AF4  count=4    # JSR [A,U] at 9AF4: U = 9C97 (gref --registers-at 9AF4), A 0-6; the words before it (9C8B-9C96) are pointers to data
+# The two-level dispatch at 9AF4: U = the word of 9AFE by the object's type ($5,X: 0-5), then JSR [A,U] by its
+# state (-$D,X: 0-3). Found by tests/controls/long_play.txt (types 0 and 2-4 were not met in walk_right)
+9AFE  data  object_state_tables            # 6 words: the state tables of the object types 0-5
+9B0A  table object_states_type0  count=4
+9C97  table object_states_9AF4  count=4    # type 1 (U = 9C97: gref --registers-at 9AF4); the words before it (9C8B-9C96) are pointers to data
+9CD3  table object_states_type2  count=4
+9CFA  table object_states_type3  count=4
+9D39  table object_states_type4  count=4
 4:4712 table object_handlers   count=19   # JSR [B,U] at 9F2D: by the object's type ($5,X); entry 15 is 0000 (unused)
 4:470E table object_phase      count=2    # JSR [B,U] at 9F37: by the frame's parity (<$21 & 1)
-9ECC  table object_states_9AF4_b  count=4  # the other table JSR [A,U] at 9AF4 runs through (U = 9ECC: U comes
-                                           # from the object's record, not from an LDU #: to find where)
+9ECC  table object_states_9AF4_b  count=4  # type 5
 # The two-level dispatch at 6F6B: LDX #$6F78 / LDX B,X (by <$72) / JMP [B,X] (by <$0B). Seen: X = 6F86 with B 0-2,
 # X = 6F8A with B 0-4 (gref --registers-at 6F76, tests/controls/walk_right.txt). The counts are what was seen:
 # to confirm from the code that sets <$72 and <$0B
 6F86  table player_states_6F86  count=2
 6F8A  table player_states_6F8A  count=3
+
+# ======== tables the analysis would read past their end (the words after them are code or data) ========
+7EFF  table  object_states_7E8D  count=2   # JMP [A,U] at 7E8D; after it (7F03) a second copy of the dispatch code
+9AA8  table  table_9AA3          count=6   # JMP/JSR through U at 9AA3; after it code bytes (CE9A...)
+B103  table  table_B0F6          count=2   # JSR [B,U] at B0F6; B10B and B119 after it are data (ORA #/COM <$8B...)
+B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and B1B0 after it are data of the same kind
+4:55E4 table table_DD71          count=4   # JMP [B,X] at DD71 with X = 55E4 in the window: bank 4's (its handlers follow DD71)
+4:4942 table table_A0BE          count=8   # JMP [B,U] at A0BE with U = 4942 in the window: bank 4's (A0C0-A167)

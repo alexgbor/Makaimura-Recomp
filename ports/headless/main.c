@@ -18,6 +18,7 @@
  *                        applied at that frame's VBLANK for the frames after
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on
  *      --pictures N FILE every Nth frame's picture, sampled as gref's (frame N's indexes in frame N+1's colours)
+ *      --picture-hashes FILE   each frame's picture sampled as gref's, its FNV-1a: "frame hash"
  *      --ppm FRAME FILE  that frame's picture as a PPM image
  */
 #include "gng/board.h"
@@ -122,11 +123,13 @@ static uint32_t bus_hash(void)
 	return hash;
 }
 
-static FILE *bus_hashes, *irq_hashes, *pictures;
+static FILE *bus_hashes, *irq_hashes, *pictures, *picture_hashes;
 static int pictures_every, ppm_frame = -1;
 static const char *ppm_path;
 static uint8_t check_indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 static uint64_t irqs;
+
+static uint64_t picture_frame;
 
 static void write_check_picture(void)
 {
@@ -138,16 +141,27 @@ static void write_check_picture(void)
 		rgb[3 * i + 1] = (uint8_t)((gng.palette_ext[index] & 15) * 17);
 		rgb[3 * i + 2] = (uint8_t)((gng.palette_base[index] >> 4) * 17);
 	}
-	fwrite(rgb, 1, sizeof(rgb), pictures);
+	if (pictures)
+		fwrite(rgb, 1, sizeof(rgb), pictures);
+	if (picture_hashes)
+	{
+		uint32_t hash = 2166136261u;
+		for (size_t i = 0; i < sizeof(rgb); i++)
+			hash = (hash ^ rgb[i]) * 16777619u;
+		fprintf(picture_hashes, "%llu %08x\n", (unsigned long long)picture_frame, hash);
+	}
 }
 
 static void on_vblank(uint64_t frame)
 {
 	if (bus_hashes)
 		fprintf(bus_hashes, "%llu %08x %04x\n", (unsigned long long)frame, bus_hash(), 0);
-	if (pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
+	if ((pictures || picture_hashes) && frame >= 1 && (frame - 1) % pictures_every == 0)
+	{
+		picture_frame = frame - 1;
 		write_check_picture();
-	if (pictures && frame % pictures_every == 0)
+	}
+	if ((pictures || picture_hashes) && frame % pictures_every == 0)
 		gng_video_render_indexed(check_indexes);
 	if ((int64_t)frame == ppm_frame)
 	{
@@ -197,6 +211,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--dsw1")) dsw1 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
 		else if (!strcmp(a, "--dsw2")) dsw2 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
 		else if (!strcmp(a, "--pictures")) { pictures_every = atoi(NEXT()); pictures = fopen(NEXT(), "wb"); }
+		else if (!strcmp(a, "--picture-hashes")) { picture_hashes = fopen(NEXT(), "w"); pictures_every = 1; }
 		else if (!strcmp(a, "--ppm")) { ppm_frame = atoi(NEXT()); ppm_path = NEXT(); }
 		else { fprintf(stderr, "gng_headless: unknown option %s\n", a); return 2; }
 #undef NEXT
@@ -225,5 +240,6 @@ int main(int argc, char **argv)
 	if (bus_hashes) fclose(bus_hashes);
 	if (irq_hashes) fclose(irq_hashes);
 	if (pictures) fclose(pictures);
+	if (picture_hashes) fclose(picture_hashes);
 	return result ? 1 : 0;
 }

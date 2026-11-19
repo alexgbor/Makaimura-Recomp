@@ -47,7 +47,7 @@ def run(name, frames, inputs, dsw, pictures):
         command = [os.path.join(BIN, program + EXE), "--frames", str(frames),
                    "--irq-hashes", prefix + "_irq.txt", "--bus-hashes", prefix + "_bus.txt"]
         if pictures:
-            command += ["--pictures", "1", prefix + "_pictures.bin"]
+            command += ["--picture-hashes", prefix + "_pictures.txt"]
         if inputs:
             command += ["--inputs", inputs]
         for option, value in zip(("--dsw1", "--dsw2"), dsw):
@@ -72,13 +72,12 @@ def run(name, frames, inputs, dsw, pictures):
         ok = False
         index, x, y = difference
         print(f"  VBLANKs: the first different, frame {index}: gref {x}, translation {y}")
-    same_pictures = True
     if pictures:
-        with open(reference + "_pictures.bin", "rb") as a, open(translation + "_pictures.bin", "rb") as b:
-            same_pictures = a.read() == b.read()
-        if not same_pictures:
+        difference = first_difference(lines(reference + "_pictures.txt"), lines(translation + "_pictures.txt"))
+        if difference:
             ok = False
-            print("  pictures: different")
+            index, x, y = difference
+            print(f"  pictures: the first different, frame {index}: gref {x}, translation {y}")
     print(f"{name}: {len(bus_a)} frames, {len(irq_a)} IRQs" + (", the pictures" if pictures else "") +
           (": the same as gref's" if ok else ": DIFFERENT"))
     return ok

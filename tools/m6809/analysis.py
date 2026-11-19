@@ -125,12 +125,19 @@ def looks_like_code(program, bank, target, count=3):
     return True
 
 
-def read_table(program, bank, table, code):
+def read_table(program, bank, table, code, counts=None):
     """A jump table's entries, from 'table' (the LDX #table before the jump). Without its size in the symbols,
     it ends at the first entry that is not a code address or whose target does not decode as code, at the
     lowest target it holds when that is past the table (the code the table points to usually follows it), at a
     place already known to be code, or after MAX_TABLE entries."""
     read = program.reader(bank)
+    if counts and table in counts:
+        # the symbols' size (and bank, for a table in the window): their entries, the unused ones (0000) left out
+        count, table_bank = counts[table]
+        if table_bank is not None:
+            read = program.reader(table_bank)
+        entries = ((read(table + 2 * i) << 8) | read(table + 2 * i + 1) for i in range(count))
+        return [target for target in entries if target]
     targets = []
     lowest = 0x10000
     for index in range(MAX_TABLE):
@@ -169,6 +176,7 @@ def explore(program, entries, tables=(), stop=(), ram_code=None):
 
     for bank, address, why in entries:
         add(bank, address, why)
+    counts = {address: (count, table_bank) for _, address, count, _, table_bank in tables}
     for bank, address, count, why, table_bank in tables:
         read = program.reader(table_bank)
         for index in range(count):
@@ -213,7 +221,7 @@ def explore(program, entries, tables=(), stop=(), ram_code=None):
                 if table is None and op.mode == "indexed" and not op.indirect and op.kind == "offset" and                         op.offset == 0 and op.base in INDEX_REGISTERS:
                     table = regs.get("loaded_" + op.base)    # LDX #table / LDX A,X / JSR ,X
                 if table is not None and (bank, address) not in code.jump_tables:
-                    targets = read_table(program, bank, table, code)
+                    targets = read_table(program, bank, table, code, counts)
                     code.jump_tables[(bank, address)] = (table, targets)
                     for index, target in enumerate(targets):
                         if ins.flow == "icall":
