@@ -12,7 +12,8 @@
 The switch is a setting of the board model, not a different build: the same runtime, the same translated
 program, a flag (`gng.accuracy`: `gng_accuracy_mode` in `runtime/include/gng/board.h`; `gref --accuracy
 mame|board`) that the reference, the headless checks and the game all honour. Every check names the mode it ran
-in.
+in. The player chooses too: the game keeps both modes playable, MAME's "1:1 with MAME" and the board's, as a
+setting of the window port (once board mode differs from MAME's).
 
 ## Rules
 

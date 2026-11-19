@@ -41,7 +41,7 @@ target_include_directories(oracle_m6809 PRIVATE tools/reference/stub ${MAKAIMURA
 target_compile_features(oracle_m6809 PRIVATE cxx_std_20)
 
 # ---- The board (runtime/): the game's own code ----
-add_library(gng_runtime STATIC runtime/src/board.c runtime/src/video.c)
+add_library(gng_runtime STATIC runtime/src/board.c runtime/src/video.c runtime/src/inflate.c runtime/src/rom_set.c)
 target_include_directories(gng_runtime PUBLIC runtime/include)
 
 # ---- The reference: the original program on MAME's MC6809 core (m6809make.py writes the core's states from
@@ -116,7 +116,8 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	file(GLOB MAKAIMURA_SDL2_HINT ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
 	find_package(SDL2 CONFIG QUIET HINTS ${MAKAIMURA_SDL2_HINT})
 	if(SDL2_FOUND)
-		add_executable(makaimura ports/sdl2/main.c)
+		add_executable(makaimura ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
+			ports/sdl2/resampler.c)
 		target_link_libraries(makaimura PRIVATE gng_program SDL2::SDL2)
 		if(TARGET SDL2::SDL2main)
 			target_link_libraries(makaimura PRIVATE SDL2::SDL2main)
@@ -151,3 +152,7 @@ target_compile_features(ymcheck PRIVATE cxx_std_20)
 if(MSVC)
 	target_compile_options(ymcheck PRIVATE /wd4244 /wd4267 /wd4305)
 endif()
+
+# The window's resampler (ports/sdl2/resampler.c) on a WAV of the board's mix: tools/check_resampler.py
+add_executable(resample_check tests/resample_check.c ports/sdl2/resampler.c)
+target_include_directories(resample_check PRIVATE ports/sdl2)

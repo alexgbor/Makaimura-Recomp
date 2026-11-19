@@ -14,7 +14,8 @@ Roughly in order; each milestone is checked against the reference before it is t
 ## Accuracy: MAME mode, then board mode (`docs/accuracy.md`)
 
 - [x] Decided: match MAME exactly first; then the real board's behaviour 1:1 (jotego's jt_gng research), as a
-      switchable mode (`gng.accuracy`, `gref --accuracy`), board mode the final default
+      switchable mode (`gng.accuracy`, `gref --accuracy`), board mode the final default; both stay playable,
+      the player choosing one in the game (`[game] accuracy` and the menu, once board mode differs)
 - [ ] Board mode: the sprite DMA's halt of the 6809 (its length, when the CPU stops)
 - [ ] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch)
 - [ ] Board mode: does a read of 3C00 start the DMA (the reset's `LDA $3C00`)?
@@ -157,8 +158,29 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] A first window (`ports/sdl2/main.c`, `build/bin/makaimura`): the picture scaled, keyboard (MAME's keys, and Z/X)
       and a gamepad, the 4-way joystick, the sound (the board's 125 kHz mix averaged down to the device's rate),
       the board's own pace (59.637 Hz), F3 reset, a message where the program faults
-- [ ] Settings, the ROM set read from its zips (no regions file), a 4:3 picture, a better resampler, vsync
-- [ ] DIP switches as game options (lives, difficulty, bonus, the invulnerability DIP of the Japanese sets)
+- [x] The ROM set read from its zips or folders by the game itself (`runtime/src/rom_set.c`, `runtime/src/inflate.c`:
+      zip and DEFLATE from their specifications, a file known by its CRC-32 and size): its regions the same as
+      `tools/makaimura_rom.py`'s byte for byte (`gng_headless --rom PLACE --write-regions FILE`), from the two zips,
+      a folder, stored, fixed-code, dynamic-code, Huffman-only and RLE zips, a merged set; a damaged zip refused
+- [x] Settings (`ports/sdl2/settings.c`: makaimura.ini beside the program, written with what each does): the
+      window, the picture, the sound, the ROM's place, every key and button
+- [x] The picture as the arcade's 4:3 monitor shows it (or square pixels): fit, integer or stretch, sharp pixels
+      (enlarged by whole numbers, then smoothed by the rest) or smooth; full screen (F11, Alt+Enter); vsync; the pace
+      the board's 59.637 Hz by the clock, or a frame a refresh of the display (`sync = display`, 0.6% fast at 60
+      Hz: not tried on a display yet); nothing drawn while the window is hidden or minimized (a hidden window's
+      vsync is throttled by Windows: the board slowed with it). At 1:1 the window's picture is the board's, pixel
+      for pixel (`makaimura --shot`, `gng_headless --ppm`)
+- [x] The sound resampled with a windowed sinc (`ports/sdl2/resampler.c`: Kaiser, 128 taps, cut at 20 kHz):
+      69.7 dB from scipy's resample_poly below 18 kHz on walk_right's sound, at 48 and 44.1 kHz
+      (`tools/check_resampler.py`, `build/bin/resample_check`); the queue primed to its latency and kept there by
+      nudges of the rate (at most 0.5%): on the device (WASAPI), 21-59 ms queued for a 50 ms latency over 2400
+      frames, never empty
+- [x] DIP switches as game options, by MAME's names (mame makaimurg -listxml): lives, difficulty, bonus life,
+      coinage, coinage affects, demo sounds, flip screen, cabinet, service mode (makaimurg has no invulnerability
+      DIP: DSW2's eighth switch is unused); lives = 7 checked on the picture
+- [ ] A menu in the window for the settings (and, with board mode, the choice of MAME's or the board's behaviour:
+      both kept playable)
+- [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
 
 ## Later, maybe

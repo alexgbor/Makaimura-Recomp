@@ -10,12 +10,14 @@ tools of [DonPachi Recomp](https://github.com/CapsLock4284/DonPachi-Recomp) and
 instruction at a time (`tools/m6809/translate.py`). It runs on a model of the board (`runtime/`), and it is the
 same as MAME 0.289 at every frame checked: the CPU's bus at every VBLANK and every interrupt, and the picture,
 pixel for pixel. The sound program (the Z80) is translated too, and the game's own YM2203s make the same sound as MAME's (ymfm),
-sample for sample. `build/bin/makaimura` is the game in a window (SDL2). The plan is in [TODO.md](TODO.md), the
+sample for sample. `build/bin/makaimura` is the game in a window (SDL2), its picture as the arcade's 4:3 monitor
+shows it, its options in `makaimura.ini`. The plan is in [TODO.md](TODO.md), the
 board is described in [docs/hardware.md](docs/hardware.md), and [docs/accuracy.md](docs/accuracy.md) explains
 the two accuracy modes: MAME's, and the real board's, which is the goal.
 
 **This repository contains no game data.** You need your own copy of MAME's ROM sets: `makaimurg.zip` and its
-parent `gng.zip`, in `rom/`.
+parent `gng.zip`, in `rom/`. The game reads them as they are (`runtime/src/rom_set.c`); the tools that check it
+read them extracted into a regions file (`build/makaimurg.regions`).
 
 ```sh
 git clone --recursive <this repository>
@@ -26,10 +28,29 @@ cmake -S . -B build/msvc && cmake --build build/msvc --config Release
 python tools/z80cpu/translate.py          # the sound program as C: build/generated/sound
 python tools/check_translation.py         # the translation against the reference (gref), frame by frame
 build/bin/makaimura                       # the game (SDL2: on Windows SDL2-devel-2.x.x-VC.zip in build/downloads/sdl2)
+python tools/check_resampler.py BOARD.wav # the window's resampler against scipy's (BOARD.wav: gng_headless --wav)
 python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt --pictures 1 --against gng_headless
 ```
 
 `tools/mame_trace.py` needs MAME 0.289 (`MAME` environment variable, or `D:/repositories/mame0289/mame.exe`).
+
+## Playing
+
+`makaimura` looks for `makaimurg.zip` and `gng.zip` beside itself, in a `rom` folder beside it, in the repository's
+`rom/` (from `build/bin`) and in the folder it is started from; or give it a zip or a folder
+(`makaimura D:/roms`), or name one in `makaimura.ini`. A folder of MAME's loose files works too.
+
+`makaimura.ini`, beside the program, is written with every setting and what it does the first time the game
+starts:
+
+- **[game]**: the board's DIP switches, by MAME's names: lives (3, 4, 5, 7), difficulty, bonus life, coinage
+  (free play too), demo sounds, flip screen, cabinet, service mode. They are read as the board starts (and at F3).
+- **[window]**, **[video]**: the size, full screen; the picture's shape (`4:3`, as the arcade's monitor, or
+  `pixels`, square), its scaling (`fit`, `integer`, `stretch`), sharp or smooth pixels, vsync, and the pace
+  (`sync = board`: the board's own 59.637 frames a second, exact; `display`: a frame a refresh, smoother on a 60 Hz
+  display but 0.6% fast).
+- **[sound]**: on or off, the volume, the latency.
+- **[keyboard]**, **[gamepad]**: every control, up to four keys or buttons each.
 
 ## Controls
 
@@ -42,10 +63,13 @@ python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt 
 | Start | 1 (one player), 2 (two players) | Start (one player) |
 | Service switch | 9 | |
 | Reset the board | F3 | |
+| Pause | P or Pause | |
+| Full screen | F11 or Alt+Enter | |
 | Quit | Esc | |
 
 The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
-upright cabinet (the default) the two players take turns on the same controls.
+upright cabinet (the default) the two players take turns on the same controls. Every control can be changed in
+`makaimura.ini`.
 
 ## License
 

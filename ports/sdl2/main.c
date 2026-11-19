@@ -1,153 +1,304 @@
 /**
  *    Name:        main.c
  *    Description: makaimura: the game in a window (SDL2): the translated program on the board model, its picture,
- *                 its sound, the controls
- *    Version:     0.1.0
+ *                 its sound, the controls, the settings (makaimura.ini beside the program: settings.h)
+ *    Version:     0.2.0
  *    Created:     19-11-2026
  *
  *    license:BSD-3-Clause
- *    makaimura [REGIONS]   (default build/makaimurg.regions: python tools/makaimura_rom.py --extract FILE)
+ *    makaimura [ROM] [options]   (ROM: a .zip or a folder with makaimurg.zip and gng.zip; else the settings' [files]
+ *                       rom, else beside the program, its rom folder, ../../rom from it, the folder it starts in, its rom)
+ *      --settings FILE  another settings file than makaimura.ini beside the program
+ *      --frames N       quit after N frames
+ *      --hidden         (for checks) the window not shown
+ *      --inputs FILE    (for checks) the controls from an input script instead, as gng_headless takes it:
+ *                       "FRAME PORT VALUE" (system, p1, p2; hex, active low) from that frame's VBLANK on
+ *      --shot N FILE    (for checks) the window hidden; frame N's window, as the renderer drew it, into FILE (BMP),
+ *                       then quit
  *
  *    The board's own pace: a frame every 384 x 262 pixels of its 6 MHz clock (59.637 Hz), kept by the clock of the
- *    host; the picture shown at each VBLANK (the board's picture, MAME mode), the sound the board's 125 kHz mix
- *    averaged down to the device's rate (the host's conversion, not MAME's resampler).
- *    Controls (MAME's defaults, and more): arrows; Left Ctrl or Z throw (button 1), Left Alt or X jump (button 2);
- *    1 and 2 start, 5 and 6 coins, 9 service; a gamepad: the stick or the pad, A jump, B or X throw, Start, Back a
- *    coin. F3 resets the board; Escape quits.
+ *    host (or a frame a refresh of the display: [video] sync); the picture shown at each VBLANK (the board's picture,
+ *    MAME mode), as the arcade's 4:3 monitor shows it or with square pixels; the sound the board's 125 kHz mix
+ *    resampled to the device's rate (audio_out.c). Controls: settings.c's defaults (MAME's keys, and Z / X).
  */
 #include <SDL.h>
 
+#include "audio_out.h"
 #include "gng/board.h"
+#include "gng/rom_set.h"
 #include "gng/sound.h"
 #include "gng/video.h"
 #include "m6809/cpu.h"
+#include "settings.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define SCALE 3
 #define FRAME_RATE (6000000.0 / (384.0 * 262.0))
+#define TITLE "Makaimura"
 
+static settings options;
+static char settings_path[1024];
+static gng_rom_set rom_set;
 static SDL_Window *window;
 static SDL_Renderer *renderer;
-static SDL_Texture *texture;
-static SDL_AudioDeviceID audio;
+static SDL_Texture *picture;          /* the board's 256 x 224 */
+static SDL_Texture *prescaled;        /* sharp pixels: the picture enlarged a whole number of times, then smoothed */
+static int prescaled_width, prescaled_height;
 static SDL_GameController *pad;
-static int audio_rate = 48000;
+static int sound_on;
 static uint32_t pixels[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 static Uint64 next_frame;
-static int reset_requested;
+static int reset_requested, quit_requested, paused;
+static double speed = 1.0;            /* the board's pace against its own time (display sync) */
+static int display_sync;
+static long frames_to_run = -1;
+static long shot_frame = -1;
+static const char *shot_path;
+static int hidden;
 
-/* ---- the ROM regions ---- */
+/* an input script (--inputs) */
+typedef struct input_change { long frame; int port; uint8_t value; } input_change;
+static input_change *script;
+static int script_count, script_next;
+static uint64_t current_frame;
 
-typedef struct region { char name[17]; uint32_t size; uint8_t *data; } region;
-static region regions[16];
-static int region_count;
+/* ---- the picture ---- */
 
-static const uint8_t *find_region(const char *name)
+static double picture_aspect(void)
 {
-	for (int i = 0; i < region_count; i++)
-		if (!strcmp(regions[i].name, name))
-			return regions[i].data;
-	return NULL;
+	return options.aspect == ASPECT_MONITOR ? 4.0 / 3.0 : (double)GNG_SCREEN_WIDTH / GNG_SCREEN_HEIGHT;
 }
 
-static int read_regions(const char *path)
+static SDL_Rect picture_place(int width, int height)
 {
-	FILE *file = fopen(path, "rb");
-	char magic[4];
-	if (!file)
-		return 0;
-	if (fread(magic, 1, 4, file) != 4 || memcmp(magic, "MKRG", 4))
+	SDL_Rect place = { 0, 0, width, height };
+	if (options.scaling == SCALING_STRETCH)
+		return place;
+	const double aspect = picture_aspect();
+	int h = 0, w = 0;
+	if (options.scaling == SCALING_INTEGER)
+		for (int k = height / GNG_SCREEN_HEIGHT; k >= 1 && !h; k--)
+			if (lround(GNG_SCREEN_HEIGHT * k * aspect) <= width)
+			{
+				h = GNG_SCREEN_HEIGHT * k;
+				w = (int)lround(h * aspect);
+			}
+	if (!h)
 	{
-		fclose(file);
-		return 0;
+		/* fit (and integer's fallback in a window smaller than the picture) */
+		if (width / aspect <= height)
+			w = width, h = (int)lround(width / aspect);
+		else
+			h = height, w = (int)lround(height * aspect);
 	}
-	while (region_count < 16)
-	{
-		region *r = &regions[region_count];
-		uint8_t size[4];
-		memset(r->name, 0, sizeof(r->name));
-		if (fread(r->name, 1, 16, file) != 16 || fread(size, 1, 4, file) != 4)
-			break;
-		r->size = size[0] | (size[1] << 8) | (size[2] << 16) | ((uint32_t)size[3] << 24);
-		r->data = malloc(r->size);
-		if (!r->data || fread(r->data, 1, r->size, file) != r->size)
-			break;
-		region_count++;
-	}
-	fclose(file);
-	return find_region("maincpu") != NULL;
+	place.x = (width - w) / 2;
+	place.y = (height - h) / 2;
+	place.w = w;
+	place.h = h;
+	return place;
 }
 
-/* ---- the sound: the board's 125 kHz mix averaged over each of the device's samples ---- */
-
-static int16_t audio_buffer[8192];
-static int audio_count;
-static double audio_phase, audio_sum;
-static int audio_terms;
-
-static void on_sample(int16_t sample)
+static void show_picture(void)
 {
-	audio_sum += sample;
-	audio_terms++;
-	audio_phase += (double)audio_rate / GNG_SOUND_RATE;
-	if (audio_phase >= 1.0)
+	const int shot_now = shot_path && (long)current_frame == shot_frame;
+	/* not drawn while the window is not seen: a present there may wait far longer than a refresh (Windows
+	   throttles a hidden window's vsync), and the board would slow down with it */
+	if (!shot_now && (SDL_GetWindowFlags(window) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED)))
+		return;
+	int width, height;
+	SDL_GetRendererOutputSize(renderer, &width, &height);
+	const SDL_Rect place = picture_place(width, height);
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+	SDL_RenderClear(renderer);
+	const int kx = (place.w + GNG_SCREEN_WIDTH - 1) / GNG_SCREEN_WIDTH;
+	const int ky = (place.h + GNG_SCREEN_HEIGHT - 1) / GNG_SCREEN_HEIGHT;
+	if (options.smooth || (place.w == kx * GNG_SCREEN_WIDTH && place.h == ky * GNG_SCREEN_HEIGHT))
 	{
-		audio_phase -= 1.0;
-		if (audio_count < (int)(sizeof(audio_buffer) / sizeof(audio_buffer[0])))
-			audio_buffer[audio_count++] = (int16_t)(audio_sum / audio_terms);
-		audio_sum = 0;
-		audio_terms = 0;
+		SDL_SetTextureScaleMode(picture, options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+		SDL_RenderCopy(renderer, picture, NULL, &place);
 	}
+	else
+	{
+		/* sharp pixels at a size that is not a whole number of times the picture's: each pixel enlarged by whole
+		   numbers first, then the small rest smoothed (every pixel the same width, its edges soft by a screen
+		   pixel at most) */
+		if (!prescaled || prescaled_width != kx * GNG_SCREEN_WIDTH || prescaled_height != ky * GNG_SCREEN_HEIGHT)
+		{
+			if (prescaled)
+				SDL_DestroyTexture(prescaled);
+			prescaled_width = kx * GNG_SCREEN_WIDTH;
+			prescaled_height = ky * GNG_SCREEN_HEIGHT;
+			prescaled = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_TARGET,
+				prescaled_width, prescaled_height);
+			SDL_SetTextureScaleMode(prescaled, SDL_ScaleModeLinear);
+		}
+		SDL_SetTextureScaleMode(picture, SDL_ScaleModeNearest);
+		SDL_SetRenderTarget(renderer, prescaled);
+		SDL_RenderCopy(renderer, picture, NULL, NULL);
+		SDL_SetRenderTarget(renderer, NULL);
+		SDL_RenderCopy(renderer, prescaled, NULL, &place);
+	}
+	if (shot_now)
+	{
+		SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_XRGB8888);
+		if (shot && SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_XRGB8888, shot->pixels, shot->pitch) == 0)
+			SDL_SaveBMP(shot, shot_path);
+		SDL_FreeSurface(shot);
+		quit_requested = 1;
+	}
+	SDL_RenderPresent(renderer);
+}
+
+static void toggle_fullscreen(void)
+{
+	options.fullscreen = !options.fullscreen;
+	SDL_SetWindowFullscreen(window, options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+	SDL_ShowCursor(options.fullscreen ? SDL_DISABLE : SDL_ENABLE);
 }
 
 /* ---- the controls ---- */
 
+static int key_down(const Uint8 *keys, const SDL_Scancode *slot)
+{
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		if (slot[i] != SDL_SCANCODE_UNKNOWN && keys[slot[i]])
+			return 1;
+	return 0;
+}
+
+static int is_hotkey(SDL_Scancode code, int hotkey)
+{
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		if (code != SDL_SCANCODE_UNKNOWN && options.hot_keys[hotkey][i] == code)
+			return 1;
+	return 0;
+}
+
 static void read_controls(void)
 {
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
-	uint8_t system = 0xFF, p1 = 0xFF;
-	int left = keys[SDL_SCANCODE_LEFT], right = keys[SDL_SCANCODE_RIGHT];
-	int up = keys[SDL_SCANCODE_UP], down = keys[SDL_SCANCODE_DOWN];
-	int fire = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_Z];
-	int jump = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_X];
-	int start1 = keys[SDL_SCANCODE_1], start2 = keys[SDL_SCANCODE_2];
-	int coin1 = keys[SDL_SCANCODE_5], coin2 = keys[SDL_SCANCODE_6], service = keys[SDL_SCANCODE_9];
-	if (pad)
+	int on[ACTIONS];
+	for (int a = 0; a < ACTIONS; a++)
 	{
-		const Sint16 x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
-		const Sint16 y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
-		left |= x < -16000 || SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
-		right |= x > 16000 || SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
-		up |= y < -16000 || SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_UP);
-		down |= y > 16000 || SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-		jump |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A);
-		fire |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_B) ||
-			SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_X);
-		start1 |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START);
-		coin1 |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK);
+		on[a] = key_down(keys, options.keys[a]);
+		if (pad)
+			for (int i = 0; i < BINDINGS_MAX; i++)
+				on[a] |= settings_pad_pressed(pad, options.buttons[a][i]);
+	}
+	if (pad && options.left_stick)
+	{
+		const int dead = 32767 * options.stick_dead / 100;
+		const int x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
+		const int y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
+		on[ACTION_LEFT] |= x < -dead;
+		on[ACTION_RIGHT] |= x > dead;
+		on[ACTION_UP] |= y < -dead;
+		on[ACTION_DOWN] |= y > dead;
 	}
 	/* the board's joystick is 4-way (PORT_4WAY): one direction at a time, the vertical one first */
-	if (up || down)
-		left = right = 0;
-	if (right) p1 &= ~0x01;
-	if (left) p1 &= ~0x02;
-	if (down) p1 &= ~0x04;
-	if (up) p1 &= ~0x08;
-	if (fire) p1 &= ~0x10;
-	if (jump) p1 &= ~0x20;
-	if (start1) system &= ~0x01;
-	if (start2) system &= ~0x02;
-	if (service) system &= ~0x20;
-	if (coin1) system &= ~0x40;
-	if (coin2) system &= ~0x80;
+	if (on[ACTION_UP] || on[ACTION_DOWN])
+		on[ACTION_LEFT] = on[ACTION_RIGHT] = 0;
+	uint8_t system = 0xFF, player = 0xFF;
+	if (on[ACTION_RIGHT]) player &= ~0x01;
+	if (on[ACTION_LEFT]) player &= ~0x02;
+	if (on[ACTION_DOWN]) player &= ~0x04;
+	if (on[ACTION_UP]) player &= ~0x08;
+	if (on[ACTION_ATTACK]) player &= ~0x10;
+	if (on[ACTION_JUMP]) player &= ~0x20;
+	if (on[ACTION_START1]) system &= ~0x01;
+	if (on[ACTION_START2]) system &= ~0x02;
+	if (on[ACTION_SERVICE]) system &= ~0x20;
+	if (on[ACTION_COIN1]) system &= ~0x40;
+	if (on[ACTION_COIN2]) system &= ~0x80;
 	gng.inputs.system = system;
-	gng.inputs.p1 = p1;
+	/* one set of controls: the upright cabinet's players take turns on player 1's (the program reads 3002 only for
+	   the second player of a cocktail cabinet: the same controls there too) */
+	gng.inputs.p1 = player;
+	gng.inputs.p2 = player;
 }
 
-/* ---- the board's VBLANK: the picture, the sound, the controls, the pace ---- */
+static int read_script(const char *path)
+{
+	FILE *file = fopen(path, "r");
+	if (!file)
+		return 0;
+	char line[256], port[16];
+	long frame;
+	unsigned value;
+	int capacity = 0;
+	while (fgets(line, sizeof(line), file))
+	{
+		if (line[0] == '#' || sscanf(line, "%ld %15s %x", &frame, port, &value) != 3)
+			continue;
+		const int which = !strcmp(port, "system") ? 0 : !strcmp(port, "p1") ? 1 : !strcmp(port, "p2") ? 2 : -1;
+		if (which < 0)
+			continue;
+		if (script_count == capacity)
+		{
+			capacity = capacity ? capacity * 2 : 256;
+			script = realloc(script, (size_t)capacity * sizeof(*script));
+		}
+		script[script_count].frame = frame;
+		script[script_count].port = which;
+		script[script_count].value = (uint8_t)value;
+		script_count++;
+	}
+	fclose(file);
+	return 1;
+}
+
+static void play_script(uint64_t frame)
+{
+	while (script_next < script_count && script[script_next].frame <= (long)frame)
+	{
+		const input_change *c = &script[script_next++];
+		if (c->port == 0) gng.inputs.system = c->value;
+		else if (c->port == 1) gng.inputs.p1 = c->value;
+		else gng.inputs.p2 = c->value;
+	}
+}
+
+static void handle_event(const SDL_Event *event)
+{
+	if (event->type == SDL_QUIT)
+		quit_requested = 1;
+	else if (event->type == SDL_KEYDOWN && !event->key.repeat)
+	{
+		const SDL_Scancode code = event->key.keysym.scancode;
+		if (code == SDL_SCANCODE_RETURN && (event->key.keysym.mod & KMOD_ALT))
+			toggle_fullscreen();
+		else if (is_hotkey(code, HOTKEY_QUIT))
+			quit_requested = 1;
+		else if (is_hotkey(code, HOTKEY_RESET))
+			reset_requested = 1;
+		else if (is_hotkey(code, HOTKEY_FULLSCREEN))
+			toggle_fullscreen();
+		else if (is_hotkey(code, HOTKEY_PAUSE))
+		{
+			paused = !paused;
+			audio_out_pause(paused);
+			SDL_SetWindowTitle(window, paused ? TITLE " (paused)" : TITLE);
+		}
+	}
+	else if (event->type == SDL_CONTROLLERDEVICEADDED && !pad)
+		pad = SDL_GameControllerOpen(event->cdevice.which);
+	else if (event->type == SDL_CONTROLLERDEVICEREMOVED && pad &&
+		event->cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad)))
+	{
+		SDL_GameControllerClose(pad);
+		pad = NULL;
+	}
+}
+
+/* ---- the board's VBLANK: the sound, the picture, the controls, the pace ---- */
+
+static void on_sample(int16_t sample)
+{
+	audio_out_sample(sample);
+}
 
 static void on_latch(gng_board *board, uint8_t value)
 {
@@ -162,42 +313,19 @@ static void on_ls259(gng_board *board, unsigned output, unsigned value)
 		gng_sound_q1(2 * cpu.cycles, (int)value);
 }
 
-static void on_vblank(uint64_t frame)
+static void wait_for_next_frame(void)
 {
-	SDL_Event event;
-	gng_sound_run_until(2 * (GNG_VBLANK_CYCLE + frame * GNG_CPU_CYCLES_PER_FRAME));
-	if (audio && audio_count)
-	{
-		SDL_QueueAudio(audio, audio_buffer, (Uint32)(audio_count * sizeof(int16_t)));
-		audio_count = 0;
-	}
-	gng_video_render(pixels);
-	SDL_UpdateTexture(texture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
-	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
-
-	while (SDL_PollEvent(&event))
-	{
-		if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE))
-			m6809_request_stop();
-		else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F3)
-		{
-			reset_requested = 1;
-			m6809_request_stop();
-		}
-		else if (event.type == SDL_CONTROLLERDEVICEADDED && !pad)
-			pad = SDL_GameControllerOpen(event.cdevice.which);
-	}
-	read_controls();
-
-	/* the board's pace: wait for this frame's time (after a long pause, start again from now) */
 	const Uint64 frequency = SDL_GetPerformanceFrequency();
-	const Uint64 period = (Uint64)(frequency / FRAME_RATE);
+	/* display sync: the display's refresh paces the frames (vsync); the clock only keeps them from running away
+	   if it does not */
+	const double rate = display_sync ? FRAME_RATE * speed * 1.05 : FRAME_RATE;
+	const Uint64 period = (Uint64)(frequency / rate);
 	Uint64 now = SDL_GetPerformanceCounter();
 	if (next_frame == 0 || now > next_frame + 4 * period)
-		next_frame = now;
+		next_frame = now;    /* (after a pause or a stall: from now) */
 	next_frame += period;
+	if (display_sync && now >= next_frame - period)
+		return;
 	while ((now = SDL_GetPerformanceCounter()) < next_frame)
 	{
 		const Uint64 left = next_frame - now;
@@ -206,24 +334,58 @@ static void on_vblank(uint64_t frame)
 	}
 }
 
+static void on_vblank(uint64_t frame)
+{
+	SDL_Event event;
+	current_frame = frame;
+	if (frames_to_run >= 0 && (long)frame >= frames_to_run)
+		quit_requested = 1;
+	gng_sound_run_until(2 * (GNG_VBLANK_CYCLE + frame * GNG_CPU_CYCLES_PER_FRAME));
+	if (sound_on)
+		audio_out_frame(speed);
+	gng_video_render(pixels);
+	SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
+	show_picture();
+
+	while (SDL_PollEvent(&event))
+		handle_event(&event);
+	while (paused && !quit_requested && !reset_requested)
+	{
+		if (SDL_WaitEventTimeout(&event, 50))
+			handle_event(&event);
+		show_picture();
+		next_frame = 0;
+	}
+	if (quit_requested || reset_requested)
+	{
+		paused = 0;
+		audio_out_pause(0);
+		SDL_SetWindowTitle(window, TITLE);
+		m6809_request_stop();
+	}
+	if (script)
+		play_script(frame);
+	else
+		read_controls();
+	wait_for_next_frame();
+}
+
 static void on_fault(const char *what, uint16_t pc)
 {
 	char message[256];
 	snprintf(message, sizeof(message), "The program went where the translation has no code:\n%s at %04X (bank %u)",
 		what, pc, gng.bank);
 	fprintf(stderr, "makaimura: %s\n", message);
-	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Makaimura", message, window);
+	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, TITLE, message, window);
 }
 
 static void power_on(void)
 {
-	gng_roms roms = { 0 };
-	roms.maincpu = find_region("maincpu");
-	roms.audiocpu = find_region("audiocpu");
-	roms.chars = find_region("chars");
-	roms.tiles = find_region("tiles");
-	roms.sprites = find_region("sprites");
+	const gng_roms roms = gng_rom_set_roms(&rom_set);
 	gng_power_on(&roms);
+	gng.accuracy = GNG_ACCURACY_MAME;
+	gng.inputs.dsw1 = options.dsw1;
+	gng.inputs.dsw2 = options.dsw2;
 	gng_video_decode();
 	gng_snd.on_sample = on_sample;
 	gng_sound_power_on(roms.audiocpu, gng.accuracy == GNG_ACCURACY_MAME);
@@ -233,69 +395,144 @@ static void power_on(void)
 	m6809_power_on(&host);
 }
 
+/* ---- the start ---- */
+
+static int find_rom_set(const char *given, const char *base, char *searched, size_t size)
+{
+	char place[1200];
+	const char *places[8];
+	int count = 0;
+	static char from_base[3][1100];
+	if (given && *given)
+		places[count++] = given;
+	if (options.rom[0])
+		places[count++] = options.rom;
+	if (base)
+	{
+		snprintf(from_base[0], sizeof(from_base[0]), "%s.", base);
+		snprintf(from_base[1], sizeof(from_base[1]), "%srom", base);
+		snprintf(from_base[2], sizeof(from_base[2]), "%s../../rom", base);    /* (build/bin in the repository) */
+		places[count++] = from_base[0];
+		places[count++] = from_base[1];
+		places[count++] = from_base[2];
+	}
+	places[count++] = ".";
+	places[count++] = "rom";
+	gng_rom_set_clear(&rom_set);
+	size_t used = 0;
+	searched[0] = 0;
+	for (int i = 0; i < count && gng_rom_set_missing(&rom_set, NULL, 0); i++)
+	{
+		snprintf(place, sizeof(place), "%s", places[i]);
+		gng_rom_set_add(&rom_set, place);
+		if (used < size)
+			used += (size_t)snprintf(searched + used, size - used, "  %s\n", places[i]);
+	}
+	return gng_rom_set_missing(&rom_set, NULL, 0) == 0;
+}
+
 int main(int argc, char *argv[])
 {
-	const char *path = argc > 1 ? argv[1] : "build/makaimurg.regions";
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0)
 	{
 		fprintf(stderr, "makaimura: %s\n", SDL_GetError());
 		return 1;
 	}
-	int found = read_regions(path);
-	if (!found && argc <= 1)
+	char *base = SDL_GetBasePath();
+	const char *rom_given = NULL;
+	snprintf(settings_path, sizeof(settings_path), "%smakaimura.ini", base ? base : "");
+	for (int i = 1; i < argc; i++)
 	{
-		/* started from its own folder (build/bin): the regions are in build/ */
-		char *base = SDL_GetBasePath();
-		if (base)
+		if (!strcmp(argv[i], "--settings") && i + 1 < argc)
+			snprintf(settings_path, sizeof(settings_path), "%s", argv[++i]);
+		else if (!strcmp(argv[i], "--inputs") && i + 1 < argc)
 		{
-			static char beside[1024];
-			snprintf(beside, sizeof(beside), "%s../makaimurg.regions", base);
-			SDL_free(base);
-			region_count = 0;
-			found = read_regions(beside);
+			if (!read_script(argv[++i]))
+			{
+				fprintf(stderr, "makaimura: no input script %s\n", argv[i]);
+				return 2;
+			}
 		}
+		else if (!strcmp(argv[i], "--hidden"))
+			hidden = 1;
+		else if (!strcmp(argv[i], "--frames") && i + 1 < argc)
+			frames_to_run = atol(argv[++i]);
+		else if (!strcmp(argv[i], "--shot") && i + 2 < argc)
+		{
+			shot_frame = atol(argv[++i]);
+			shot_path = argv[++i];
+		}
+		else
+			rom_given = argv[i];
 	}
-	if (!found || !find_region("audiocpu"))
+	settings_defaults(&options);
+	bool written = false;
+	const char *problem = settings_load(&options, settings_path, &written);
+	if (problem && !written)
 	{
-		char message[512];
-		snprintf(message, sizeof(message), "No ROM regions in %s.\nMake them from your makaimurg.zip and gng.zip with:\n"
-			"python tools/makaimura_rom.py --extract %s", path, path);
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Makaimura", message, NULL);
+		char message[1200];
+		snprintf(message, sizeof(message), "%s: %s.\nThose settings keep their defaults.", settings_path, problem);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, TITLE, message, NULL);
+	}
+
+	char searched[2048];
+	if (!find_rom_set(rom_given, base, searched, sizeof(searched)))
+	{
+		char missing[512], message[3000];
+		gng_rom_set_missing(&rom_set, missing, sizeof(missing));
+		snprintf(message, sizeof(message),
+			"The game's ROM set was not found: MAME's makaimurg.zip and its parent gng.zip.\n\n"
+			"Missing: %s\n\nLooked for in:\n%s\nPut them beside the program or in its rom folder, or name the "
+			"folder or zip in makaimura.ini ([files] rom).", missing, searched);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, TITLE, message, NULL);
+		SDL_free(base);
+		SDL_Quit();
 		return 1;
 	}
-	window = SDL_CreateWindow("Makaimura", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		GNG_SCREEN_WIDTH * SCALE, GNG_SCREEN_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	SDL_RenderSetLogicalSize(renderer, GNG_SCREEN_WIDTH, GNG_SCREEN_HEIGHT);
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING,
+	SDL_free(base);
+
+	const int height = GNG_SCREEN_HEIGHT * options.scale;
+	window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		(int)lround(height * picture_aspect()), height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+		(shot_path || hidden ? SDL_WINDOW_HIDDEN : options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+	if (options.fullscreen)
+		SDL_ShowCursor(SDL_DISABLE);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE |
+		(options.vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
+	if (!renderer)
+		renderer = SDL_CreateRenderer(window, -1, 0);
+	picture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING,
 		GNG_SCREEN_WIDTH, GNG_SCREEN_HEIGHT);
 
-	SDL_AudioSpec want, have;
-	SDL_zero(want);
-	want.freq = 48000;
-	want.format = AUDIO_S16SYS;
-	want.channels = 1;
-	want.samples = 1024;
-	audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-	if (audio)
+	/* a frame a refresh: only with vsync, and a display near the board's rate */
+	SDL_DisplayMode mode;
+	if (options.sync == SYNC_DISPLAY && options.vsync &&
+		SDL_GetWindowDisplayMode(window, &mode) == 0 && mode.refresh_rate >= 57 && mode.refresh_rate <= 62)
 	{
-		audio_rate = have.freq;
-		SDL_PauseAudioDevice(audio, 0);
+		display_sync = 1;
+		speed = mode.refresh_rate / FRAME_RATE;
 	}
+
+	sound_on = options.sound && audio_out_open(options.volume, options.latency);
 	for (int i = 0; i < SDL_NumJoysticks() && !pad; i++)
 		if (SDL_IsGameController(i))
 			pad = SDL_GameControllerOpen(i);
 
+	const Uint64 started = SDL_GetPerformanceCounter();
 	do
 	{
 		reset_requested = 0;
+		script_next = 0;
 		power_on();
 		m6809_run(UINT64_MAX);
-	} while (reset_requested);
+	} while (reset_requested && !quit_requested);
+	if (frames_to_run >= 0 || shot_path)
+		printf("%llu frames in %.3f s\n", (unsigned long long)current_frame,
+			(double)(SDL_GetPerformanceCounter() - started) / SDL_GetPerformanceFrequency());
 
-	if (audio)
-		SDL_CloseAudioDevice(audio);
+	if (frames_to_run >= 0 || shot_path)
+		audio_out_report();
+	audio_out_close();
 	SDL_Quit();
 	return 0;
 }

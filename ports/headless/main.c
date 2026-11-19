@@ -9,6 +9,9 @@
  *    license:BSD-3-Clause
  *    gng_headless [options]
  *      --regions FILE    the ROM regions (python tools/makaimura_rom.py --extract FILE); default build/makaimurg.regions
+ *      --rom PLACE       the ROM set itself instead (runtime/src/rom_set.c): a .zip, or a folder with makaimurg.zip
+ *                        and gng.zip (or the files); may be given more than once
+ *      --write-regions FILE   the regions loaded, written as tools/makaimura_rom.py --extract writes them
  *      --frames N        how many frames (VBLANKs) to run (default 600)
  *      --accuracy MODE   mame or board (docs/accuracy.md)
  *      --bus-hashes FILE at each VBLANK the bus 0000-2FFF's FNV-1a: "frame hash pc" (pc 0000: the translation has
@@ -28,6 +31,7 @@
  *      --ppm FRAME FILE  that frame's picture as a PPM image
  */
 #include "gng/board.h"
+#include "gng/rom_set.h"
 #include "gng/video.h"
 #include "m6809/cpu.h"
 #include "gng/sound.h"
@@ -46,6 +50,35 @@ static const uint8_t *find_region(const char *name)
 		if (!strcmp(regions[i].name, name))
 			return regions[i].data;
 	return NULL;
+}
+
+/* The ROM set's regions (--rom), as the regions file's */
+static gng_rom_set rom_set;
+
+static void add_region(const char *name, uint8_t *data, uint32_t size)
+{
+	region *r = &regions[region_count++];
+	memset(r->name, 0, sizeof(r->name));
+	strncpy(r->name, name, 16);
+	r->data = data;
+	r->size = size;
+}
+
+static int write_regions(const char *path)
+{
+	FILE *file = fopen(path, "wb");
+	if (!file)
+		return 0;
+	fwrite("MKRG", 1, 4, file);
+	for (int i = 0; i < region_count; i++)
+	{
+		const uint8_t size[4] = { (uint8_t)regions[i].size, (uint8_t)(regions[i].size >> 8),
+			(uint8_t)(regions[i].size >> 16), (uint8_t)(regions[i].size >> 24) };
+		fwrite(regions[i].name, 1, 16, file);
+		fwrite(size, 1, 4, file);
+		fwrite(regions[i].data, 1, regions[i].size, file);
+	}
+	return fclose(file) == 0;
 }
 
 static int read_regions(const char *path)
@@ -269,6 +302,9 @@ static void on_fault(const char *what, uint16_t pc)
 int main(int argc, char **argv)
 {
 	const char *regions_path = "build/makaimurg.regions";
+	const char *write_path = NULL;
+	int rom_places = 0;
+	gng_rom_set_clear(&rom_set);
 	long frames = 600;
 	int dsw1 = GNG_DSW1_DEFAULT, dsw2 = GNG_DSW2_DEFAULT;
 	gng_accuracy_mode accuracy = GNG_ACCURACY_MAME;
@@ -277,6 +313,8 @@ int main(int argc, char **argv)
 		const char *a = argv[i];
 #define NEXT() (i + 1 < argc ? argv[++i] : (fprintf(stderr, "gng_headless: %s needs a value\n", a), exit(2), ""))
 		if (!strcmp(a, "--regions")) regions_path = NEXT();
+		else if (!strcmp(a, "--rom")) { gng_rom_set_add(&rom_set, NEXT()); rom_places++; }
+		else if (!strcmp(a, "--write-regions")) write_path = NEXT();
 		else if (!strcmp(a, "--frames")) frames = atol(NEXT());
 		else if (!strcmp(a, "--accuracy")) accuracy = !strcmp(NEXT(), "board") ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
 		else if (!strcmp(a, "--bus-hashes")) bus_hashes = fopen(NEXT(), "w");
@@ -294,10 +332,30 @@ int main(int argc, char **argv)
 		else { fprintf(stderr, "gng_headless: unknown option %s\n", a); return 2; }
 #undef NEXT
 	}
-	if (!read_regions(regions_path) || !find_region("maincpu"))
+	if (rom_places)
+	{
+		char missing[512];
+		if (gng_rom_set_missing(&rom_set, missing, sizeof(missing)))
+		{
+			fprintf(stderr, "gng_headless: missing from the ROM set: %s\n", missing);
+			return 2;
+		}
+		add_region("maincpu", rom_set.maincpu, sizeof(rom_set.maincpu));
+		add_region("audiocpu", rom_set.audiocpu, sizeof(rom_set.audiocpu));
+		add_region("chars", rom_set.chars, sizeof(rom_set.chars));
+		add_region("tiles", rom_set.tiles, sizeof(rom_set.tiles));
+		add_region("sprites", rom_set.sprites, sizeof(rom_set.sprites));
+		add_region("proms", rom_set.proms, sizeof(rom_set.proms));
+	}
+	else if (!read_regions(regions_path) || !find_region("maincpu"))
 	{
 		fprintf(stderr, "gng_headless: no ROM regions in %s (python tools/makaimura_rom.py --extract %s)\n",
 			regions_path, regions_path);
+		return 2;
+	}
+	if (write_path && !write_regions(write_path))
+	{
+		fprintf(stderr, "gng_headless: could not write %s\n", write_path);
 		return 2;
 	}
 	gng_roms roms = { 0 };
