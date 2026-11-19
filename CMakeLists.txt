@@ -98,7 +98,8 @@ endif()
 file(GLOB MAKAIMURA_PROGRAM CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/program/*.c)
 file(GLOB MAKAIMURA_SOUND_PROGRAM CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/sound/*.c)
 if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
-	add_library(gng_program STATIC runtime/src/m6809.c runtime/src/z80.c runtime/src/sound.c ${MAKAIMURA_PROGRAM}
+	add_library(gng_program STATIC runtime/src/m6809.c runtime/src/z80.c runtime/src/sound.c runtime/src/ym2203.c
+		${MAKAIMURA_PROGRAM}
 		${MAKAIMURA_SOUND_PROGRAM})
 	target_include_directories(gng_program PUBLIC runtime/include ${CMAKE_SOURCE_DIR}/build/generated/program
 		${CMAKE_SOURCE_DIR}/build/generated/sound)
@@ -121,4 +122,13 @@ target_include_directories(oracle_z80_step PRIVATE ${CMAKE_SOURCE_DIR}/tools/cor
 target_compile_features(oracle_z80_step PRIVATE cxx_std_20)
 if(MSVC)
 	target_compile_options(oracle_z80_step PRIVATE /wd4244 /wd4146 /wd4102 /wd4267 /wd4305 /bigobj)
+endif()
+
+# The game's YM2203 (runtime/src/ym2203.c) against ymfm's, sample for sample
+add_executable(ymcheck tools/reference/sound/ymcheck.cpp runtime/src/ym2203.c
+	${MAKAIMURA_YMFM}/ymfm_opn.cpp ${MAKAIMURA_YMFM}/ymfm_ssg.cpp ${MAKAIMURA_YMFM}/ymfm_adpcm.cpp)
+target_include_directories(ymcheck PRIVATE runtime/include ${MAKAIMURA_YMFM})
+target_compile_features(ymcheck PRIVATE cxx_std_20)
+if(MSVC)
+	target_compile_options(ymcheck PRIVATE /wd4244 /wd4267 /wd4305)
 endif()

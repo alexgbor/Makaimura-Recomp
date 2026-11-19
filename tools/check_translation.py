@@ -51,7 +51,7 @@ def run(name, frames, inputs, dsw, pictures):
         # the sound board: every YM2203 write (time, chip, port, value) and the Z80's RAM at each one (the frames'
         # ends are not compared: MAME's core may stop inside an instruction there, the translation between two)
         command += ["--sound", prefix + "_sound.txt", "--ym-writes", prefix + "_ym.txt",
-                    "--sound-marks", prefix + "_marks.txt"]
+                    "--sound-marks", prefix + "_marks.txt", "--wav", prefix + ".wav"]
         if inputs:
             command += ["--inputs", inputs]
         for option, value in zip(("--dsw1", "--dsw2"), dsw):
@@ -88,6 +88,13 @@ def run(name, frames, inputs, dsw, pictures):
         ok = False
         index, x, y = difference
         print(f"  the Z80's RAM at the YM2203 writes: the first different, write {index}: gref {x}, translation {y}")
+    # the sound itself: the reference's mix (ymfm's YM2203s) and the game's (runtime/src/ym2203.c), byte for byte
+    import filecmp
+    if not filecmp.cmp(reference + ".wav", translation + ".wav", shallow=False):
+        ok = False
+        print("  the sound (WAV): different")
+    for path in (reference + ".wav", translation + ".wav"):
+        os.remove(path)
     if pictures:
         difference = first_difference(lines(reference + "_pictures.txt"), lines(translation + "_pictures.txt"))
         if difference:
@@ -95,7 +102,7 @@ def run(name, frames, inputs, dsw, pictures):
             index, x, y = difference
             print(f"  pictures: the first different, frame {index}: gref {x}, translation {y}")
     print(f"{name}: {len(bus_a)} frames, {len(irq_a)} IRQs, {len(ym_a)} YM2203 writes" +
-          (", the pictures" if pictures else "") +
+          ", the sound" + (", the pictures" if pictures else "") +
           (": the same as gref's" if ok else ": DIFFERENT"))
     return ok
 

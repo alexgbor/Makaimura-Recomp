@@ -13,11 +13,15 @@
  */
 #include "gng/sound.h"
 
+#include "gng/ym2203.h"
 #include "z80/cpu.h"
+
+#include <math.h>
 
 #include <string.h>
 
 #define IRQ_PERIOD 12500u
+#define SAMPLE_PERIOD 24u     /* Z80 cycles a YM2203 sample takes: 12 of its 1.5 MHz clocks */
 #define LATCH_HISTORY 16u
 
 gng_sound gng_snd;
@@ -28,6 +32,30 @@ static int mame;
 static uint64_t latch_time[LATCH_HISTORY];
 static uint8_t latch_value[LATCH_HISTORY];
 static unsigned latch_count;
+static ym2203 chips[2];
+
+/* the chips' samples that start before 'time', mixed as MAME routes them (gng.cpp: each chip's SSG A, B, C at
+   0.40, its FM at 0.20, one speaker: tools/reference/sound/gsound.cpp's mix) */
+static void make_samples(uint64_t time)
+{
+	while (gng_snd.samples * SAMPLE_PERIOD < time)
+	{
+		int32_t a[4], b[4];
+		ym2203_generate(&chips[0], a);
+		ym2203_generate(&chips[1], b);
+		gng_snd.samples++;
+		if (gng_snd.on_sample)
+		{
+			/* (the same sums in the same order as gsound's, and lround: the same bits) */
+			double mix = 0;
+			mix += 0.20 * a[0] + 0.40 * (a[1] + a[2] + a[3]);
+			mix += 0.20 * b[0] + 0.40 * (b[1] + b[2] + b[3]);
+			const long rounded = lround(mix);
+			const int value = rounded < -32768 ? -32768 : rounded > 32767 ? 32767 : (int)rounded;
+			gng_snd.on_sample((int16_t)value);
+		}
+	}
+}
 
 static uint8_t latch_at(uint64_t time)
 {
@@ -59,6 +87,8 @@ void z80_write8(uint32_t address, uint8_t value)
 		gng_snd.ram[address - 0xC000u] = value;
 	else if (address >= 0xE000u && address <= 0xE003u)
 	{
+		make_samples(z80.cycles);
+		ym2203_write(&chips[(address >> 1) & 1], address & 1, value);
 		gng_snd.ym_writes++;
 		if (gng_snd.on_ym_write)
 			gng_snd.on_ym_write(z80.cycles, (int)((address >> 1) & 1), (int)(address & 1), value);
@@ -75,8 +105,15 @@ static uint64_t irq_timer(uint64_t time)
 void gng_sound_power_on(const uint8_t *rom, int mame_mode)
 {
 	void (*hook)(uint64_t, int, int, uint8_t) = gng_snd.on_ym_write;
+	void (*sample_hook)(int16_t) = gng_snd.on_sample;
 	memset(&gng_snd, 0, sizeof(gng_snd));
 	gng_snd.on_ym_write = hook;
+	gng_snd.on_sample = sample_hook;
+	for (int i = 0; i < 2; i++)
+	{
+		ym2203_init(&chips[i]);
+		ym2203_reset(&chips[i]);
+	}
 	gng_snd.in_reset = 1;
 	program = rom;
 	mame = mame_mode;
@@ -87,13 +124,16 @@ void gng_sound_power_on(const uint8_t *rom, int mame_mode)
 
 int gng_sound_run_until(uint64_t time)
 {
+	int result = 0;
 	if (gng_snd.in_reset)
 	{
 		if (z80.cycles < time)
 			z80.cycles = time;
-		return 0;
 	}
-	return z80.cycles < time ? z80_run(time) : 0;
+	else if (z80.cycles < time)
+		result = z80_run(time);
+	make_samples(time);
+	return result;
 }
 
 void gng_sound_latch(uint64_t time, uint8_t value)
@@ -112,7 +152,10 @@ void gng_sound_q1(uint64_t time, int value)
 	gng_sound_run_until(time);
 	if (!value)
 	{
-		gng_snd.in_reset = 1;    /* (a held IRQ stays held) */
+		/* the YM2203s reset (ym_reset_w), the Z80 held (a held IRQ stays held) */
+		for (int i = 0; i < 2; i++)
+			ym2203_reset(&chips[i]);
+		gng_snd.in_reset = 1;
 		return;
 	}
 	if (gng_snd.in_reset)

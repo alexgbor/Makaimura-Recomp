@@ -22,6 +22,7 @@
  *      --ym-writes FILE  with --sound: every YM2203 write, "time chip offset value" (Z80 cycles), as gref's
  *      --sound-marks FILE  with --sound: the Z80's RAM at each YM2203 write, "write hash 0000", as gref's (the PC
  *                        not kept: the translation has none inside an instruction)
+ *      --wav FILE        with --sound: the mix (MAME's routes) at the chips' 125 kHz, as gref --wav writes it
  *      --pictures N FILE every Nth frame's picture, sampled as gref's (frame N's indexes in frame N+1's colours)
  *      --picture-hashes FILE   each frame's picture sampled as gref's, its FNV-1a: "frame hash"
  *      --ppm FRAME FILE  that frame's picture as a PPM image
@@ -130,7 +131,41 @@ static uint32_t bus_hash(void)
 }
 
 static FILE *bus_hashes, *irq_hashes, *pictures, *picture_hashes;
-static FILE *sound_out, *ym_out, *marks_out;
+static FILE *sound_out, *ym_out, *marks_out, *wav_out;
+static uint32_t wav_samples;
+
+static void on_sample(int16_t sample)
+{
+	const uint8_t bytes[2] = { (uint8_t)sample, (uint8_t)((uint16_t)sample >> 8) };
+	fwrite(bytes, 1, 2, wav_out);
+	wav_samples++;
+}
+
+static void put32(uint8_t *p, uint32_t v)
+{
+	p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
+}
+
+/* gsound's WAV: 16-bit mono at 125 kHz */
+static void close_wav(void)
+{
+	uint8_t header[44];
+	memcpy(header, "RIFF", 4);
+	put32(header + 4, 36 + wav_samples * 2);
+	memcpy(header + 8, "WAVEfmt ", 8);
+	put32(header + 16, 16);
+	header[20] = 1; header[21] = 0;
+	header[22] = 1; header[23] = 0;
+	put32(header + 24, GNG_SOUND_RATE);
+	put32(header + 28, GNG_SOUND_RATE * 2);
+	header[32] = 2; header[33] = 0;
+	header[34] = 16; header[35] = 0;
+	memcpy(header + 36, "data", 4);
+	put32(header + 40, wav_samples * 2);
+	fseek(wav_out, 0, SEEK_SET);
+	fwrite(header, 1, sizeof(header), wav_out);
+	fclose(wav_out);
+}
 static int sound;
 
 static void on_latch(gng_board *board, uint8_t value)
@@ -249,6 +284,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--sound")) { sound = 1; sound_out = fopen(NEXT(), "w"); }
 		else if (!strcmp(a, "--ym-writes")) ym_out = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--sound-marks")) marks_out = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--wav")) wav_out = fopen(NEXT(), "wb");
 		else if (!strcmp(a, "--inputs")) read_inputs(NEXT());
 		else if (!strcmp(a, "--dsw1")) dsw1 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
 		else if (!strcmp(a, "--dsw2")) dsw2 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
@@ -283,6 +319,12 @@ int main(int argc, char **argv)
 			return 2;
 		}
 		gng_snd.on_ym_write = on_ym;
+		if (wav_out)
+		{
+			static const uint8_t blank[44] = { 0 };
+			fwrite(blank, 1, sizeof(blank), wav_out);
+			gng_snd.on_sample = on_sample;
+		}
 		gng_sound_power_on(roms.audiocpu, accuracy == GNG_ACCURACY_MAME);
 		gng.on_sound_latch = on_latch;
 		gng.on_ls259 = on_ls259;
@@ -298,5 +340,6 @@ int main(int argc, char **argv)
 	if (sound_out) fclose(sound_out);
 	if (ym_out) fclose(ym_out);
 	if (marks_out) fclose(marks_out);
+	if (wav_out) close_wav();
 	return result ? 1 : 0;
 }

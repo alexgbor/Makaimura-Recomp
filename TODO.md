@@ -131,8 +131,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       (`runtime/src/sound.c`: the latch by time, the 240 Hz IRQ, Q1's reset, MAME's start a cycle late):
       walk_right's 1,201,454 YM2203 writes the same as the reference's (so as MAME's) to the cycle, and the Z80's
       RAM at each of them (`tools/check_translation.py`)
-- [ ] The game's own YM2203 (FM and SSG) in C, sample for sample against ymfm's (ymfm stays in the tools: BSD-3,
-      but the game's chips are its own, as DonPachi's and TMNT's are). The plan:
+- [x] The game's own YM2203 (`runtime/src/ym2203.c`, after ymfm) sample for sample the same as ymfm's
+      (`build/bin/ymcheck`, the reference's write logs: walk_right's 14.7 million samples a chip, long_play's 83.2
+      million, every output); the program selects prescale 3 (addresses 2D then 2E): the FM every 3 samples, the
+      SSG resampled 2:3; on the game's sound board (`runtime/src/sound.c`): its mix the same as the reference's
+      WAV byte for byte (`tools/check_translation.py`). The plan it followed:
       - `runtime/src/ym2203.c` after ymfm (credited): what ym2203 uses of it, at MAME's settings: medium fidelity,
         prescale 6 (the FM clocked every 6 output samples, its output through the DAC's 10.3 float round trip),
         the SSG resampled 4:3 (ssg_resampler); the FM engine for OPN (opn_registers: 3 channels, no LFO), its
@@ -141,7 +144,8 @@ Roughly in order; each milestone is checked against the reference before it is t
         the same samples (sample n from Z80 time 24 n, a write before the samples that start after it), every
         output (FM, SSG A, B, C) compared; then the game's mix (MAME's routes) and its samples by frame
       - the headless runner and the check: the samples' hashes against gref's (`--wav` already writes the mix)
-- [ ] The game's sound against the reference's: the YM2203 writes to the cycle, the samples; the mix out
+- [x] The game's sound against the reference's: the YM2203 writes to the cycle, the samples, the mix
+- [ ] The mix out to the host: resampled from 125 kHz to the device's rate (the port, M7)
 
 ## M6. Readable C
 
