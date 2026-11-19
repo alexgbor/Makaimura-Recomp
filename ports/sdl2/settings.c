@@ -22,7 +22,7 @@ const char *const settings_action_names[ACTIONS] = {
 static const char *const action_help[ACTIONS] = {
 	NULL, NULL, NULL, NULL, "button 1: the weapon thrown", "button 2", "one player", "two players",
 	"the coin slots", NULL, "the service switch" };
-static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit", "menu" };
+static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit", "menu", "record" };
 const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
 const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
 #define aspect_names settings_aspect_names
@@ -162,6 +162,7 @@ void settings_defaults(settings *s)
 	keys(s->hot_keys[HOTKEY_FULLSCREEN], SDL_SCANCODE_F11, 0);
 	keys(s->hot_keys[HOTKEY_QUIT], 0, 0);
 	keys(s->hot_keys[HOTKEY_MENU], SDL_SCANCODE_ESCAPE, SDL_SCANCODE_F1);
+	keys(s->hot_keys[HOTKEY_RECORD], SDL_SCANCODE_F12, 0);
 	buttons(s->buttons[ACTION_UP], SDL_CONTROLLER_BUTTON_DPAD_UP, -1);
 	buttons(s->buttons[ACTION_DOWN], SDL_CONTROLLER_BUTTON_DPAD_DOWN, -1);
 	buttons(s->buttons[ACTION_LEFT], SDL_CONTROLLER_BUTTON_DPAD_LEFT, -1);

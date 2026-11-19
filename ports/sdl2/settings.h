@@ -37,6 +37,7 @@ enum
 	HOTKEY_FULLSCREEN,
 	HOTKEY_QUIT,
 	HOTKEY_MENU,           /* the menu (menu.h): the game's options, the picture, the sound */
+	HOTKEY_RECORD,         /* a recording (recorder.h) started or stopped */
 	HOTKEYS
 };
 

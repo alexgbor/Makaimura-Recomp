@@ -202,6 +202,14 @@ Roughly in order; each milestone is checked against the reference before it is t
       volume, reset, quit; written with the game's own font (its text layer's characters are ASCII), kept in
       makaimura.ini as it closes
 - [x] The menu's accuracy choice: "MAME 1:1" or "board" (both playable; from the board's start, F3)
+- [x] Recordings (`ports/sdl2/recorder.c`; F12, `makaimura --record FILE`): the board's frames and its sound into
+      an uncompressed AVI (OpenDML: no 1 GB limit; the 4:3 in its vprp), in the board's time: its pictures the same
+      as `gng_headless --ppm`'s at the same frames, its sound the same sample for sample as gng_headless --wav's
+      through the resampler at 48 kHz (`resample_check`); `--record-inputs FILE` writes the controls as an input
+      script (the DIPs too) that `--inputs` plays again: the same AVI byte for byte; `--accuracy` for the mode;
+      `tools/side_by_side.py` puts two recordings side by side (ffmpeg)
+- [ ] A comparison that stays the same game in both modes: the controls replayed by frame part ways where board mode
+      slows down or boots later (5 frames); replayed by the program's reads of the controls instead, perhaps
 - [ ] The keys and buttons changed from the menu (now in makaimura.ini only)
 - [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept

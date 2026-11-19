@@ -69,10 +69,26 @@ game starts:
 | Menu (options, picture, sound, reset, quit) | Esc or F1 | right stick (pressed) or guide |
 | Pause | P or Pause | |
 | Full screen | F11 or Alt+Enter | |
+| Record (start, stop) | F12 | |
 
 The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
 upright cabinet (the default) the two players take turns on the same controls. Every control can be changed in
 `makaimura.ini`.
+
+## Recording
+
+F12 starts a recording beside `makaimura.ini` (`makaimura-DATE-TIME-MODE.avi`) and stops it; the window's title says
+while it records. It is the board's own picture (256 x 224, shown 4:3) and sound (48 kHz), frame for frame in the
+board's time, uncompressed (about 10 MB a second: ffmpeg makes it small). From the command line:
+
+```
+makaimura --accuracy mame --record mame.avi --record-inputs game.txt     # play; the controls kept too
+makaimura --accuracy board --inputs game.txt --record board.avi          # the same controls, the other mode
+python tools/side_by_side.py mame.avi board.avi comparison.mp4           # side by side (ffmpeg)
+```
+
+The same controls at the same frames give the same game in the same mode (the same file, byte for byte); in the
+other mode the game can part ways where board mode slows down.
 
 ## License
 

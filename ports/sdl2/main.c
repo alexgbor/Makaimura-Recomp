@@ -16,6 +16,11 @@
  *                       "FRAME PORT VALUE" (system, p1, p2; hex, active low) from that frame's VBLANK on
  *      --shot N FILE    (for checks) the window hidden; frame N's window, as the renderer drew it, into FILE (BMP),
  *                       then quit
+ *      --accuracy MODE  mame or board, instead of the settings' (not saved)
+ *      --record FILE    the game recorded from the power on into FILE (an AVI: recorder.h); [keyboard] record (F12)
+ *                       starts and stops one at any time, beside the settings
+ *      --record-inputs FILE  the controls written as an input script from the power on (the DIP switches too):
+ *                       --inputs plays the same game again, in the other accuracy mode for one
  *
  *    The board's own pace: a frame every 384 x 262 pixels of its 6 MHz clock (59.637 Hz), kept by the clock of the
  *    host (or a frame a refresh of the display: [video] sync); the picture shown at each VBLANK (the board's picture,
@@ -31,12 +36,14 @@
 #include "gng/video.h"
 #include "m6809/cpu.h"
 #include "menu.h"
+#include "recorder.h"
 #include "settings.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define FRAME_RATE (6000000.0 / (384.0 * 262.0))
 #define TITLE "Makaimura"
@@ -62,6 +69,14 @@ static long shot_frame = -1;
 static const char *shot_path;
 static int hidden;
 static long menu_frame = -1;
+static const char *record_path;
+static int accuracy_given = -1;
+static char recording_name[1100];
+
+/* the controls written as an input script (--record-inputs) */
+static FILE *inputs_out;
+static uint8_t logged[3];
+static int dsw_given[2] = { -1, -1 };    /* an input script's DIP switches ("0 dsw1 DF") */
 
 /* an input script (--inputs) */
 typedef struct input_change { long frame; int port; uint8_t value; } input_change;
@@ -163,6 +178,83 @@ static void toggle_fullscreen(void)
 	SDL_ShowCursor(options.fullscreen ? SDL_DISABLE : SDL_ENABLE);
 }
 
+static void update_title(void)
+{
+	char title[1300];
+	if (recorder_on())
+		snprintf(title, sizeof(title), "%s%s (recording: %s)", TITLE, paused ? " (paused)" : "", recording_name);
+	else
+		snprintf(title, sizeof(title), "%s%s", TITLE, paused ? " (paused)" : "");
+	SDL_SetWindowTitle(window, title);
+}
+
+/* ---- the recordings ---- */
+
+static const char *file_name(const char *path)
+{
+	const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
+	const char *cut = back > slash ? back : slash;
+	return cut ? cut + 1 : path;
+}
+
+static void start_recording(const char *path)
+{
+	if (recorder_open(path))
+	{
+		snprintf(recording_name, sizeof(recording_name), "%s", file_name(path));
+		fprintf(stderr, "makaimura: recording into %s\n", path);
+	}
+	else
+		fprintf(stderr, "makaimura: %s could not be made\n", path);
+	update_title();
+}
+
+static void stop_recording(void)
+{
+	if (!recorder_on())
+		return;
+	const uint32_t frames = recorder_frames();
+	recorder_close();
+	fprintf(stderr, "makaimura: %s recorded: %u frames (%.1f s)\n", recording_name, frames, frames / FRAME_RATE);
+	update_title();
+}
+
+/* F12: a recording beside the settings, named by the time and the accuracy mode */
+static void toggle_recording(void)
+{
+	if (recorder_on())
+	{
+		stop_recording();
+		return;
+	}
+	char path[1300];
+	const time_t now = time(NULL);
+	char stamp[32];
+	strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", localtime(&now));
+	snprintf(path, sizeof(path), "%.*smakaimura-%s-%s.avi", (int)(file_name(settings_path) - settings_path),
+		settings_path, stamp, gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame");
+	start_recording(path);
+}
+
+static void log_input(uint64_t frame, const char *port, unsigned value)
+{
+	if (inputs_out)
+		fprintf(inputs_out, "%llu %s %02x\n", (unsigned long long)frame, port, value);
+}
+
+/* the controls as the board reads them from this VBLANK on: their changes written */
+static void log_controls(uint64_t frame)
+{
+	const uint8_t now[3] = { gng.inputs.system, gng.inputs.p1, gng.inputs.p2 };
+	static const char *const names[3] = { "system", "p1", "p2" };
+	for (int i = 0; i < 3; i++)
+		if (now[i] != logged[i])
+		{
+			log_input(frame, names[i], now[i]);
+			logged[i] = now[i];
+		}
+}
+
 /* ---- the controls ---- */
 
 static int key_down(const Uint8 *keys, const SDL_Scancode *slot)
@@ -239,6 +331,11 @@ static int read_script(const char *path)
 			continue;
 		/* system, p1, p2; or mADDR: the work RAM's byte at ADDR (a test's cheat) */
 		int which = !strcmp(port, "system") ? 0 : !strcmp(port, "p1") ? 1 : !strcmp(port, "p2") ? 2 : -1;
+		if (!strcmp(port, "dsw1") || !strcmp(port, "dsw2"))
+		{
+			dsw_given[port[3] - '1'] = (int)(value & 0xFF);    /* (set at the power on) */
+			continue;
+		}
 		if (port[0] == 'm' && strtoul(port + 1, NULL, 16) < 0x1E00u)
 			which = 3 + (int)strtoul(port + 1, NULL, 16);
 		if (which < 0)
@@ -265,7 +362,13 @@ static void play_script(uint64_t frame)
 		if (c->port == 0) gng.inputs.system = c->value;
 		else if (c->port == 1) gng.inputs.p1 = c->value;
 		else if (c->port == 2) gng.inputs.p2 = c->value;
-		else gng.ram[c->port - 3] = c->value;
+		else
+		{
+			char name[8];
+			gng.ram[c->port - 3] = c->value;
+			snprintf(name, sizeof(name), "m%04x", c->port - 3);
+			log_input(frame, name, c->value);
+		}
 	}
 }
 
@@ -337,11 +440,13 @@ static void handle_event(const SDL_Event *event)
 			reset_requested = 1;
 		else if (is_hotkey(code, HOTKEY_FULLSCREEN))
 			toggle_fullscreen();
+		else if (is_hotkey(code, HOTKEY_RECORD))
+			toggle_recording();
 		else if (is_hotkey(code, HOTKEY_PAUSE))
 		{
 			paused = !paused;
 			audio_out_pause(paused);
-			SDL_SetWindowTitle(window, paused ? TITLE " (paused)" : TITLE);
+			update_title();
 		}
 	}
 	else if (event->type == SDL_CONTROLLERDEVICEADDED && !pad)
@@ -359,6 +464,7 @@ static void handle_event(const SDL_Event *event)
 static void on_sample(int16_t sample)
 {
 	audio_out_sample(sample);
+	recorder_sample(sample);
 }
 
 static void on_latch(gng_board *board, uint8_t value)
@@ -405,6 +511,7 @@ static void on_vblank(uint64_t frame)
 	if (sound_on)
 		audio_out_frame(speed);
 	gng_video_render(pixels);
+	recorder_frame(pixels);
 	if ((long)frame == menu_frame)
 	{
 		menu_open();
@@ -438,13 +545,14 @@ static void on_vblank(uint64_t frame)
 		paused = 0;
 		menu_shown = 0;
 		audio_out_pause(0);
-		SDL_SetWindowTitle(window, TITLE);
+		update_title();
 		m6809_request_stop();
 	}
 	if (script)
 		play_script(frame);
 	else
 		read_controls();
+	log_controls(frame);
 	wait_for_next_frame();
 }
 
@@ -461,9 +569,14 @@ static void power_on(void)
 {
 	const gng_roms roms = gng_rom_set_roms(&rom_set);
 	gng_power_on(&roms);
-	gng.accuracy = options.accuracy ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
-	gng.inputs.dsw1 = options.dsw1;
-	gng.inputs.dsw2 = options.dsw2;
+	gng.accuracy = (accuracy_given >= 0 ? accuracy_given : options.accuracy) ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
+	gng.inputs.dsw1 = dsw_given[0] >= 0 ? (uint8_t)dsw_given[0] : options.dsw1;
+	gng.inputs.dsw2 = dsw_given[1] >= 0 ? (uint8_t)dsw_given[1] : options.dsw2;
+	/* the controls at the power on: none pressed (an input script's changes are from there) */
+	logged[0] = logged[1] = logged[2] = 0xFF;
+	if (inputs_out)
+		fprintf(inputs_out, "# makaimura --record-inputs (%s mode)\n0 dsw1 %02x\n0 dsw2 %02x\n",
+			gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "MAME", gng.inputs.dsw1, gng.inputs.dsw2);
 	gng_video_decode();
 	gng_snd.on_sample = on_sample;
 	gng_sound_power_on(roms.audiocpu, gng.accuracy == GNG_ACCURACY_MAME);
@@ -535,6 +648,26 @@ int main(int argc, char *argv[])
 			menu_frame = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--hidden"))
 			hidden = 1;
+		else if (!strcmp(argv[i], "--record") && i + 1 < argc)
+			record_path = argv[++i];
+		else if (!strcmp(argv[i], "--record-inputs") && i + 1 < argc)
+		{
+			if (!(inputs_out = fopen(argv[++i], "w")))
+			{
+				fprintf(stderr, "makaimura: %s could not be made\n", argv[i]);
+				return 2;
+			}
+		}
+		else if (!strcmp(argv[i], "--accuracy") && i + 1 < argc)
+		{
+			++i;
+			accuracy_given = !strcmp(argv[i], "board") ? 1 : !strcmp(argv[i], "mame") ? 0 : -1;
+			if (accuracy_given < 0)
+			{
+				fprintf(stderr, "makaimura: --accuracy mame or board\n");
+				return 2;
+			}
+		}
 		else if (!strcmp(argv[i], "--frames") && i + 1 < argc)
 			frames_to_run = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--shot") && i + 2 < argc)
@@ -598,6 +731,8 @@ int main(int argc, char *argv[])
 		if (SDL_IsGameController(i))
 			pad = SDL_GameControllerOpen(i);
 
+	if (record_path)
+		start_recording(record_path);
 	const Uint64 started = SDL_GetPerformanceCounter();
 	do
 	{
@@ -612,6 +747,9 @@ int main(int argc, char *argv[])
 
 	if (frames_to_run >= 0 || shot_path)
 		audio_out_report();
+	stop_recording();
+	if (inputs_out)
+		fclose(inputs_out);
 	audio_out_close();
 	SDL_Quit();
 	return 0;
