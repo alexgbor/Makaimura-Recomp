@@ -31,6 +31,22 @@ python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt 
 
 `tools/mame_trace.py` needs MAME 0.289 (`MAME` environment variable, or `D:/repositories/mame0289/mame.exe`).
 
+## Controls
+
+| | Keyboard | Gamepad |
+|---|---|---|
+| Move | arrows | left stick or D-pad |
+| Attack (throw) | Z or left Ctrl | B or X |
+| Jump | X or left Alt | A |
+| Coin | 5 (6: the second coin slot) | Back |
+| Start | 1 (one player), 2 (two players) | Start (one player) |
+| Service switch | 9 | |
+| Reset the board | F3 | |
+| Quit | Esc | |
+
+The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
+upright cabinet (the default) the two players take turns on the same controls.
+
 ## License
 
 BSD 3-Clause (`LICENSE`). The game is not included and not covered by it.
