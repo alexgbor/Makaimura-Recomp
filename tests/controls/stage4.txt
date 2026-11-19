@@ -1,4 +1,4 @@
-# stage 4: coin, start, <$72 = 4, the lives kept (a test's cheat; tests/controls/make_stages.py)
+# stage 4: coin, start, the RAM written, the lives kept (a test's cheat; tests/controls/make_stages.py)
 1300 system bf
 1306 system ff
 1400 system fe

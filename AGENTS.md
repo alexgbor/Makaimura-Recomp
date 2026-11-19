@@ -65,14 +65,15 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks |
 | `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--settings`, `--accuracy`, `--record`, `--record-inputs` |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
-| `tests/` | `controls/*.txt` input scripts (walk_right, long_play), `resample_check.c` |
+| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, loop2_stage0/6: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ |
 
 ## Working
 
 - Build and check: `python tools/m6809/translate.py`, `python tools/z80cpu/translate.py`, `cmake -S . -B build/msvc
-  && cmake --build build/msvc --config Release`, then `python tools/check_translation.py` (the three scripts, about
-  5 minutes) after any change to the runtime or the translators.
+  && cmake --build build/msvc --config Release`, then `python tools/check_translation.py` (the attract mode and every
+  script, in one mode: `--accuracy mame` or `board`; about 15 minutes each) after any change to the runtime or the
+  translators.
 - Check the window without disturbing whoever uses the computer: `makaimura --hidden` or `--shot N FILE`, sound
   through `SDL_AUDIODRIVER=disk` (or `volume = 0` in a `--settings` file); never show windows or capture the
   desktop.

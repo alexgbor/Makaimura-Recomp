@@ -47,19 +47,22 @@ Roughly in order; each milestone is checked against the reference before it is t
       symbols.txt wins over the analysis's guess
 - [x] AA36 `JSR [B,U]`: U = AA41 (its 4 entries, AB83 among them: found as the stage scripts reached stage 4, the
       translation's safety net stopping at it); 6F76: the stage's table 6F90 (stage 6) added
-- [ ] Still unresolved: 9AF4, 9F2D's described in symbols.txt (the analysis' 4 unresolved jumps)
+- [x] The analysis' 4 jumps through registers (6F76, 9AF4, AA36 twice) have their tables in symbols.txt; every
+      instruction the reference ran in every script is found statically (below)
 - [~] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing),
       long_play (`make_long_play.py`: 40000 frames, four credits, a two-player game, pseudo-random moves, the
-      service switch); every instruction they run is found statically (6945 addresses); to do: the whole game,
-      both loops, every weapon and enemy (scripts that get further: the stages need a player who survives)
+      service switch), stage1-6 and loop2_stage0, loop2_stage6 (`make_stages.py`: the stage, the loop <$7F, the
+      weapon <$73 and the lives written: a test's cheat); every instruction they and the attract mode run is found
+      statically (10830 addresses, `gref --executed`, `disassemble.py --executed`); to do: the ending (Astaroth
+      beaten in the second loop), every weapon and enemy
 - [x] The object dispatch at 9AF4: U from the table of tables at 9AFE by the object's type (0-5), JSR [A,U] by its
       state (0-3): its six tables in symbols.txt (long_play met the types walk_right had not)
 - [x] The two-level table at 6F6B: by <$72, the stage (6F78: 7 tables' addresses, stages 0-5 6F8A, stage 6 6F90),
       then <$0B; each table runs to the next or to code
-- [ ] A safety net for the translation: an address the static analysis missed is reported (crash log), never
-      run wrongly
+- [x] A safety net for the translation: an address the static analysis missed is reported (m6809_fault: the
+      message box in the window, stderr in gng_headless), never run wrongly (it found AB83)
 - [ ] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check)
-- [ ] Every jump through a register resolved, checked against the reference's executed addresses
+- [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
 - [ ] Coverage of the program ROM: code, data, fill (all banks)
 
 ## M2. The reference (`tools/reference`, "gref")
@@ -136,7 +139,9 @@ Roughly in order; each milestone is checked against the reference before it is t
       program switches tasks in its IRQ (the round robin's 6619: STS, another stack), so a handler need not come
       back where it was taken; the nested handler the runtime had faulted ("nested too deep") in stage 2 in board
       mode, where gref (MAME's core) played on
-- [ ] The whole game, both loops, frame by frame against the reference (input scripts that reach every stage)
+- [x] Every stage, both loops, frame by frame against the reference, in both modes (stage1-6, loop2_stage0,
+      loop2_stage6: bus, IRQs, pictures, sound the same as gref's)
+- [ ] The ending (Astaroth beaten in the second loop: <$7F = 2, 7E18) against the reference
 
 ## M5. The sound program (Z80)
 
@@ -208,8 +213,6 @@ Roughly in order; each milestone is checked against the reference before it is t
       through the resampler at 48 kHz (`resample_check`); `--record-inputs FILE` writes the controls as an input
       script (the DIPs too) that `--inputs` plays again: the same AVI byte for byte; `--accuracy` for the mode;
       `tools/side_by_side.py` puts two recordings side by side (ffmpeg)
-- [ ] A comparison that stays the same game in both modes: the controls replayed by frame part ways where board mode
-      slows down or boots later (5 frames); replayed by the program's reads of the controls instead, perhaps
 - [ ] The keys and buttons changed from the menu (now in makaimura.ini only)
 - [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
