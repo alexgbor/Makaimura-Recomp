@@ -24,6 +24,8 @@
  *      --registers-at ADDR [N]   the registers each time the instruction at ADDR (hex) starts, N times (10)
  *      --inputs FILE     an input script: lines "FRAME PORT VALUE" (PORT system, p1, p2, dsw1, dsw2; VALUE hex,
  *                        active low as the board reads it) applied at that frame's VBLANK, for the frames after
+ *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on (as the board reads them, active low; the
+ *                        defaults DF and FB: gng/board.h)
  *      --pictures N FILE every Nth frame's picture (from frame 0), 256x224 RGB bytes each, as MAME's (trace.lua)
  *      --ppm FRAME FILE  that frame's picture as a PPM image
  *      --text FRAME      the text layer's codes at that frame, as hex
@@ -207,6 +209,7 @@ int main(int argc, char **argv)
 	int pictures_every = 0, ppm_frame = -1;
 	const char *hashes_path = nullptr, *executed_path = nullptr, *inputs_path = nullptr, *dump_path = nullptr;
 	int text_frame = -1, dump_frame = -1;
+	int dsw1 = GNG_DSW1_DEFAULT, dsw2 = GNG_DSW2_DEFAULT;
 	for (int i = 1; i < argc; i++)
 	{
 		std::string a = argv[i];
@@ -232,6 +235,8 @@ int main(int argc, char **argv)
 			registers_left = (i + 1 < argc && argv[i + 1][0] != '-') ? std::atoi(argv[++i]) : 10;
 		}
 		else if (a == "--inputs") inputs_path = next();
+		else if (a == "--dsw1") dsw1 = int(std::strtoul(next(), nullptr, 16)) & 0xFF;
+		else if (a == "--dsw2") dsw2 = int(std::strtoul(next(), nullptr, 16)) & 0xFF;
 		else if (a == "--text") text_frame = std::atoi(next());
 		else if (a == "--dump") { dump_frame = std::atoi(next()); dump_path = next(); }
 		else { std::fprintf(stderr, "gref: unknown option %s\n", a.c_str()); return 2; }
@@ -250,6 +255,8 @@ int main(int argc, char **argv)
 	if (regions.count("tiles")) roms.tiles = regions["tiles"].data();
 	if (regions.count("sprites")) roms.sprites = regions["sprites"].data();
 	gng_power_on(&roms);
+	gng.inputs.dsw1 = u8(dsw1);
+	gng.inputs.dsw2 = u8(dsw2);
 	gng_video_decode();
 	gng.on_sound_latch = on_latch;
 

@@ -11,6 +11,7 @@
 --   MK_FRAMES   how many frames
 --   MK_INPUTS   an input script (gref's format: "FRAME PORT VALUE", the byte as the board reads it, active low)
 --   MK_DUMPS    a file for the bus bytes 0000-2FFF of every frame (optional)
+--   MK_DSW1, MK_DSW2   the DIP switches from power-on (hex, as the board reads them: active low; optional)
 --   MK_PICTURES, MK_PICTURES_EVERY   a file for every Nth frame's picture (screen:pixels(): 256x224 of 32-bit
 --               ARGB, little endian), from frame 0 (optional)
 local out_path = os.getenv("MK_OUT")
@@ -39,6 +40,17 @@ if inputs_path then
 	end
 end
 local next_change = 1
+
+-- the DIP switches, set before the first frame runs: each field's setting is its bits of the byte
+for _, name in ipairs({ "DSW1", "DSW2" }) do
+	local value = os.getenv("MK_" .. name)
+	if value then
+		local byte = tonumber(value, 16)
+		for _, field in pairs(machine.ioport.ports[":" .. name].fields) do
+			field.user_value = byte & field.mask
+		end
+	end
+end
 
 local function apply(change)
 	local port = machine.ioport.ports[change.port]

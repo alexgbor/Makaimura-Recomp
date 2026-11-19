@@ -54,11 +54,14 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Ground truth from MAME itself (`tools/mame_trace.py`, `tools/mame/trace.lua`, MAME 0.289): the bus
       0000-2FFF and the PC at every VBLANK identical to gref's, 1200 frames of the attract mode and 7000 frames
       with a game played (`tests/controls/walk_right.txt`)
-- [x] The picture (`--pictures N`): 6999 of 7000 frames of walk_right the same as MAME's screen, pixel for
-      pixel. MAME's `screen:pixels()` at a frame notifier is the previous VBLANK's indexes in this VBLANK's
-      colours: the check samples gref the same way (`--pictures`); `--ppm` is the board's own picture
-- [ ] Frame 0 (the first VBLANK after power-on) differs from MAME's: find why (MAME's first render, its
-      initial sprite buffer?)
+- [x] The picture (`--pictures N`): every frame of walk_right (7000) the same as MAME's screen, pixel for
+      pixel, upright and flipped (`--dsw1 5F`). MAME's `screen:pixels()` at a frame notifier is the previous
+      VBLANK's indexes in this VBLANK's colours: the check samples gref the same way (`--pictures`); `--ppm` is
+      the board's own picture
+- [x] Frame 0 (the first VBLANK after power-on) differed from MAME's: the screen is flipped from power-on (the
+      LS259 starts at 0 and Q0 drives the flip through an inverter) until the boot writes 3D00
+- [x] DIP switches from power-on in both runs (`--dsw1`, `--dsw2`; trace.lua's MK_DSW1/2). MAME keeps a game's
+      DIP switches in its cfg directory across runs, `-noreadconfig` or not: each MAME run starts from an empty one
 - [ ] The sound (MAME's WAV)
 
 ## M3. The board model (`runtime/`)
@@ -68,7 +71,8 @@ Roughly in order; each milestone is checked against the reference before it is t
       priority: group 0 all behind, group 1 pens 0 and 6 behind), sprites (4 bpp, buffered, pen 15 transparent,
       drawn from the last to the first), flip screen; 256x224 out of the 256x256 drawn
 - [x] Palette RGBx 444 (3800 RG, 3900 B), its power-on contents as MAME's machine_reset
-- [ ] Flip screen (the LS259's bit 0: the cocktail cabinet's DIP)
+- [x] Flip screen (the LS259's Q0 inverted; DSW1 bit 7, and the second player's turn in a cocktail cabinet):
+      the picture turned 180 degrees in its 256x256, as MAME 0.289's tilemaps and sprites flip
 - [ ] Sound: the Z80's bus, the latch, two YM2203 (ymfm), the mix (FM 0.40, SSG 0.20 each), YM reset via LS259 bit 1
 - [ ] Timing: cycle-exact 6809 (the CPU's cycles as MAME's core counts them), the DMA's stolen cycles, the
       palette's bus conflicts (MAME does not emulate them: note, check)

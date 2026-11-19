@@ -18,7 +18,10 @@
  *    transparent; the sprites' pen 15.
  *    The background is 32x32 tiles of 16x16 scanned by columns, scrolled by 3B08-3B0B (16 bits each, wrapping at
  *    512); the text layer 32x32 of 8x8 by rows, not scrolled.
- *    Not done yet: the flipped screen (the LS259's bit 0; the game sets it for the cocktail cabinet only).
+ *    The flipped screen (the LS259's Q0, inverted: flipped while Q0 is 0, so from power-on until the boot writes
+ *    3D00): MAME 0.289's tilemaps flip around the visible area's centre (emu/tilemap.cpp draw_common: extents
+ *    0+255+1 and 16+239+1, both 256) and gng.cpp's sprites go to 240-x, 240-y with their flips swapped, so the
+ *    flipped picture is the unflipped one turned 180 degrees in the 256x256 bitmap, pixel for pixel.
  */
 #include "gng/video.h"
 #include "gng/board.h"
@@ -153,7 +156,16 @@ void gng_video_render_indexed(uint8_t *out)
 			if (pen != 3)
 				screen[y][x] = (uint8_t)(0x80 + (attr & 0x0F) * 4 + pen);
 		}
-		memcpy(out + (size_t)(y - GNG_SCREEN_FIRST_LINE) * GNG_SCREEN_WIDTH, screen[y], GNG_SCREEN_WIDTH);
+	}
+
+	const int flipped = !(gng.ls259 & 0x01);
+	for (int y = GNG_SCREEN_FIRST_LINE; y < GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT; y++) {
+		uint8_t *line = out + (size_t)(y - GNG_SCREEN_FIRST_LINE) * GNG_SCREEN_WIDTH;
+		if (!flipped)
+			memcpy(line, screen[y], GNG_SCREEN_WIDTH);
+		else
+			for (int x = 0; x < 256; x++)
+				line[x] = screen[255 - y][255 - x];
 	}
 }
 

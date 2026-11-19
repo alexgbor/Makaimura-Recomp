@@ -10,8 +10,9 @@
    mode the game will use by default once each difference is implemented and checked.
 
 The switch is a setting of the board model, not a different build: the same runtime, the same translated
-program, a flag (`gng_accuracy`, planned in `runtime/include/gng/board.h`) that the reference, the headless
-checks and the game all honour. Every check names the mode it ran in.
+program, a flag (`gng.accuracy`: `gng_accuracy_mode` in `runtime/include/gng/board.h`; `gref --accuracy
+mame|board`) that the reference, the headless checks and the game all honour. Every check names the mode it ran
+in.
 
 ## Rules
 
@@ -31,6 +32,7 @@ checks and the game all honour. Every check names the mode it ran in.
 | 2 | **Palette writes during the active display** | applied at once, no glitch | bus conflicts: wrong colours on screen, the "lightning" effect when the VBLANK routine overruns into the next frame (MAME's header cites recordings) | to research |
 | 3 | **Read of 3C00** (`LDA $3C00` at 6017, the reset's wait) | 3C00 is mapped for writes only: a read does nothing | jotego: the DMA "is triggered when a certain memory location is addressed" — perhaps by a read too | to check |
 | 4 | **Power-on palette** | every 4 colours 00/55/AA/FF (a MAME TODO: "the POST has random/filled data") | random | cosmetic (the boot clears it); MAME's kept in both modes unless a recording says otherwise |
+| 4b | **Power-on LS259** (3D00-3D07) | every output 0: the screen flipped and the sound CPU held in reset until the boot writes 3D00/3D01 (MAME's first frame is drawn flipped) | the LS259's state before the first write depends on whether its /CLR is tied to the reset (schematics) | cosmetic (the first frame, during the boot); MAME's kept unless the schematics say otherwise |
 | 5 | **Sound timing** (latch, Z80 interrupts, YM2203) | MAME's scheduler, 4 IRQs a frame by a timer | to compare when the sound board is done | later |
 
 ## How MAME's own picture is sampled
