@@ -6,11 +6,11 @@ it on a model of the board, aiming at exactly what the arcade does, frame for fr
 tools of [DonPachi Recomp](https://github.com/CapsLock4284/DonPachi-Recomp) and
 [arcade-decomp](https://github.com/cheviman/arcade-decomp).
 
-**Status: the main program runs translated, with no window yet.** The 6809 program is translated to C an
+**Status: playable in a window, the same as MAME.** The 6809 program is translated to C an
 instruction at a time (`tools/m6809/translate.py`). It runs on a model of the board (`runtime/`), and it is the
 same as MAME 0.289 at every frame checked: the CPU's bus at every VBLANK and every interrupt, and the picture,
-pixel for pixel. The sound board exists in the reference (MAME's Z80 and ymfm's YM2203s, the same as MAME at every YM2203 write); the
-game's own sound board and a window are next. The plan is in [TODO.md](TODO.md), the
+pixel for pixel. The sound program (the Z80) is translated too, and the game's own YM2203s make the same sound as MAME's (ymfm),
+sample for sample. `build/bin/makaimura` is the game in a window (SDL2). The plan is in [TODO.md](TODO.md), the
 board is described in [docs/hardware.md](docs/hardware.md), and [docs/accuracy.md](docs/accuracy.md) explains
 the two accuracy modes: MAME's, and the real board's, which is the goal.
 
@@ -23,7 +23,9 @@ python tools/makaimura_rom.py --extract build/makaimurg.regions   # the set's fi
 python tools/disassemble.py --listing     # the static analysis, and build/makaimurg.lst
 python tools/m6809/translate.py           # the program as C: build/generated/program (never committed)
 cmake -S . -B build/msvc && cmake --build build/msvc --config Release
+python tools/z80cpu/translate.py          # the sound program as C: build/generated/sound
 python tools/check_translation.py         # the translation against the reference (gref), frame by frame
+build/bin/makaimura                       # the game (SDL2: on Windows SDL2-devel-2.x.x-VC.zip in build/downloads/sdl2)
 python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt --pictures 1 --against gng_headless
 ```
 

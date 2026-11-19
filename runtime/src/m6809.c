@@ -215,6 +215,11 @@ void m6809_power_on(const m6809_host *h)
 	}
 }
 
+void m6809_request_stop(void)
+{
+	frames_to_run = frame + 1;
+}
+
 int m6809_run(uint64_t frames)
 {
 	frames_to_run = frames;

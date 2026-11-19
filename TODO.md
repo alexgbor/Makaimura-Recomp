@@ -154,7 +154,10 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 ## M7. The game in a window (`ports/sdl2`)
 
-- [ ] Window, scaling, input (keyboard, gamepads), sound out, settings, the ROM set dropped on the window
+- [x] A first window (`ports/sdl2/main.c`, `build/bin/makaimura`): the picture scaled, keyboard (MAME's keys, and Z/X)
+      and a gamepad, the 4-way joystick, the sound (the board's 125 kHz mix averaged down to the device's rate),
+      the board's own pace (59.637 Hz), F3 reset, a message where the program faults
+- [ ] Settings, the ROM set read from its zips (no regions file), a 4:3 picture, a better resampler, vsync
 - [ ] DIP switches as game options (lives, difficulty, bonus, the invulnerability DIP of the Japanese sets)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
 

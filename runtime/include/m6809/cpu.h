@@ -101,6 +101,9 @@ void m6809_power_on(const m6809_host *host);
 /* Runs the program until 'frames' VBLANKs went by (each one's host.vblank called); 0 once done, -1 on a fault */
 int m6809_run(uint64_t frames);
 
+/* From the host's vblank: the run ends at this VBLANK (a window closed) */
+void m6809_request_stop(void);
+
 #ifdef __cplusplus
 }
 #endif
