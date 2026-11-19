@@ -34,6 +34,7 @@ class Code:
     unknown_bank: list = field(default_factory=list)     # (Instruction, target): into 4000-5FFF, bank unknown
     illegal: list = field(default_factory=list)          # (bank, Instruction)
     bank_switches: list = field(default_factory=list)    # (bank, Instruction, new bank or None)
+    jump_tables: dict = field(default_factory=dict)      # (bank, jump's address) -> (table, [targets])
 
 
 def key(bank, address):
@@ -45,9 +46,40 @@ def bank_of(value):
     return 4 if value == 4 else value & 3
 
 
-def track(ins, regs):
-    """A and B's constants after 'ins' (regs: {'A': value or None, 'B': ...})."""
+INDEX_REGISTERS = ("X", "Y", "U")
+
+
+def writes_index(ins, register):
+    """Whether 'ins' may change an index register: its auto-increment and decrement modes, LDr, LEAr, ABX,
+    TFR/EXG, PULx, PSHU/PULU's U, and calls (the routine may change any)."""
     name, op = ins.mnemonic, ins.operand
+    if name in ("LD" + register, "LEA" + register) or ins.flow in ("call", "icall", "swi"):
+        return True
+    if name == "ABX":
+        return register == "X"
+    if name in ("TFR", "EXG", "PULS", "PULU"):
+        if name in ("PULU",) and register == "U":
+            return True
+        return register in op.registers
+    if name == "PSHU" and register == "U":
+        return True
+    return op.mode == "indexed" and op.base == register and op.kind in ("inc", "dec")
+
+
+def track(ins, regs):
+    """A, B, X, Y and U's constants after 'ins' (regs: {'A': value or None, ...})."""
+    name, op = ins.mnemonic, ins.operand
+    loaded = None
+    if name in ("LDX", "LDY", "LDU") and op.mode == "indexed" and not op.indirect and op.kind == "acc" and             op.base in INDEX_REGISTERS and regs.get(op.base) is not None:
+        loaded = ("table", regs[op.base])    # a word of a table, by an accumulator's offset
+    for register in INDEX_REGISTERS:
+        if writes_index(ins, register):
+            regs[register] = op.value if name == "LD" + register and op.mode == "immediate" else None
+    if loaded:
+        regs["loaded_" + name[-1]] = loaded[1]
+    for register in INDEX_REGISTERS:
+        if writes_index(ins, register) and not (loaded and name[-1] == register):
+            regs.pop("loaded_" + register, None)
     if name in ("LDA", "LDB") and op.mode == "immediate":
         regs[name[-1]] = op.value
     elif name == "LDD" and op.mode == "immediate":
@@ -62,6 +94,54 @@ def track(ins, regs):
         pass
     else:
         regs["A"] = regs["B"] = None
+
+
+MAX_TABLE = 64
+
+
+def plausible(bank, target):
+    """A code address a table of this bank could hold: the fixed ROM, or the window with the bank known."""
+    return target >= FIXED_START or (target >= 0x4000 and bank is not None)
+
+
+def known_ends(code, ins):
+    """Where a table found at a jump cannot go past: the code right after the jump (tables usually follow it)."""
+    return ins.next
+
+
+def looks_like_code(program, bank, target, count=3):
+    """Whether the first 'count' instructions at 'target' (falling through) are legal 6809 instructions."""
+    read = program.reader(bank)
+    address = target
+    for _ in range(count):
+        ins = dis.decode(read, address)
+        if ins.flow == "illegal":
+            return False
+        if ins.flow in ("jump", "return", "rti", "ijump"):
+            return True
+        address = ins.next
+    return True
+
+
+def read_table(program, bank, table, code):
+    """A jump table's entries, from 'table' (the LDX #table before the jump). Without its size in the symbols,
+    it ends at the first entry that is not a code address or whose target does not decode as code, at the
+    lowest target it holds when that is past the table (the code the table points to usually follows it), at a
+    place already known to be code, or after MAX_TABLE entries."""
+    read = program.reader(bank)
+    targets = []
+    lowest = 0x10000
+    for index in range(MAX_TABLE):
+        place = table + 2 * index
+        if place >= lowest or key(bank, place) in code.instructions or key(bank, place + 1) in code.instructions:
+            break
+        target = (read(place) << 8) | read(place + 1)
+        if not plausible(bank, target) or not looks_like_code(program, bank, target):
+            break
+        if target > table:
+            lowest = min(lowest, target)
+        targets.append(target)
+    return targets
 
 
 def explore(program, entries, tables=(), stop=()):
@@ -80,16 +160,17 @@ def explore(program, entries, tables=(), stop=()):
 
     for bank, address, why in entries:
         add(bank, address, why)
-    for bank, address, count, why in tables:
-        read = program.reader(None)
+    for bank, address, count, why, table_bank in tables:
+        read = program.reader(table_bank)
         for index in range(count):
             target = (read(address + 2 * index) << 8) | read(address + 2 * index + 1)
-            add(bank, target, f"{why}[{index}]")
+            if target:    # (0000: an unused slot)
+                add(bank, target, f"{why}[{index}]")
 
     stops = set(stop)
     while work:
         bank, address = work.pop()
-        regs = {"A": None, "B": None}
+        regs = {"A": None, "B": None, "X": None, "Y": None, "U": None}
         while True:
             if (bank, address) in seen:
                 break
@@ -117,7 +198,20 @@ def explore(program, entries, tables=(), stop=()):
                         code.calls.add(key(bank, target))
                     add(bank, target, f"{ins.mnemonic.lower()} from {address:04X}")
             if ins.flow in ("ijump", "icall"):
-                code.unresolved.append((bank, ins))
+                op = ins.operand
+                table = regs.get(op.base) if (op.mode == "indexed" and op.indirect and
+                                              op.base in INDEX_REGISTERS and op.kind == "acc") else None
+                if table is None and op.mode == "indexed" and not op.indirect and op.kind == "offset" and                         op.offset == 0 and op.base in INDEX_REGISTERS:
+                    table = regs.get("loaded_" + op.base)    # LDX #table / LDX A,X / JSR ,X
+                if table is not None and (bank, address) not in code.jump_tables:
+                    targets = read_table(program, bank, table, code)
+                    code.jump_tables[(bank, address)] = (table, targets)
+                    for index, target in enumerate(targets):
+                        if ins.flow == "icall":
+                            code.calls.add(key(bank, target))
+                        add(bank, target, f"table {table:04X}[{index}] from {address:04X}")
+                elif table is None:
+                    code.unresolved.append((bank, ins))
             # the bank latch
             if ins.mnemonic in ("STA", "STB", "STD") and ins.operand.mode == "extended" and \
                     ins.operand.value in (BANK_LATCH, BANK_LATCH - 1):

@@ -38,6 +38,8 @@ def main():
     parser.add_argument("--rom", nargs="*", help="the ROM set's .zips or folder (default: rom/)")
     parser.add_argument("--listing", action="store_true", help="write build/makaimurg.lst")
     parser.add_argument("--unresolved", action="store_true", help="each unresolved jump with what leads to it")
+    parser.add_argument("--executed", help="the reference's executed addresses (gref --executed) to check against")
+    parser.add_argument("--show", type=int, default=40, help="how many missed stretches to list")
     args = parser.parse_args()
 
     program = rom.load_program(args.rom or rom.default_paths(ROOT))
@@ -61,6 +63,30 @@ def main():
     print(f"illegal opcodes reached: {len(code.illegal)}")
     for bank, ins in code.illegal[:20]:
         print(f"  {ins.address:04X}  {ins.raw.hex()}  (from {code.entries.get(analysis.key(bank, ins.address), '?')})")
+
+    if args.executed:
+        # the reference's executed addresses (gref --executed): each must be an instruction the analysis found
+        ran = set()
+        with open(args.executed) as handle:
+            for line in handle:
+                text = line.strip()
+                if text:
+                    address, bank = symbols.parse_address(text)
+                    ran.add((bank, address))
+        found = set(code.instructions)
+        order = lambda k: (-1 if k[0] is None else k[0], k[1])    # noqa: E731
+        missed = sorted((k for k in ran if k not in found and k[1] >= 0x4000), key=order)
+        in_ram = sorted((k for k in ran if k[1] < 0x4000), key=order)
+        print(f"executed by the reference: {len(ran)}; in RAM: {len(in_ram)}"
+              f" ({in_ram[0][1]:04X}-{in_ram[-1][1]:04X})" if in_ram else f"executed by the reference: {len(ran)}")
+        print(f"executed but not found statically: {len(missed)}")
+        # the starts of the missed stretches, with the instruction before them that the analysis did find
+        starts = [k for k in missed if (k[0], k[1] - 1) not in ran and all((k[0], k[1] - n) not in ran
+                                                                            for n in range(1, 5))]
+        for bank, address in starts[:args.show]:
+            print(f"  {'' if bank is None else f'{bank}:'}{address:04X}")
+        if len(starts) > args.show:
+            print(f"  ... {len(starts) - args.show} more")
 
     if args.listing:
         os.makedirs(os.path.join(ROOT, "build"), exist_ok=True)

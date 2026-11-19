@@ -84,3 +84,13 @@ See `tools/makaimura_rom.py`.
   through the table at 6611); the frame's routines (6755: flip/LS259 from <$D8 ^ <$DA, scroll from <$D4...;
   6772, 622C: DSW1 read into <$40...; 7788, 67B3, 6239, 6274); bank 3; the game state <$02's routine through
   the table at 65BC (4 states); the bank put back from <$D9; RTI.
+- **The main loop (6134):** the frame counters <$D0-<$D3, the DSWs read (622C, 6239, 6274), the sound latch
+  cleared, scroll 0, LS259 bit 1 (the sound CPU out of reset), IRQs on (`ANDCC #$EF`); then (617F) the task
+  queue at <$12 (16-bit pointer into a ring of words at 0100-013F): a word with its high bit clear is a task
+  number (A, doubled) run through the table at 6188 in bank 3 (`LDX A,X / JSR ,X`), and the word is set to
+  FFFF afterwards (6160).
+- **The objects (7E6D, from the IRQ's state routines):** bank 4; 9ACE walks 4 objects of 0x40 bytes from 0540
+  (`JSR [A,U]` with U = 9C97: 4 states); 9F0C runs each object's handler by its type (`$5,X`) through bank 4's
+  table at 4712 (19 types, one unused), and one of two routines by the frame's parity (4:470E).
+- The RAM test's code in RAM (1A00-1A4D) is the only code the program runs outside its ROM (1200 frames of the
+  attract mode traced).

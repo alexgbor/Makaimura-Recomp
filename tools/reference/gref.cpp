@@ -16,6 +16,9 @@
  *      --frames N        how many frames (VBLANKs) to run (default 600)
  *      --hashes FILE     each frame's state hash (at its VBLANK, before the IRQ): "frame hash"
  *      --executed FILE   every instruction address the program ran, with its bank where 4000-5FFF: "bank:addr"
+ *      --jumps FILE      every transfer of control the program made (from the instruction before), "from to",
+ *                        each as the --executed addresses: the jumps through registers and tables, checked
+ *      --registers-at ADDR [N]   the registers each time the instruction at ADDR (hex) starts, N times (10)
  *      --inputs FILE     an input script: lines "FRAME PORT VALUE" (PORT system, p1, p2, dsw1, dsw2; VALUE hex,
  *                        active low as the board reads it) applied at that frame's VBLANK, for the frames after
  *      --text FRAME      the text layer's codes at that frame, as hex
@@ -24,6 +27,7 @@
 #include "emu.h"
 #include "m6809.h"
 
+#include "6x09dasm.h"
 #include "gng/board.h"
 
 #include <cstdio>
@@ -31,6 +35,7 @@
 #include <fstream>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -42,6 +47,11 @@ public:
 	u16 pc() const { return m_pc.w; }
 	u8 cc() const { return m_cc; }
 	int icount() const { return m_icount; }
+	void print_registers(FILE *out) const
+	{
+		std::fprintf(out, "PC=%04X A=%02X B=%02X X=%04X Y=%04X U=%04X S=%04X DP=%02X CC=%02X bank=%u\n", m_pc.w,
+			m_q.r.a, m_q.r.b, m_x.w, m_y.w, m_u.w, m_s.w, m_dp, m_cc, gng.bank);
+	}
 };
 
 static reference_cpu *cpu;
@@ -64,10 +74,49 @@ static void host_acknowledge(int line)
 	}
 }
 
+static bool trace_jumps;
+static u32 previous_key = 0xFFFFFFFFu;
+static u16 previous_end;
+static std::set<std::pair<u32, u32>> jumps;
+
+static u32 place_key(u16 pc)
+{
+	return pc >= 0x4000 && pc < 0x6000 ? (u32(gng.bank) << 16) | pc : 0xFF0000u | pc;
+}
+
+// The length of the instruction at 'pc' (MAME's disassembler on the bus as the CPU sees it now: its 16 bytes
+// copied into an image, so that the disassembler's reads have no effect on the board)
+static u16 instruction_length(u16 pc)
+{
+	static std::vector<u8> image(0x10000, 0x12);
+	static util::disasm_interface::data_buffer buffer(image.data(), 0x10000);
+	static m6809_disassembler disassembler;
+	for (unsigned i = 0; i < 16; i++)
+		image[u16(pc + i)] = gng_read(u16(pc + i));
+	std::ostringstream text;
+	return u16(disassembler.disassemble(text, pc, buffer, buffer) & util::disasm_interface::LENGTHMASK);
+}
+
+static int registers_at = -1, registers_left = 0;
+
 static void host_instruction(u16 pc)
 {
+	const u32 here = place_key(pc);
+	if (pc == registers_at && registers_left > 0)
+	{
+		registers_left--;
+		cpu->print_registers(stdout);
+	}
 	if (trace_executed)
-		executed.insert(pc >= 0x4000 && pc < 0x6000 ? (u32(gng.bank) << 16) | pc : 0xFF0000u | pc);
+		executed.insert(here);
+	if (trace_jumps)
+	{
+		// a transfer of control: the instruction before did not fall through to this one
+		if (previous_key != 0xFFFFFFFFu && pc != previous_end)
+			jumps.insert({previous_key, here});
+		previous_key = here;
+		previous_end = u16(pc + instruction_length(pc));
+	}
 }
 
 static void on_latch(gng_board *, uint8_t value)
@@ -147,6 +196,7 @@ int main(int argc, char **argv)
 {
 	std::string regions_path = "build/makaimurg.regions";
 	int frames = 600;
+	const char *jumps_path = nullptr;
 	const char *hashes_path = nullptr, *executed_path = nullptr, *inputs_path = nullptr, *dump_path = nullptr;
 	int text_frame = -1, dump_frame = -1;
 	for (int i = 1; i < argc; i++)
@@ -157,6 +207,12 @@ int main(int argc, char **argv)
 		else if (a == "--frames") frames = std::atoi(next());
 		else if (a == "--hashes") hashes_path = next();
 		else if (a == "--executed") executed_path = next();
+		else if (a == "--jumps") jumps_path = next();
+		else if (a == "--registers-at")
+		{
+			registers_at = int(std::strtoul(next(), nullptr, 16));
+			registers_left = (i + 1 < argc && argv[i + 1][0] != '-') ? std::atoi(argv[++i]) : 10;
+		}
 		else if (a == "--inputs") inputs_path = next();
 		else if (a == "--text") text_frame = std::atoi(next());
 		else if (a == "--dump") { dump_frame = std::atoi(next()); dump_path = next(); }
@@ -189,6 +245,7 @@ int main(int argc, char **argv)
 	m6809_host::acknowledge = host_acknowledge;
 	m6809_host::instruction = host_instruction;
 	trace_executed = executed_path != nullptr;
+	trace_jumps = jumps_path != nullptr;
 
 	reference_cpu core;
 	cpu = &core;
@@ -243,6 +300,21 @@ int main(int argc, char **argv)
 			else
 				std::fprintf(out, "%u:%04X\n", bank, entry & 0xFFFF);
 		}
+		std::fclose(out);
+	}
+	auto key_text = [](u32 key) {
+		char text[16];
+		if ((key >> 16) == 0xFF)
+			std::snprintf(text, sizeof(text), "%04X", key & 0xFFFF);
+		else
+			std::snprintf(text, sizeof(text), "%u:%04X", key >> 16, key & 0xFFFF);
+		return std::string(text);
+	};
+	if (jumps_path)
+	{
+		FILE *out = std::fopen(jumps_path, "w");
+		for (const auto &jump : jumps)
+			std::fprintf(out, "%s %s\n", key_text(jump.first).c_str(), key_text(jump.second).c_str());
 		std::fclose(out);
 	}
 	std::printf("gref: %d frames, %llu cycles, pc %04X, bank %u, %u DMAs, %zu sound commands\n", frames,

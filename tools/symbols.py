@@ -9,7 +9,7 @@ A line is   ADDRESS  KIND  NAME  [key=value ...]   [# comment]
     KIND     func (a routine), code (a label the analysis should start from), data, var (RAM),
              table (a jump table of 16-bit code addresses: count=N), file (where the C's files begin)
     keys     count=N (table), noreturn (a func that never returns to its caller), bank=N (a table's targets'
-             bank, where they are in 4000-5FFF)
+             bank, where they are in 4000-5FFF); a table in the window itself is "B:XXXX" (the bank it is read in)
 Addresses and names only: no game data lives in symbols.txt.
 """
 from dataclasses import dataclass, field
@@ -38,7 +38,7 @@ class Symbols:
             if s.kind == "table":
                 target_bank = s.keys.get("bank")
                 result.append((None if target_bank is None else int(target_bank), s.address,
-                               int(s.keys.get("count", "1"), 0), s.name))
+                               int(s.keys.get("count", "1"), 0), s.name, s.bank))
         return result
 
     def no_return(self):

@@ -9,23 +9,39 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] The ROM set: `tools/makaimura_rom.py` (MAME's makaimurg and its parent gng: CRC32, SHA-1, regions, banks)
 - [ ] The parent set `gng.zip` (sound program, graphics, PROMs) from the owner
 
+## Decisions to take
+
+- The sprite DMA halts the 6809 on the board (jotego's jt_gng research) but not in MAME: first match MAME
+  exactly (verifiable), then model the halt from jt_gng's verilog as the board does, and measure the difference.
+- The palette's bus conflicts during the active display (the "lightning" glitch): not in MAME; the same way.
+- 3C00 read at the reset (`LDA $3C00` at 6017): MAME maps 3C00 for writes only; does a read start the DMA?
+
 ## M1. The 6809 program, read
 
 - [x] Disassembler (`tools/m6809/disassembler.py`): the three pages, every addressing mode, control flow
-- [ ] Disassembler checked against MAME's (`6x09dasm.cpp` as an oracle) at every address of the program
-- [~] Static analysis (`tools/m6809/analysis.py`): from the vectors, bank tracking through the 3E00 latch
-- [~] The dispatch tables in `symbols.txt` (IRQ states, round robin jobs, the states' own tables...)
+- [x] Disassembler checked against MAME's (`build/bin/oracle_m6809`, `tools/m6809/compare_with_mame.py`): the same
+      at every address of 6000-FFFF and of each bank, and for every opcode with every postbyte
+- [~] Static analysis (`tools/m6809/analysis.py`): from the vectors, bank tracking through the 3E00 latch, the
+      jump tables found from `LDr #table` before `JMP/JSR [acc,r]` and `LDr acc,r / JSR ,r` (76% of the fixed
+      ROM so far); every instruction the reference ran in 1200 frames of the attract mode is found
+- [~] The dispatch tables in `symbols.txt` (IRQ states, round robin jobs, the main loop's tasks, the objects')
+- [ ] Still unresolved: 6F76 `JMP [B,X]`, AA36 `JSR [B,U]`; 6 illegal opcodes reached (tables read too far:
+      B0B9/B131, BA80, 40F3) and a 0000 entry: give those tables their sizes in `symbols.txt`
+- [ ] Input scripts (coin, start, play through the stages) for the reference, to trace the game itself
 - [ ] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check)
 - [ ] Every jump through a register resolved, checked against the reference's executed addresses
 - [ ] Coverage of the program ROM: code, data, fill (all banks)
 
 ## M2. The reference (`tools/reference`, "gref")
 
-- [ ] MAME's MC6809 core built standalone (its .lst through m6809make.py, a stub of MAME's device framework)
+- [x] MAME's MC6809 core built standalone (`tools/reference/stub/emu.h`; m6809make.py at build time): `gref`
+      boots the program to its title (1200 frames in 0.7 s)
 - [ ] MAME's Z80 core (tools/core/system32/reference/mame/z80) and ymfm's YM2203 for the sound board
 - [ ] The board model (runtime/) driven by them: frame timing (384x262 at 6 MHz), VBLANK IRQ, sprite DMA
       (and its halt of the CPU), the sound latch, the Z80's 4 IRQs a frame
-- [ ] Per frame: state hash, picture hash, sound hash; executed addresses with their bank; jumps through registers
+- [~] Per frame: state hash (`--hashes`), executed addresses with their bank (`--executed`), every transfer
+      of control (`--jumps`), registers at an address (`--registers-at`), input scripts (`--inputs`); to do:
+      picture hash, sound hash
 - [ ] Ground truth from MAME itself: pictures and sound of the same inputs (MAME binary + Lua script), to check
       the board model's video and sound
 
