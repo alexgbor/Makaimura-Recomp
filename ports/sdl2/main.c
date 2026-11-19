@@ -237,7 +237,10 @@ static int read_script(const char *path)
 	{
 		if (line[0] == '#' || sscanf(line, "%ld %15s %x", &frame, port, &value) != 3)
 			continue;
-		const int which = !strcmp(port, "system") ? 0 : !strcmp(port, "p1") ? 1 : !strcmp(port, "p2") ? 2 : -1;
+		/* system, p1, p2; or mADDR: the work RAM's byte at ADDR (a test's cheat) */
+		int which = !strcmp(port, "system") ? 0 : !strcmp(port, "p1") ? 1 : !strcmp(port, "p2") ? 2 : -1;
+		if (port[0] == 'm' && strtoul(port + 1, NULL, 16) < 0x1E00u)
+			which = 3 + (int)strtoul(port + 1, NULL, 16);
 		if (which < 0)
 			continue;
 		if (script_count == capacity)
@@ -261,7 +264,8 @@ static void play_script(uint64_t frame)
 		const input_change *c = &script[script_next++];
 		if (c->port == 0) gng.inputs.system = c->value;
 		else if (c->port == 1) gng.inputs.p1 = c->value;
-		else gng.inputs.p2 = c->value;
+		else if (c->port == 2) gng.inputs.p2 = c->value;
+		else gng.ram[c->port - 3] = c->value;
 	}
 }
 

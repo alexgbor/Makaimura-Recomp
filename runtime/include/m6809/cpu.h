@@ -75,13 +75,16 @@ static inline void mem_write8(uint32_t address, uint8_t value)
 	gng_write((uint16_t)address, value);
 }
 
-/* after each instruction: the board's time, and the interrupt before the instruction at 'pc' */
-#define M6809_CHECK(pc) do { if (cpu.cycles >= m6809_event_at) m6809_event((uint16_t)(pc)); } while (0)
+/* after each instruction: the board's time, and the interrupt before the instruction at 'pc': taken, its state
+   pushed, the region leaves for its handler (the trampoline dispatches it; its RTI goes wherever the stack says,
+   as the program's own task switching needs) */
+#define M6809_CHECK(pc) do { if (cpu.cycles >= m6809_event_at) { const uint16_t m6809_next_ = m6809_event((uint16_t)(pc)); \
+	if (m6809_next_ != (uint16_t)(pc)) return m6809_next_; } } while (0)
 
-void m6809_event(uint16_t pc);
+uint16_t m6809_event(uint16_t pc);
 void m6809_mask_changed(void);
 void m6809_sync(void);
-void m6809_cwai(uint16_t next);
+uint16_t m6809_cwai(uint16_t next);
 uint16_t m6809_rti(uint16_t pc);
 uint16_t m6809_not_code(uint16_t pc);
 void m6809_fault(const char *what, uint16_t pc);

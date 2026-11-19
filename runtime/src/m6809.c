@@ -33,13 +33,6 @@ static int faulted;
 static m6809_region fixed[0x10000];
 static m6809_region banked[5][0x2000];
 
-/* the interrupts the CPU is in, innermost last: where each one's RTI comes back */
-#define DEPTH 16
-static int depth;
-static uint16_t return_pc[DEPTH];
-static uint16_t return_s[DEPTH];
-static int returned[DEPTH];
-
 static void update_event_at(void)
 {
 	m6809_event_at = irq_line && !cpu.fi ? 0 : m6809_board_at;
@@ -109,30 +102,13 @@ static uint16_t dispatch(uint16_t pc)
 	return region(pc);
 }
 
-/* The handler of the interrupt just taken (its state pushed, returning to 'pc' with S back at 's'), run until its
-   RTI comes back */
-static void run_handler(uint16_t handler, uint16_t pc, uint16_t s)
-{
-	if (depth + 1 >= DEPTH)
-		m6809_fault("interrupts nested too deep", pc);
-	depth++;
-	return_pc[depth] = pc;
-	return_s[depth] = s;
-	returned[depth] = 0;
-	uint16_t next = handler;
-	while (!returned[depth])
-		next = dispatch(next);
-	depth--;
-}
-
+/* RTI: execution goes on at what it pulled (the trampoline's), whatever task that is */
 uint16_t m6809_rti(uint16_t pc)
 {
-	if (depth > 0 && pc == return_pc[depth] && (uint16_t)cpu.s == return_s[depth])
-		returned[depth] = 1;
 	return pc;
 }
 
-void m6809_event(uint16_t pc)
+uint16_t m6809_event(uint16_t pc)
 {
 	if (cpu.cycles >= m6809_board_at)
 		m6809_board_catch_up();
@@ -140,15 +116,15 @@ void m6809_event(uint16_t pc)
 	{
 		/* HOLD_LINE: cleared as the CPU takes it */
 		irq_line = 0;
-		const uint16_t s = (uint16_t)cpu.s;
 		const uint64_t start = cpu.cycles;
 		const uint16_t handler = m6809_irq_entry(pc);
 		update_event_at();
 		if (host.irq_taken)
 			host.irq_taken(pc, start + 15);    /* (MAME acknowledges after the pushes: 15 cycles in) */
-		run_handler(handler, pc, s);
+		return handler;
 	}
 	update_event_at();
+	return pc;
 }
 
 void m6809_sync(void)
@@ -163,7 +139,7 @@ void m6809_sync(void)
 	cpu.cycles += 1;
 }
 
-void m6809_cwai(uint16_t next)
+uint16_t m6809_cwai(uint16_t next)
 {
 	/* the state is pushed (the lift's); an interrupt the mask lets through awaited */
 	while (!(irq_line && !cpu.fi))
@@ -185,7 +161,8 @@ void m6809_cwai(uint16_t next)
 	const uint32_t low = mem_read8(0xFFF9u);
 	cpu.cycles += 1;
 	update_event_at();
-	run_handler((uint16_t)(high << 8 | low), next, (uint16_t)(cpu.s + 12));
+	(void)next;
+	return (uint16_t)(high << 8 | low);
 }
 
 static uint64_t clock_now(void)
@@ -211,7 +188,6 @@ void m6809_power_on(const m6809_host *h)
 	cpu.cycles = 4;    /* the reset's vector fetch */
 	irq_line = 0;
 	frame = 0;
-	depth = 0;
 	faulted = 0;
 	m6809_board_at = GNG_VBLANK_CYCLE;
 	update_event_at();

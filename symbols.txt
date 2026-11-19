@@ -44,11 +44,17 @@
 4:4712 table object_handlers   count=19   # JSR [B,U] at 9F2D: by the object's type ($5,X); entry 15 is 0000 (unused)
 4:470E table object_phase      count=2    # JSR [B,U] at 9F37: by the frame's parity (<$21 & 1)
 9ECC  table object_states_9AF4_b  count=4  # type 5
-# The two-level dispatch at 6F6B: LDX #$6F78 / LDX B,X (by <$72) / JMP [B,X] (by <$0B). Seen: X = 6F86 with B 0-2,
-# X = 6F8A with B 0-4 (gref --registers-at 6F76, tests/controls/walk_right.txt). The counts are what was seen:
-# to confirm from the code that sets <$72 and <$0B
+0060  var  player_lives         # copied from <$50 (the DIP's) at the game's start (6C35); DEC at 75FD on a death
+0061  var  player_rank          # dynamic difficulty: from <$57 (the DIP's), +4 up to 3F (6C55), back down (7115)
+0072  var  stage                # 0-6: cleared at the start (6C17); the stage's map (6D32), the player's dispatch (6F6B)
+AA41  table object_states_AA36  count=4   # JSR [B,U] at AA36, U = AA41 from AA96 and AAB7 (sub_AA49 follows)
+# The two-level dispatch at 6F64-6F76: X = 6F86 while <$71 is 0, else LDX #$6F78 / LDX B,X by <$72 (the stage:
+# cleared at the game's start, 6C17; the stage's map from the table at 6D32 by it), then JMP [B,X] by <$0B. 6F78's
+# 7 words (6F78-6F85, 6F86 follows) are tables, not code: stages 0-5 6F8A, stage 6 6F90. Each table runs to the
+# next one or to code (6F98)
 6F86  table player_states_6F86  count=2
 6F8A  table player_states_6F8A  count=3
+6F90  table player_states_stage6  count=4   # stage 6's (703C, 707C its own); found starting at stage 4+ (a test's cheat)
 
 # ======== tables the analysis would read past their end (the words after them are code or data) ========
 7EFF  table  object_states_7E8D  count=2   # JMP [A,U] at 7E8D; after it (7F03) a second copy of the dispatch code

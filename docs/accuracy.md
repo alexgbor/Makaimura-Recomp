@@ -74,8 +74,9 @@ What it does to the game, measured (board mode against MAME mode):
   asserted (masked, it is never acknowledged), so SYNC no longer waits, and each read halts the CPU, those
   outside the blank until the next one: about 17 a frame, the boot 5 frames longer (the first IRQ taken at frame
   314, not 309).
-- The scripts have no busy scene, so no slowdown frame in either mode yet: a script with one is needed to see
-  the DMA move the slowdown.
+- In busy scenes the 194 cycles a frame make the slowdown: `tests/controls/stage2.txt` and `stage4.txt` (the stage
+  and the lives written: a test's cheat) lose 4 and 3 frames in board mode (the IRQ handler still running at the
+  next VBLANK), none in MAME mode, over 12000 frames each; gref and the translation the same frame for frame.
 
 Not known, and so not modelled: the DMA's exact start and end latency (a pixel clock or two of resynchronising,
 the 6809's dead cycles: within a cycle or two); the 6809's self-refresh (its data sheet: it takes the bus back

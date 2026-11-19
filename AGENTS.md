@@ -83,7 +83,9 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
   (or the `MAME` environment variable). `python tools/mame_trace.py --frames N [--inputs FILE] [--dumps]` runs
   MAME's own makaimurg with `tools/mame/trace.lua` and compares it with `gref` frame by frame.
 - Input scripts are `tests/controls/*.txt`: "FRAME PORT VALUE" (the byte the board reads, active low, from the
-  VBLANK after FRAME on); the same file drives `gref --inputs` and MAME.
+  VBLANK after FRAME on); the same file drives `gref --inputs` and MAME. "FRAME mADDR VALUE" writes the work RAM
+  (a test's cheat: the stage, the lives, to reach later scenes); gref, gng_headless and makaimura take it, MAME's
+  trace does not (`make_stages.py`'s scripts are for gref against the translation).
 - The ROM set goes in `rom/`: `makaimurg.zip` (the clone's 5 files) and `gng.zip` (the parent's: the sound
   program, graphics, PROMs). `python tools/makaimura_rom.py` lists what is there.
 - Documentation, comments and commit messages are in English (as the sibling projects). The project owner

@@ -17,7 +17,8 @@
  *      --bus-hashes FILE at each VBLANK the bus 0000-2FFF's FNV-1a: "frame hash pc" (pc 0000: the translation has
  *                        no PC in the middle of an instruction), as gref --bus-hashes writes it
  *      --irq-hashes FILE as the CPU takes each IRQ (its state pushed): "n hash pc cycle", as gref --irq-hashes
- *      --inputs FILE     an input script: "FRAME PORT VALUE" (system, p1, p2, dsw1, dsw2; hex, active low),
+ *      --inputs FILE     an input script: "FRAME PORT VALUE" (system, p1, p2, dsw1, dsw2; hex, active low; or
+ *                        mADDR: the work RAM's byte at ADDR, hex, written: a test's cheat, AGENTS.md),
  *                        applied at that frame's VBLANK for the frames after
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on
  *      --sound FILE      the sound board too (the translated sound program, runtime/src/sound.c), and at each
@@ -153,6 +154,8 @@ static void apply_input(const input_change *change)
 	else if (!strcmp(change->port, "p2")) gng.inputs.p2 = change->value;
 	else if (!strcmp(change->port, "dsw1")) gng.inputs.dsw1 = change->value;
 	else if (!strcmp(change->port, "dsw2")) gng.inputs.dsw2 = change->value;
+	else if (change->port[0] == 'm' && strtoul(change->port + 1, NULL, 16) < 0x1E00u)
+		gng.ram[strtoul(change->port + 1, NULL, 16)] = change->value;
 	else fprintf(stderr, "gng_headless: unknown port %s\n", change->port);
 }
 

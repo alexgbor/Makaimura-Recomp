@@ -239,6 +239,8 @@ static void apply_input(const input_change &change)
 	else if (change.port == "p2") gng.inputs.p2 = change.value;
 	else if (change.port == "dsw1") gng.inputs.dsw1 = change.value;
 	else if (change.port == "dsw2") gng.inputs.dsw2 = change.value;
+	else if (change.port[0] == 'm' && std::strtoul(change.port.c_str() + 1, nullptr, 16) < 0x1E00u)
+		gng.ram[std::strtoul(change.port.c_str() + 1, nullptr, 16)] = change.value;    // a test's cheat
 	else std::fprintf(stderr, "gref: unknown port %s\n", change.port.c_str());
 }
 

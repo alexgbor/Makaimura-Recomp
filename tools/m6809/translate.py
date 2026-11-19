@@ -26,8 +26,10 @@ only one: whatever it does with it (a routine that drops its return address, a r
 the board does.
 
 After each instruction, M6809_CHECK(next) lets the board's time catch up (the VBLANK) and takes an interrupt
-the line holds, if the mask lets it through, before the next instruction: the handler runs nested
-(m6809_event) until its RTI comes back. SYNC and CWAI wait in the runtime (m6809_sync, m6809_cwai).
+the line holds, if the mask lets it through, before the next instruction: its state pushed, the region leaves for
+its handler (m6809_event), and its RTI goes on at whatever the stack gives (the program switches tasks in its
+IRQ: a handler need not come back where it was taken). SYNC and CWAI wait in the runtime (m6809_sync,
+m6809_cwai: CWAI then leaves for the handler).
 """
 import argparse
 import importlib.util
@@ -240,7 +242,7 @@ class Translator:
                       "M6809_CHECK(target); return m6809_rti((uint16_t)target); }"]
         elif control.kind == "wait":
             if lifter.extras.get("cwai"):
-                lines += [f"m6809_cwai({hex16(following)});", self.transfer(region, key, following)]
+                lines += [f"return m6809_cwai({hex16(following)});"]
             else:
                 lines += ["m6809_sync();", f"M6809_CHECK({hex16(following)});", self.transfer(region, key, following)]
         else:

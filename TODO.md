@@ -23,7 +23,9 @@ Roughly in order; each milestone is checked against the reference before it is t
       makaimura.ini and the menu
 - [ ] Board mode #1, to settle: the DMA's latency to a cycle, the 6809's self-refresh during it, the IRQ
       flip-flop at the reset's SYNC loop (a recording of the board's boot and of a slowdown)
-- [ ] An input script with a busy scene (slowdown), to see board mode move it
+- [x] Input scripts that reach busy scenes (`tests/controls/make_stages.py`: stage2, stage4; the stage <$72 and the
+      lives <$60 written: a test's cheat, "FRAME mADDR VALUE" in gref, gng_headless and makaimura --inputs): in
+      board mode the game slows down where MAME mode does not (stage 2: 4 frames, stage 4: 3, in 12000)
 - [x] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch), after jt_gng's
       jtgng_colmix.v; the picture drawn as the beam goes (docs/accuracy.md #2, #2b); gref and the translation the
       same in board mode, MAME mode unchanged (against gref and against MAME)
@@ -43,14 +45,17 @@ Roughly in order; each milestone is checked against the reference before it is t
       sizes in symbols.txt (7EFF, 9AA8, B103, B196: data after them that looked like addresses), and a table in the
       window is read in its own bank (4:55E4 at DD71, 4:4942 at A0BE: read with no bank they gave FFFF); a size in
       symbols.txt wins over the analysis's guess
-- [ ] Still unresolved: 6F76 `JMP [B,X]`, AA36 `JSR [B,U]` (and 9AF4, 9F2D's described in symbols.txt)
+- [x] AA36 `JSR [B,U]`: U = AA41 (its 4 entries, AB83 among them: found as the stage scripts reached stage 4, the
+      translation's safety net stopping at it); 6F76: the stage's table 6F90 (stage 6) added
+- [ ] Still unresolved: 9AF4, 9F2D's described in symbols.txt (the analysis' 4 unresolved jumps)
 - [~] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing),
       long_play (`make_long_play.py`: 40000 frames, four credits, a two-player game, pseudo-random moves, the
       service switch); every instruction they run is found statically (6945 addresses); to do: the whole game,
       both loops, every weapon and enemy (scripts that get further: the stages need a player who survives)
 - [x] The object dispatch at 9AF4: U from the table of tables at 9AFE by the object's type (0-5), JSR [A,U] by its
       state (0-3): its six tables in symbols.txt (long_play met the types walk_right had not)
-- [ ] The two-level table at 6F6B (by <$72 and <$0B): its counts are what the traces saw; find them in the code
+- [x] The two-level table at 6F6B: by <$72, the stage (6F78: 7 tables' addresses, stages 0-5 6F8A, stage 6 6F90),
+      then <$0B; each table runs to the next or to code
 - [ ] A safety net for the translation: an address the static analysis missed is reported (crash log), never
       run wrongly
 - [ ] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check)
@@ -127,6 +132,10 @@ Roughly in order; each milestone is checked against the reference before it is t
       every VBLANK, and every picture (`--picture-hashes`): the attract mode (1200 frames, 890 IRQs), walk_right
       (7596 frames, 7286 IRQs) and long_play (39700 frames, 39390 IRQs) the same; `tools/mame_trace.py --against gng_headless`: against MAME itself, walk_right's 7001
       frames and 7000 pictures the same. 7001 frames run in 3.9 s with a picture each
+- [x] The IRQ taken as a jump to its handler (M6809_CHECK leaves the region; RTI goes where the stack says): the
+      program switches tasks in its IRQ (the round robin's 6619: STS, another stack), so a handler need not come
+      back where it was taken; the nested handler the runtime had faulted ("nested too deep") in stage 2 in board
+      mode, where gref (MAME's core) played on
 - [ ] The whole game, both loops, frame by frame against the reference (input scripts that reach every stage)
 
 ## M5. The sound program (Z80)
