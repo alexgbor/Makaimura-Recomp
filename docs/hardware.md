@@ -64,6 +64,16 @@ half (`LAYER0`), the text layer.
 - Not emulated by MAME: palette writes during the active display cause bus conflicts (the "lightning" glitch
   when the VBLANK routine overruns into the next frame).
 
+## The sound board
+
+MAME's gng.cpp: a Z80 at 3 MHz (12 MHz / 4) with ROM at 0000-7FFF (mm_c_06 here: the parent set's), RAM at
+C000-C7FF, the sound latch read at C800 (written by the 6809 at 3A00), and two YM2203s at 1.5 MHz written at
+E000-E001 and E002-E003. Nothing reads the YM2203s (their status, timers and busy flag change nothing the Z80
+sees) and their IRQ is not connected. The Z80's IRQ comes from a timer, 240 times a second (12500 of its
+cycles), held until taken. The LS259's Q1 (3D01), inverted, is the Z80's RESET, and while Q1 is 0 both YM2203s
+are held in reset too: the Z80 is held from power-on until the 6809's boot writes 3D01 (around frame 328 here).
+MAME's routes: each YM2203's three SSG channels at 0.40 and its FM at 0.20, all to one speaker.
+
 ## ROM set (makaimurg)
 
 Five files of its own (mj03g, mj04g, mj05g: the program; gng13.n4, gng16.l4: sprites), the rest from gng.

@@ -33,7 +33,9 @@ in.
 | 3 | **Read of 3C00** (`LDA $3C00` at 6017, the reset's wait) | 3C00 is mapped for writes only: a read does nothing | jotego: the DMA "is triggered when a certain memory location is addressed" — perhaps by a read too | to check |
 | 4 | **Power-on palette** | every 4 colours 00/55/AA/FF (a MAME TODO: "the POST has random/filled data") | random | cosmetic (the boot clears it); MAME's kept in both modes unless a recording says otherwise |
 | 4b | **Power-on LS259** (3D00-3D07) | every output 0: the screen flipped and the sound CPU held in reset until the boot writes 3D00/3D01 (MAME's first frame is drawn flipped) | the LS259's state before the first write depends on whether its /CLR is tied to the reset (schematics) | cosmetic (the first frame, during the boot); MAME's kept unless the schematics say otherwise |
-| 5 | **Sound timing** (latch, Z80 interrupts, YM2203) | MAME's scheduler, 4 IRQs a frame by a timer | to compare when the sound board is done | later |
+| 5 | **Sound timing** (latch, Z80 interrupts, YM2203) | MAME's scheduler, 4 IRQs a frame by a timer (240 Hz, not the video's 59.64 Hz) | to compare with recordings | MAME's in the reference, checked (below) |
+| 6 | **The time origin** | MAME's time 0 is a VBLANK's start: its 6809 meets each VBLANK 2110 cycles later than at the board's power-on with the beam at line 0 (the reference's 23040 + 25152 n) | the video counter's state at power-on: unknown | a constant: only the boot's first frame sees it (the 6809 waits for the VBLANK with SYNC); the checks compare MAME's times less 2110 (`tools/mame_trace.py`'s MAME_ORIGIN) |
+| 7 | **The Z80's start after its reset** | one Z80 cycle after the 6809 releases the line (its scheduler's rounding while the Z80 is suspended: measured, every Z80 write one cycle late against 2 x the release) | at the release (the board's clocks are one crystal) | MAME's in the reference (`kReleaseDelay` in tools/reference/sound/gsound.cpp); none in board mode |
 
 ## How MAME's own picture is sampled
 
@@ -43,6 +45,16 @@ its pictures the same way for the check against MAME. What MAME displays, and wh
 draw, is a VBLANK's indexes in that VBLANK's colours. On the real board the picture is made line by line
 during the active display, with the palette and the layers as they are on each line. That is a board-mode
 difference to model: every write during the active display then shows from its line on (#2 above is one case).
+
+## The sound board against MAME
+
+`tools/mame_trace.py --sound` runs MAME with taps on the latch (3A00), the YM2203s (the Z80's E000-E003) and the
+Z80's RAM, and the reference with its sound board (`gref --sound`: MAME 0.289's Z80 and ymfm, as MAME has them),
+and compares the latch's writes (6809 time and value), every YM2203 write (Z80 time, chip, port, value) and the
+Z80's RAM and PC at the first YM2203 write after each frame. Over walk_right (7001 frames): 214 latch writes,
+1,201,454 YM2203 writes and 6673 RAM states, every one the same, the times on MAME's origin (#6 above). The
+samples are then ymfm's from the same writes at the same cycles; MAME's own WAV goes through its mixer and
+resampler (to 48 kHz), which the reference does not copy.
 
 ## How the board mode will be checked
 

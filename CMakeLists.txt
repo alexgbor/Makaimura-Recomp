@@ -54,11 +54,31 @@ add_custom_command(OUTPUT ${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx
 		${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx ${MAKAIMURA_M6809}/m6809make.py ${MAKAIMURA_M6809}/m6809.lst
 	DEPENDS ${MAKAIMURA_M6809}/m6809make.py ${MAKAIMURA_M6809}/m6809.lst ${MAKAIMURA_M6809}/base6x09.lst
 	VERBATIM)
+# The reference sound board: MAME 0.289's Z80 (its steps written from z80.lst at build time, as MAME does) and
+# ymfm's YM2203, over arcade-decomp's stand-ins for MAME's framework (tools/core/system32/reference/sound)
+set(MAKAIMURA_Z80 ${MAKAIMURA_MAME}/z80)
+set(MAKAIMURA_YMFM ${MAKAIMURA_MAME}/ymfm)
+add_custom_command(OUTPUT ${MAKAIMURA_GENERATED}/cpu/z80/z80.hxx
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${MAKAIMURA_GENERATED}/cpu/z80
+	COMMAND Python3::Interpreter ${MAKAIMURA_Z80}/z80make.py z80 ${MAKAIMURA_Z80}/z80.lst
+		${MAKAIMURA_GENERATED}/cpu/z80/z80.hxx
+	DEPENDS ${MAKAIMURA_Z80}/z80make.py ${MAKAIMURA_Z80}/z80.lst
+	VERBATIM)
+add_library(gsound STATIC tools/reference/sound/gsound.cpp ${MAKAIMURA_GENERATED}/cpu/z80/z80.hxx
+	${MAKAIMURA_YMFM}/ymfm_opn.cpp ${MAKAIMURA_YMFM}/ymfm_ssg.cpp ${MAKAIMURA_YMFM}/ymfm_adpcm.cpp)
+target_include_directories(gsound PUBLIC tools/reference/sound
+	PRIVATE ${CMAKE_SOURCE_DIR}/tools/core/system32/reference/sound ${MAKAIMURA_Z80} ${MAKAIMURA_YMFM}
+	${MAKAIMURA_GENERATED})
+target_compile_features(gsound PRIVATE cxx_std_20)
+if(MSVC)
+	target_compile_options(gsound PRIVATE /wd4244 /wd4146 /wd4102 /wd4267 /wd4305 /bigobj)
+endif()
+
 add_executable(gref tools/reference/gref.cpp ${MAKAIMURA_M6809}/m6809.cpp ${MAKAIMURA_M6809}/6x09dasm.cpp
 	${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx)
 target_include_directories(gref PRIVATE tools/reference/stub ${MAKAIMURA_M6809} ${MAKAIMURA_GENERATED})
 target_compile_features(gref PRIVATE cxx_std_20)
-target_link_libraries(gref PRIVATE gng_runtime)
+target_link_libraries(gref PRIVATE gng_runtime gsound)
 if(MSVC)
 	target_compile_options(gref PRIVATE /wd4244 /wd4146 /wd4102)
 endif()

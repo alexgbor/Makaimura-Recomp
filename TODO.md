@@ -45,7 +45,15 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 - [x] MAME's MC6809 core built standalone (`tools/reference/stub/emu.h`; m6809make.py at build time): `gref`
       boots the program to its title (1200 frames in 0.7 s)
-- [ ] MAME's Z80 core (tools/core/system32/reference/mame/z80) and ymfm's YM2203 for the sound board
+- [x] The sound board (`tools/reference/sound/gsound.cpp`, `gref --sound`): MAME 0.289's Z80 and ymfm's YM2203
+      (tools/reference/mame: MAME 0.289's own copies; arcade-decomp's are older) on the sound map of gng.cpp, the
+      Z80 run lazily up to each event as MAME's scheduler does (the latch's and the LS259's writes at the 6809's
+      time, its 240 Hz IRQ restarted as its reset is released, the frame's end), each YM2203 at ymfm's medium
+      fidelity (MAME's: 125 kHz), MAME's routes (SSG 0.40, FM 0.20); a WAV of the mix
+- [x] Checked against MAME (`tools/mame_trace.py --sound`): walk_right's 214 latch writes, 1,201,454 YM2203 writes
+      (Z80 cycle, chip, port, value) and the Z80's RAM at 6673 of them, every one the same. Two MAME effects
+      found and documented (docs/accuracy.md #6, #7): its time origin (2110 6809 cycles) and its Z80's start a
+      cycle after its reset is released
 - [ ] The board model (runtime/) driven by them: frame timing (384x262 at 6 MHz), VBLANK IRQ, sprite DMA
       (and its halt of the CPU), the sound latch, the Z80's 4 IRQs a frame
 - [~] Per frame: state hash (`--hashes`), executed addresses with their bank (`--executed`), every transfer
@@ -62,7 +70,8 @@ Roughly in order; each milestone is checked against the reference before it is t
       LS259 starts at 0 and Q0 drives the flip through an inverter) until the boot writes 3D00
 - [x] DIP switches from power-on in both runs (`--dsw1`, `--dsw2`; trace.lua's MK_DSW1/2). MAME keeps a game's
       DIP switches in its cfg directory across runs, `-noreadconfig` or not: each MAME run starts from an empty one
-- [ ] The sound (MAME's WAV)
+- [ ] The reference's mix against MAME's WAV (its mixer, filters and resampler to 48 kHz): by ear and by
+      spectrum, not sample for sample
 
 ## M3. The board model (`runtime/`)
 
@@ -107,8 +116,11 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 ## M5. The sound program (Z80)
 
-- [ ] Translated with the core's Z80 frontend (`decompile_sound.py`, `sound_symbols.txt`)
-- [ ] Sound identical to the reference's (sample hashes), and to MAME's WAV output
+- [ ] Translated with the core's Z80 frontend (`tools/core/z80`: lift, timing, C), its own timing model (the
+      instruction's cycles, the IRQ between the same two instructions as MAME's core), on the game's sound board
+- [ ] The game's own YM2203 (FM and SSG) in C, sample for sample against ymfm's (ymfm stays in the tools: BSD-3,
+      but the game's chips are its own, as DonPachi's and TMNT's are)
+- [ ] The game's sound against the reference's: the YM2203 writes to the cycle, the samples; the mix out
 
 ## M6. Readable C
 

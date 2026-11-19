@@ -29,4 +29,5 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 The game itself (Makaimura, (c) 1985 Capcom) is not included and not covered by this license.
 tools/reference/mame/ holds MAME's code under its own BSD-3-Clause terms (tools/reference/mame/LICENSE and each
-file's header); it is built into the verification tools only, never into the game.
+file's header), and in tools/reference/mame/ymfm Aaron Giles's ymfm (BSD-3-Clause, its LICENSE there); they are
+built into the verification tools only, never into the game.

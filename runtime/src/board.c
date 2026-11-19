@@ -135,7 +135,10 @@ void gng_write(uint16_t address, uint8_t value)
 	}
 	if (address >= 0x3D00u && address <= 0x3D07u) {
 		const unsigned bit = address - 0x3D00u;
+		const uint8_t before = gng.ls259;
 		gng.ls259 = (uint8_t)((gng.ls259 & ~(1u << bit)) | ((value & 1u) << bit));
+		if (gng.ls259 != before && gng.on_ls259)
+			gng.on_ls259(&gng, bit, value & 1u);
 	}
 }
 

@@ -12,6 +12,10 @@
 --   MK_INPUTS   an input script (gref's format: "FRAME PORT VALUE", the byte as the board reads it, active low)
 --   MK_DUMPS    a file for the bus bytes 0000-2FFF of every frame (optional)
 --   MK_DSW1, MK_DSW2   the DIP switches from power-on (hex, as the board reads them: active low; optional)
+--   MK_SOUND    a file for the sound board's state at every frame: "frame hash pc time", the Z80's RAM
+--               (C000-C7FF)'s FNV-1a, its PC, its time in Z80 cycles (optional)
+--   MK_YM       a file for every YM2203 write: "time chip offset value", time in Z80 cycles (optional)
+--   MK_LATCH    a file for every write of the sound latch (3A00): "time value", time in 6809 cycles (optional)
 --   MK_PICTURES, MK_PICTURES_EVERY   a file for every Nth frame's picture (screen:pixels(): 256x224 of 32-bit
 --               ARGB, little endian), from frame 0 (optional)
 local out_path = os.getenv("MK_OUT")
@@ -28,6 +32,68 @@ local out = assert(io.open(out_path, "w"))
 local dumps = dumps_path and assert(io.open(dumps_path, "wb")) or nil
 local pictures = pictures_path and assert(io.open(pictures_path, "wb")) or nil
 local screen = machine.screens[":screen"]
+local audiocpu = machine.devices[":audiocpu"]
+local sound_path, ym_path, latch_path = os.getenv("MK_SOUND"), os.getenv("MK_YM"), os.getenv("MK_LATCH")
+local sound = sound_path and assert(io.open(sound_path, "w")) or nil
+
+-- MAME's time in a device's cycles, as its scheduler counts them (attoseconds a cycle, rounded down)
+local function ticks(time, clock)
+	return time.seconds * clock + time.attoseconds // (1000000000000000000 // clock)
+end
+
+-- (globals: a tap is removed once nothing refers to it)
+-- MK_MARKS: the Z80's RAM at the first YM2203 write after each frame notifier, "frame write hash pc"
+local marks_path = os.getenv("MK_MARKS")
+mk_marks = marks_path and assert(io.open(marks_path, "w")) or nil
+mk_marked, mk_marked_frame, mk_writes = false, 0, 0
+if ym_path or marks_path then
+	mk_ym = ym_path and assert(io.open(ym_path, "w")) or nil
+	mk_ym_tap = audiocpu.spaces["program"]:install_write_tap(0xe000, 0xe003, "mk_ym", function(offset, data, mask)
+		if mk_marks and mk_marked then
+			local z80 = audiocpu.spaces["program"]
+			local h = 2166136261
+			for address = 0xc000, 0xc7ff do
+				h = ((h ~ z80:read_u8(address)) * 16777619) & 0xFFFFFFFF
+			end
+			mk_marks:write(string.format("%d %d %08x %04x\n", mk_marked_frame, mk_writes, h, audiocpu.state["PC"].value))
+			mk_marked = false
+		end
+		mk_writes = mk_writes + 1
+		if not mk_ym then
+			return
+		end
+		mk_ym:write(string.format("%d %d %d %02x\n", ticks(machine.time, 3000000), (offset >> 1) & 1, offset & 1, data))
+	end)
+end
+-- MK_EVENTS: the 6809's IRQ vector fetches (FFF8) and LS259 writes, "kind time value" in 6809 cycles
+local events_path = os.getenv("MK_EVENTS")
+if events_path then
+	mk_events = assert(io.open(events_path, "w"))
+	mk_vector_tap = space:install_read_tap(0xfff8, 0xfff8, "mk_vector", function(offset, data, mask)
+		mk_events:write(string.format("irq %d %02x\n", ticks(machine.time, 1500000), data))
+	end)
+	mk_ls259_tap = space:install_write_tap(0x3d00, 0x3d07, "mk_ls259", function(offset, data, mask)
+		mk_events:write(string.format("ls259 %d %d%d\n", ticks(machine.time, 1500000), offset & 7, data & 1))
+	end)
+end
+-- MK_Z80RAM: the Z80's first writes of its RAM, "time address value" (Z80 cycles; a check of its timeline)
+local z80ram_path = os.getenv("MK_Z80RAM")
+if z80ram_path then
+	mk_z80ram = assert(io.open(z80ram_path, "w"))
+	mk_z80ram_count = 0
+	mk_z80ram_tap = audiocpu.spaces["program"]:install_write_tap(0xc000, 0xc7ff, "mk_z80ram", function(offset, data, mask)
+		if mk_z80ram_count < 200 then
+			mk_z80ram:write(string.format("%d %04x %02x\n", ticks(machine.time, 3000000), offset, data))
+			mk_z80ram_count = mk_z80ram_count + 1
+		end
+	end)
+end
+if latch_path then
+	mk_latch = assert(io.open(latch_path, "w"))
+	mk_latch_tap = space:install_write_tap(0x3a00, 0x3a00, "mk_latch", function(offset, data, mask)
+		mk_latch:write(string.format("%d %02x\n", ticks(machine.time, 1500000), data))
+	end)
+end
 
 -- the input script: at each listed frame, a port's byte (active low) becomes the presses of its fields
 local changes = {}
@@ -93,6 +159,17 @@ mk_trace_subscription = emu.add_machine_frame_notifier(function()
 	if dumps then
 		dumps:write(table.concat(bytes))
 	end
+	if sound then
+		local z80 = audiocpu.spaces["program"]
+		local h = 2166136261
+		for address = 0xc000, 0xc7ff do
+			h = fnv(h, z80:read_u8(address))
+		end
+		sound:write(string.format("%d %08x %04x %d\n", count, h, audiocpu.state["PC"].value, ticks(machine.time, 3000000)))
+	end
+	if mk_marks then
+		mk_marked, mk_marked_frame = true, count
+	end
 	-- the picture: at this notifier, screen:pixels() is the picture MAME drew at the previous VBLANK (its
 	-- screen bitmap is a frame behind its frame notifier: checked, every frame of the attract mode and a game),
 	-- so it is written as the previous frame's, the one gref draws at that VBLANK
@@ -114,6 +191,24 @@ mk_trace_subscription = emu.add_machine_frame_notifier(function()
 		end
 		if pictures then
 			pictures:close()
+		end
+		if sound then
+			sound:close()
+		end
+		if mk_ym then
+			mk_ym:close()
+		end
+		if mk_latch then
+			mk_latch:close()
+		end
+		if mk_events then
+			mk_events:close()
+		end
+		if mk_marks then
+			mk_marks:close()
+		end
+		if mk_z80ram then
+			mk_z80ram:close()
 		end
 		machine:exit()
 	end

@@ -28,6 +28,13 @@
  *                        active low as the board reads it) applied at that frame's VBLANK, for the frames after
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on (as the board reads them, active low; the
  *                        defaults DF and FB: gng/board.h)
+ *      --sound FILE      the sound board too (tools/reference/sound: MAME's Z80, ymfm's YM2203s), and at each
+ *                        VBLANK its state: "frame hash pc time", the Z80's RAM's FNV-1a, its PC, its time (Z80 cycles)
+ *      --ym-writes FILE  with --sound: every YM2203 write, "time chip offset value" (Z80 cycles)
+ *      --sound-marks FILE  with --sound: the Z80's RAM as it makes each YM2203 write, "write hash pc" (MAME's
+ *                        run hashes it at the first write after each frame: tools/mame/trace.lua's MK_MARKS)
+ *      --wav FILE        with --sound: the mix as MAME routes it, at the chips' 125 kHz
+ *      --latch-writes FILE  every write of the sound latch: "time value" (6809 cycles)
  *      --pictures N FILE every Nth frame's picture (from frame 0), 256x224 RGB bytes each, as MAME's (trace.lua)
  *      --ppm FRAME FILE  that frame's picture as a PPM image
  *      --text FRAME      the text layer's codes at that frame, as hex
@@ -39,6 +46,7 @@
 #include "6x09dasm.h"
 #include "gng/board.h"
 #include "gng/video.h"
+#include "gsound.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -141,10 +149,29 @@ static void host_instruction(u16 pc)
 	}
 }
 
+static bool sound;
+static FILE *latch_log;
+
+static u64 board_time()
+{
+	// the board's time of an access: the run's start and the cycles it has used so far
+	return cycle_base + u64(run_length - cpu->icount());
+}
+
 static void on_latch(gng_board *, uint8_t value)
 {
-	// the board's time of the write: the run's start and the cycles it has used so far
-	latch_writes.emplace_back(cycle_base + u64(run_length - cpu->icount()), value);
+	const u64 time = board_time();
+	latch_writes.emplace_back(time, value);
+	if (latch_log)
+		std::fprintf(latch_log, "%llu %02x\n", (unsigned long long)time, value);
+	if (sound)
+		gs_latch(2 * time, value);    // (Z80 cycles: two a 6809 cycle)
+}
+
+static void on_ls259(gng_board *, unsigned output, unsigned value)
+{
+	if (sound && output == 1)
+		gs_q1(2 * board_time(), int(value));
 }
 
 static std::map<std::string, std::vector<u8>> read_regions(const char *path)
@@ -224,6 +251,7 @@ int main(int argc, char **argv)
 	const char *hashes_path = nullptr, *executed_path = nullptr, *inputs_path = nullptr, *dump_path = nullptr;
 	int text_frame = -1, dump_frame = -1;
 	int dsw1 = GNG_DSW1_DEFAULT, dsw2 = GNG_DSW2_DEFAULT;
+	const char *sound_path = nullptr, *ym_path = nullptr, *wav_path = nullptr, *marks_path = nullptr;
 	for (int i = 1; i < argc; i++)
 	{
 		std::string a = argv[i];
@@ -240,6 +268,11 @@ int main(int argc, char **argv)
 		else if (a == "--bus-hashes") bus_hashes_path = next();
 		else if (a == "--bus-dumps") bus_dumps_path = next();
 		else if (a == "--irq-hashes") irq_hashes = std::fopen(next(), "w");
+		else if (a == "--sound") { sound = true; sound_path = next(); }
+		else if (a == "--ym-writes") ym_path = next();
+		else if (a == "--sound-marks") marks_path = next();
+		else if (a == "--wav") wav_path = next();
+		else if (a == "--latch-writes") latch_log = std::fopen(next(), "w");
 		else if (a == "--pictures") { pictures_every = std::atoi(next()); pictures_path = next(); }
 		else if (a == "--ppm") { ppm_frame = std::atoi(next()); ppm_path = next(); }
 		else if (a == "--executed") executed_path = next();
@@ -274,6 +307,24 @@ int main(int argc, char **argv)
 	gng.inputs.dsw2 = u8(dsw2);
 	gng_video_decode();
 	gng.on_sound_latch = on_latch;
+	gng.on_ls259 = on_ls259;
+	FILE *sound_out = nullptr, *ym_out = nullptr, *wav_out = nullptr, *marks_out = nullptr;
+	if (sound)
+	{
+		if (!regions.count("audiocpu"))
+		{
+			std::fprintf(stderr, "gref: no audiocpu region in %s\n", regions_path.c_str());
+			return 2;
+		}
+		gs_power_on(regions["audiocpu"].data());
+		sound_out = std::fopen(sound_path, "w");
+		if (ym_path)
+			gs_log_writes(ym_out = std::fopen(ym_path, "w"));
+		if (marks_path)
+			gs_ram_at_writes(marks_out = std::fopen(marks_path, "w"));
+		if (wav_path)
+			gs_wav(wav_out = std::fopen(wav_path, "wb"));
+	}
 
 	std::vector<input_change> inputs;
 	if (inputs_path)
@@ -313,6 +364,12 @@ int main(int argc, char **argv)
 	{
 		const u64 vblank = GNG_VBLANK_CYCLE + u64(frame) * GNG_CPU_CYCLES_PER_FRAME;
 		run_until(vblank);
+		if (sound)
+		{
+			// the sound board up to the VBLANK (MAME's timeslice ends at its timer)
+			gs_run_until(2 * vblank);
+			std::fprintf(sound_out, "%d %08x %04x %llu\n", frame, gs_ram_hash(), gs_pc(), (unsigned long long)gs_time());
+		}
 		// the VBLANK: the frame is what the board holds now; then the inputs for the next frame; then the IRQ
 		if (hashes)
 			std::fprintf(hashes, "%d %08x\n", frame, gng_state_hash());
@@ -397,6 +454,16 @@ int main(int argc, char **argv)
 		std::fclose(pictures);
 	if (irq_hashes)
 		std::fclose(irq_hashes);
+	if (latch_log)
+		std::fclose(latch_log);
+	if (sound_out)
+		std::fclose(sound_out);
+	if (ym_out)
+		std::fclose(ym_out);
+	if (marks_out)
+		std::fclose(marks_out);
+	if (wav_out)
+		gs_close_wav();
 
 	if (executed_path)
 	{

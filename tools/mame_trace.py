@@ -27,8 +27,18 @@ DEFAULT_MAME = os.environ.get("MAME", "D:/repositories/mame0289/mame" + EXE)
 BUS = 0x3000
 
 
-def run_mame(mame, frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None)):
+SOUND_FILES = ("sound", "ym", "latch", "marks")
+# MAME's time origin: its time 0 is a VBLANK's start, and its 6809 meets each VBLANK 2110 cycles later than the
+# reference's (23040 + 25152 n: the screen's line 240 from power-on), measured (the IRQs' vector fetches and the
+# latch's writes): the reference's times are compared with MAME's less this (twice it in Z80 cycles)
+MAME_ORIGIN = 2110
+
+
+def run_mame(mame, frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None), sound=None):
     env = dict(os.environ, MK_OUT=out, MK_FRAMES=str(frames))
+    if sound:
+        for name in SOUND_FILES:
+            env["MK_" + name.upper()] = sound[name]
     for name, value in zip(("MK_DSW1", "MK_DSW2"), dsw):
         if value:
             env[name] = value
@@ -48,8 +58,11 @@ def run_mame(mame, frames, inputs, out, dumps, pictures=None, every=0, dsw=(None
     subprocess.run(command, env=env, check=True, cwd=os.path.join(ROOT, "build"))
 
 
-def run_gref(frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None), program="gref"):
+def run_gref(frames, inputs, out, dumps, pictures=None, every=0, dsw=(None, None), program="gref", sound=None):
     command = [os.path.join(ROOT, "build", "bin", program + EXE), "--frames", str(frames), "--bus-hashes", out]
+    if sound:
+        command += ["--sound", sound["sound"], "--ym-writes", sound["ym"], "--latch-writes", sound["latch"],
+                    "--sound-marks", sound["marks"]]
     for name, value in zip(("--dsw1", "--dsw2"), dsw):
         if value:
             command += [name, value]
@@ -73,6 +86,49 @@ def read(path):
 
 
 WIDTH, HEIGHT = 256, 224
+
+
+def compare_sound(mame, gref):
+    """The sound side, file by file: the latch's writes, the sound board at each frame, the YM2203's writes"""
+    ok = True
+    labels = {"latch": "latch writes (6809 time, value)",
+              "marks": "the Z80's RAM at the first YM2203 write after each VBLANK (frame, write, RAM, PC)",
+              "ym": "YM2203 writes (Z80 time, chip, port, value)"}
+
+    def shifted(row, name):
+        # the reference's times on MAME's origin
+        if name == "latch":
+            return [str(int(row[0]) + MAME_ORIGIN)] + row[1:]
+        if name == "ym":
+            return [str(int(row[0]) + 2 * MAME_ORIGIN)] + row[1:]
+        return row
+    # the marks: MAME's Z80 RAM at the first YM2203 write after each frame, against the reference's at that write
+    with open(mame["marks"]) as a, open(gref["marks"]) as b:
+        marks = [line.split() for line in a if line.strip()]
+        at = {row[0]: row[1:] for row in (line.split() for line in b if line.strip())}
+    wrong = [row for row in marks if at.get(row[1]) != row[2:]]
+    if wrong:
+        ok = False
+        row = wrong[0]
+        print(f"the Z80's RAM at {len(marks)} YM2203 writes (the first after each frame): {len(wrong)} different; "
+              f"the first, frame {row[0]} write {row[1]}: MAME {' '.join(row[2:])}, gref {' '.join(at.get(row[1], ['-']))}")
+    else:
+        print(f"the Z80's RAM at {len(marks)} YM2203 writes (the first after each frame), with its PC: every one the "
+              "same as MAME's")
+    for name in ("latch", "ym"):
+        with open(mame[name]) as a, open(gref[name]) as b:
+            x = [line.split() for line in a if line.strip()]
+            y = [shifted(line.split(), name) for line in b if line.strip()]
+        count = min(len(x), len(y))
+        same = next((i for i in range(count) if x[i] != y[i]), count)
+        if same == count and len(x) == len(y):
+            print(f"{labels[name]}: {len(x)}, every one the same as MAME's")
+            continue
+        ok = False
+        print(f"{labels[name]}: MAME {len(x)}, gref {len(y)}; the same up to {same}")
+        for i in range(max(0, same - 2), min(count, same + 3)):
+            print(f"  {i}: MAME {' '.join(x[i])}   gref {' '.join(y[i])}")
+    return ok
 
 
 def compare_pictures(mame_path, gref_path, every):
@@ -112,6 +168,8 @@ def main():
     parser.add_argument("--dumps", action="store_true", help="compare the first differing frame byte by byte")
     parser.add_argument("--pictures", type=int, default=0, metavar="N",
                         help="compare every Nth frame's picture with MAME's screen, pixel by pixel")
+    parser.add_argument("--sound", action="store_true",
+                        help="the sound board too: the latch's writes, the Z80 at each frame, the YM2203's writes")
     parser.add_argument("--against", choices=("gref", "gng_headless"), default="gref",
                         help="what MAME is compared with: the reference (default) or the translated program")
     parser.add_argument("--dsw1", help="DIP switches 1 from power-on, hex as the board reads them (default DF)")
@@ -125,8 +183,12 @@ def main():
     gref_dumps = os.path.join(build, "gref_bus.bin") if args.dumps else None
     mame_pictures = os.path.join(build, "mame_pictures.bin") if args.pictures else None
     gref_pictures = os.path.join(build, "gref_pictures.bin") if args.pictures else None
-    run_mame(args.mame, args.frames, args.inputs, mame_out, mame_dumps, mame_pictures, args.pictures, dsw)
-    run_gref(args.frames, args.inputs, gref_out, gref_dumps, gref_pictures, args.pictures, dsw, args.against)
+    mame_sound = {name: os.path.join(build, f"mame_{name}.txt") for name in SOUND_FILES} if args.sound else None
+    gref_sound = {name: os.path.join(build, f"gref_{name}.txt") for name in SOUND_FILES} if args.sound else None
+    run_mame(args.mame, args.frames, args.inputs, mame_out, mame_dumps, mame_pictures, args.pictures, dsw, mame_sound)
+    run_gref(args.frames, args.inputs, gref_out, gref_dumps, gref_pictures, args.pictures, dsw, args.against,
+             gref_sound)
+    sound_ok = compare_sound(mame_sound, gref_sound) if args.sound else True
     pictures_ok = True
     if args.pictures:
         pictures_ok = compare_pictures(mame_pictures, gref_pictures, args.pictures)
@@ -142,7 +204,7 @@ def main():
     print(f"{len(mame)} frames from MAME, {len(gref)} from {args.against}: {same} the same")
     if first is None:
         print("every frame the same as MAME's")
-        return 0 if pictures_ok else 1
+        return 0 if pictures_ok and sound_ok else 1
     print(f"first difference at frame {first}: MAME {mame[first][1]} (PC {mame[first][2]}), "
           f"{args.against} {gref[first][1]} (PC {gref[first][2]})")
     if args.dumps:

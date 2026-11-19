@@ -69,8 +69,10 @@ typedef struct gng_board {
 	gng_inputs inputs;
 	gng_roms roms;
 	gng_accuracy_mode accuracy;   /* (kept over gng_power_on: set it before or after) */
-	/* the host's hooks (may be NULL): a latch write, with the board's time in 6809 cycles */
+	/* the host's hooks (may be NULL), called as the 6809 writes: the sound latch; an LS259 output that changes
+	   (Q1 is the sound board's reset) */
 	void (*on_sound_latch)(struct gng_board *board, uint8_t value);
+	void (*on_ls259)(struct gng_board *board, unsigned output, unsigned value);
 } gng_board;
 
 extern gng_board gng;
