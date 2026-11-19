@@ -132,7 +132,15 @@ Roughly in order; each milestone is checked against the reference before it is t
       walk_right's 1,201,454 YM2203 writes the same as the reference's (so as MAME's) to the cycle, and the Z80's
       RAM at each of them (`tools/check_translation.py`)
 - [ ] The game's own YM2203 (FM and SSG) in C, sample for sample against ymfm's (ymfm stays in the tools: BSD-3,
-      but the game's chips are its own, as DonPachi's and TMNT's are)
+      but the game's chips are its own, as DonPachi's and TMNT's are). The plan:
+      - `runtime/src/ym2203.c` after ymfm (credited): what ym2203 uses of it, at MAME's settings: medium fidelity,
+        prescale 6 (the FM clocked every 6 output samples, its output through the DAC's 10.3 float round trip),
+        the SSG resampled 4:3 (ssg_resampler); the FM engine for OPN (opn_registers: 3 channels, no LFO), its
+        operators (phase, envelope with its rates and the SSG-EG, the attenuation tables), the timers (A for CSM)
+      - `tools/reference/sound/ymcheck.cpp`: a write log (gref --ym-writes) fed to ymfm's ym2203 and to the C one at
+        the same samples (sample n from Z80 time 24 n, a write before the samples that start after it), every
+        output (FM, SSG A, B, C) compared; then the game's mix (MAME's routes) and its samples by frame
+      - the headless runner and the check: the samples' hashes against gref's (`--wav` already writes the mix)
 - [ ] The game's sound against the reference's: the YM2203 writes to the cycle, the samples; the mix out
 
 ## M6. Readable C
