@@ -59,6 +59,24 @@ uint8_t gng_rom_byte(uint16_t address)
 	return 0;
 }
 
+static void start_dma(void)
+{
+	memcpy(gng.sprite_buffer, gng.sprite_ram, GNG_DMA_SPRITE_BYTES);
+	gng.dma_count++;
+	if (gng.on_dma)
+		gng.on_dma(&gng);
+}
+
+uint32_t gng_dma_halt(uint64_t cycle)
+{
+	const uint32_t at = (uint32_t)(cycle % GNG_CPU_CYCLES_PER_FRAME);
+	const uint32_t copy = GNG_DMA_DEAD_CYCLES + GNG_DMA_COPY_CYCLES;
+	if (at >= GNG_BLANK_FIRST_CYCLE || at < GNG_BLANK_LAST_CYCLE)
+		return copy;
+	/* in the active display: jtgng_objdma waits for the blank, the bus already asked for (the 6809 halted) */
+	return GNG_BLANK_FIRST_CYCLE - at + copy;
+}
+
 uint8_t gng_read(uint16_t address)
 {
 	if (address < 0x1E00u)
@@ -70,6 +88,8 @@ uint8_t gng_read(uint16_t address)
 	if (address < 0x3000u)
 		return gng.bg_ram[address - 0x2800u];
 	if (address < 0x4000u) {
+		if (address == 0x3C00 && gng.accuracy == GNG_ACCURACY_BOARD)
+			start_dma();    /* (a read starts it too: the reset's LDA $3C00 at 6017) */
 		switch (address) {
 		case 0x3000: return gng.inputs.system;
 		case 0x3001: return gng.inputs.p1;
@@ -122,10 +142,15 @@ void gng_write(uint16_t address, uint8_t value)
 		gng.scroll_y[address - 0x3B0Au] = value;
 		return;
 	case 0x3C00:
-		/* buffered_spriteram8_device::write: the sprite RAM copied to the video's buffer at once (the board's
-		   DMA takes time and halts the 6809: MAME does not model it; see TODO.md) */
-		memcpy(gng.sprite_buffer, gng.sprite_ram, sizeof(gng.sprite_buffer));
-		gng.dma_count++;
+		/* buffered_spriteram8_device::write: the sprite RAM copied to the video's buffer at once; in board mode
+		   the DMA, which halts the 6809 while it copies (the copy itself the same: the 6809, the only writer
+		   of the sprite RAM, is off the bus until it ends) */
+		if (gng.accuracy == GNG_ACCURACY_BOARD)
+			start_dma();
+		else {
+			memcpy(gng.sprite_buffer, gng.sprite_ram, sizeof(gng.sprite_buffer));
+			gng.dma_count++;
+		}
 		return;
 	case 0x3E00:
 		gng.bank = value == 4 ? 4 : (value & 3);

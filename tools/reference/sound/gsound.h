@@ -30,8 +30,9 @@
 extern "C" {
 #endif
 
-/* Power-on with the sound program (the "audiocpu" region, 32 KB at least): the Z80 held in reset (LS259 Q1 0) */
-void gs_power_on(const uint8_t *program);
+/* Power-on with the sound program (the "audiocpu" region, 32 KB at least): the Z80 held in reset (LS259 Q1 0);
+   in MAME mode the Z80 starts a cycle after its release (docs/accuracy.md #7) */
+void gs_power_on(const uint8_t *program, int mame_mode);
 
 /* The board's time moves on: the Z80 and the chips up to Z80 time 'time' */
 void gs_run_until(uint64_t time);

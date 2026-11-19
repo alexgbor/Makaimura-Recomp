@@ -277,6 +277,14 @@ static int set(settings *s, const char *section, const char *name, char *value)
 	int n, i;
 	if (!SDL_strcasecmp(section, "game"))
 	{
+		if (!SDL_strcasecmp(name, "accuracy"))
+		{
+			if (!SDL_strcasecmp(value, "mame"))
+				return s->accuracy = 0, 1;
+			if (!SDL_strcasecmp(value, "board"))
+				return s->accuracy = 1, 1;
+			return 0;
+		}
 		for (i = 0; i < DIPS; i++)
 			if (!SDL_strcasecmp(name, dips[i].name))
 			{
@@ -439,6 +447,9 @@ const char *settings_save(const settings *s, const char *path)
 		"; deleting this file brings every default back.\n\n");
 	fprintf(file, "[game]\n; The board's DIP switches, as MAME's makaimurg names them. They are read as the board starts\n"
 		"; (and at a reset, F3)\n");
+	fprintf(file, "; mame: the board exactly as MAME 0.289 models it (checked against MAME frame by frame); board: what\n"
+		"; the real board does and MAME leaves out (docs/accuracy.md: so far the sprite DMA halting the CPU). From the\n"
+		"; board's start (F3)\naccuracy = %s\n", s->accuracy ? "board" : "mame");
 	for (int i = 0; i < DIPS; i++)
 	{
 		const uint8_t port = dips[i].port == 1 ? s->dsw1 : s->dsw2;

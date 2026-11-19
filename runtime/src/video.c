@@ -120,8 +120,10 @@ void gng_video_render_indexed(uint8_t *out)
 		}
 	}
 
-	/* the sprites, from the buffer's last to its first (the first on top) */
-	for (int offs = 0x200 - 4; offs >= 0; offs -= 4) {
+	/* the sprites, from the buffer's last to its first (the first on top): MAME's 128; the board's DMA copies 96
+	   (board mode: docs/accuracy.md #1) */
+	const int bytes = gng.accuracy == GNG_ACCURACY_BOARD ? (int)GNG_DMA_SPRITE_BYTES : 0x200;
+	for (int offs = bytes - 4; offs >= 0; offs -= 4) {
 		const uint8_t *s = &gng.sprite_buffer[offs];
 		const uint8_t attr = s[1];
 		const int sx = s[3] - 0x100 * (attr & 0x01);

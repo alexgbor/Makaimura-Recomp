@@ -457,7 +457,7 @@ static void power_on(void)
 {
 	const gng_roms roms = gng_rom_set_roms(&rom_set);
 	gng_power_on(&roms);
-	gng.accuracy = GNG_ACCURACY_MAME;
+	gng.accuracy = options.accuracy ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
 	gng.inputs.dsw1 = options.dsw1;
 	gng.inputs.dsw2 = options.dsw2;
 	gng_video_decode();

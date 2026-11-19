@@ -57,6 +57,7 @@ typedef struct settings
 {
 	/* [game]: the DIP switches as the board reads them (3003, 3004) */
 	uint8_t dsw1, dsw2;
+	int accuracy;         /* gng/board.h's gng_accuracy_mode: 0 MAME 1:1, 1 the board's (docs/accuracy.md) */
 	/* [window] */
 	int scale;            /* the window's height, in the picture's lines (224 each) */
 	bool fullscreen;

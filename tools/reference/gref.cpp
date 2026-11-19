@@ -67,6 +67,7 @@ public:
 	u16 pc() const { return m_pc.w; }
 	u8 cc() const { return m_cc; }
 	int icount() const { return m_icount; }
+	void eat(int cycles) { m_icount -= cycles; }    // the CPU halted (board mode's DMA): its time goes on
 	void print_registers(FILE *out) const
 	{
 		std::fprintf(out, "PC=%04X A=%02X B=%02X X=%04X Y=%04X U=%04X S=%04X DP=%02X CC=%02X bank=%u\n", m_pc.w,
@@ -169,6 +170,11 @@ static void on_latch(gng_board *, uint8_t value)
 		std::fprintf(latch_log, "%llu %02x\n", (unsigned long long)time, value);
 	if (sound)
 		gs_latch(2 * time, value);    // (Z80 cycles: two a 6809 cycle)
+}
+
+static void on_dma(gng_board *)
+{
+	cpu->eat(int(gng_dma_halt(board_time())));
 }
 
 static void on_ls259(gng_board *, unsigned output, unsigned value)
@@ -314,6 +320,7 @@ int main(int argc, char **argv)
 	gng_video_decode();
 	gng.on_sound_latch = on_latch;
 	gng.on_ls259 = on_ls259;
+	gng.on_dma = on_dma;
 	FILE *sound_out = nullptr, *ym_out = nullptr, *wav_out = nullptr, *marks_out = nullptr;
 	if (sound)
 	{
@@ -322,7 +329,7 @@ int main(int argc, char **argv)
 			std::fprintf(stderr, "gref: no audiocpu region in %s\n", regions_path.c_str());
 			return 2;
 		}
-		gs_power_on(regions["audiocpu"].data());
+		gs_power_on(regions["audiocpu"].data(), gng.accuracy == GNG_ACCURACY_MAME);
 		sound_out = std::fopen(sound_path, "w");
 		if (ym_path)
 			gs_log_writes(ym_out = std::fopen(ym_path, "w"));

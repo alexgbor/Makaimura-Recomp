@@ -73,6 +73,9 @@ typedef struct gng_board {
 	   (Q1 is the sound board's reset) */
 	void (*on_sound_latch)(struct gng_board *board, uint8_t value);
 	void (*on_ls259)(struct gng_board *board, unsigned output, unsigned value);
+	/* board mode: an access to 3C00 started the sprite DMA, which halts the 6809: the host stops its CPU for
+	   gng_dma_halt(the access's time) cycles */
+	void (*on_dma)(struct gng_board *board);
 } gng_board;
 
 extern gng_board gng;
@@ -92,6 +95,20 @@ uint8_t gng_rom_byte(uint16_t address);
    3 lives, 20K 70K every 70K, normal difficulty) */
 #define GNG_DSW1_DEFAULT 0xDFu
 #define GNG_DSW2_DEFAULT 0xFBu
+
+/* The sprite DMA in board mode (docs/accuracy.md #1, after jotego's jt_gng: jtgng_objdma.v, jtgng_main.v).
+   The vertical blank is lines 240-261 and 0-15 (38 lines of 96 6809 cycles), the DMA copies 0x180 bytes (96
+   sprites) a byte every 2 pixel clocks (half a 6809 cycle) during it, the 6809 off the bus meanwhile (its
+   DMA/BREQ: a dead cycle as it lets the bus go and one as it takes it back) */
+#define GNG_BLANK_FIRST_CYCLE  23040u    /* line 240 */
+#define GNG_BLANK_LAST_CYCLE   1536u     /* line 16: the blank ends there in the next frame */
+#define GNG_DMA_SPRITE_BYTES   0x180u
+#define GNG_DMA_COPY_CYCLES    192u      /* 0x180 bytes x 2 pixel clocks / 4 */
+#define GNG_DMA_DEAD_CYCLES    2u
+
+/* The 6809 cycles a DMA started by an access at board time 'cycle' (6809 cycles from power-on, the beam at line
+   0) halts the CPU: the copy, after the wait for the blank if the access is outside it */
+uint32_t gng_dma_halt(uint64_t cycle);
 
 /* A 32-bit FNV-1a of the board's memories and latches: the state the frame checks compare */
 uint32_t gng_state_hash(void);

@@ -188,6 +188,13 @@ void m6809_cwai(uint16_t next)
 	run_handler((uint16_t)(high << 8 | low), next, (uint16_t)(cpu.s + 12));
 }
 
+/* board mode: the sprite DMA's halt (gng_dma_halt), from the access's time on */
+static void on_dma(gng_board *board)
+{
+	(void)board;
+	cpu.cycles += gng_dma_halt(cpu.cycles);
+}
+
 void m6809_power_on(const m6809_host *h)
 {
 	memset(&host, 0, sizeof(host));
@@ -203,6 +210,7 @@ void m6809_power_on(const m6809_host *h)
 	faulted = 0;
 	m6809_board_at = GNG_VBLANK_CYCLE;
 	update_event_at();
+	gng.on_dma = on_dma;
 	memset(fixed, 0, sizeof(fixed));
 	memset(banked, 0, sizeof(banked));
 	for (unsigned i = 0; i < m6809_entry_count; i++)

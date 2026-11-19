@@ -44,7 +44,9 @@ The menu (Esc) pauses the game and changes its options, the picture and the volu
 `makaimura.ini`. That file, beside the program, is written with every setting and what it does the first time the
 game starts:
 
-- **[game]**: the board's DIP switches, by MAME's names: lives (3, 4, 5, 7), difficulty, bonus life, coinage
+- **[game]**: `accuracy`: `mame` (the board as MAME 0.289 models it, checked frame by frame against MAME) or
+  `board` (what the real board does and MAME leaves out: so far the sprite DMA halting the CPU,
+  `docs/accuracy.md`); and the board's DIP switches, by MAME's names: lives (3, 4, 5, 7), difficulty, bonus life, coinage
   (free play too), demo sounds, flip screen, cabinet, service mode. They are read as the board starts (and at F3).
 - **[window]**, **[video]**: the size, full screen; the picture's shape (`4:3`, as the arcade's monitor, or
   `pixels`, square), its scaling (`fit`, `integer`, `stretch`), sharp or smooth pixels, vsync, and the pace

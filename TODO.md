@@ -16,9 +16,16 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Decided: match MAME exactly first; then the real board's behaviour 1:1 (jotego's jt_gng research), as a
       switchable mode (`gng.accuracy`, `gref --accuracy`), board mode the final default; both stay playable,
       the player choosing one in the game (`[game] accuracy` and the menu, once board mode differs)
-- [ ] Board mode: the sprite DMA's halt of the 6809 (its length, when the CPU stops)
+- [x] Board mode: the sprite DMA's halt of the 6809 (docs/accuracy.md #1, after jt_gng's jtgng_objdma.v): an
+      access to 3C00 (read or write) halts it 194 cycles in the blank (else until the blank), 96 sprites drawn;
+      gref and the translation the same in board mode (`tools/check_translation.py --accuracy board`), MAME mode
+      unchanged (the translation against gref, gref against MAME); playable: `accuracy = board` in
+      makaimura.ini and the menu
+- [ ] Board mode #1, to settle: the DMA's latency to a cycle, the 6809's self-refresh during it, the IRQ
+      flip-flop at the reset's SYNC loop (a recording of the board's boot and of a slowdown)
+- [ ] An input script with a busy scene (slowdown), to see board mode move it
 - [ ] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch)
-- [ ] Board mode: does a read of 3C00 start the DMA (the reset's `LDA $3C00`)?
+- [x] Board mode: a read of 3C00 starts the DMA (jt_gng's decode has no R/W)
 
 ## M1. The 6809 program, read
 
@@ -182,7 +189,7 @@ Roughly in order; each milestone is checked against the reference before it is t
       accuracy mode (MAME 1:1 only until board mode differs), the picture's shape, scaling, pixels, full screen, the
       volume, reset, quit; written with the game's own font (its text layer's characters are ASCII), kept in
       makaimura.ini as it closes
-- [ ] The menu's accuracy choice, once board mode differs: "MAME 1:1" or "the board" (both kept playable)
+- [x] The menu's accuracy choice: "MAME 1:1" or "board" (both playable; from the board's start, F3)
 - [ ] The keys and buttons changed from the menu (now in makaimura.ini only)
 - [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept

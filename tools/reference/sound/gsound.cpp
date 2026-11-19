@@ -51,8 +51,8 @@ constexpr uint64_t kSamplePeriod = 24;      // Z80 cycles a YM2203 sample takes:
 constexpr uint32_t kSampleRate = 125000;
 // MAME's Z80 starts one cycle after the 6809 releases its reset line (measured: tools/mame_trace.py --sound, every
 // Z80 RAM and YM2203 write one Z80 cycle later against the 6809's time than 2 x the release): its scheduler's
-// rounding while the Z80 is suspended, a MAME mode effect (docs/accuracy.md)
-constexpr uint64_t kReleaseDelay = 1;
+// rounding while the Z80 is suspended, a MAME mode effect (docs/accuracy.md #7): none in board mode
+static uint64_t g_release_delay = 1;
 
 class sound_cpu : public gs::z80_device
 {
@@ -202,9 +202,10 @@ void run_z80(uint64_t until)
 
 extern "C" {
 
-void gs_power_on(const uint8_t *program)
+void gs_power_on(const uint8_t *program, int mame_mode)
 {
 	g_program = program;
+	g_release_delay = mame_mode ? 1 : 0;
 	std::memset(g_ram, 0, sizeof(g_ram));
 	std::memset(g_executed, 0, sizeof(g_executed));
 	g_latch = 0;
@@ -272,8 +273,8 @@ void gs_q1(uint64_t time, int value)
 		// (interface_post_reset), then on from here
 		g_z80->reset();
 		g_in_reset = false;
-		g_time = std::max(g_time, time + kReleaseDelay);
-		g_next_irq = time + kReleaseDelay + kIrqPeriod;
+		g_time = std::max(g_time, time + g_release_delay);
+		g_next_irq = time + g_release_delay + kIrqPeriod;
 	}
 }
 

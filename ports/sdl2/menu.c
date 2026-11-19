@@ -91,6 +91,9 @@ static void step(settings *s, int direction, int *changed)
 	case DIP:
 		settings_dip_step(s, it->dip, direction);
 		break;
+	case ACCURACY:
+		s->accuracy = !s->accuracy;
+		break;
 	case ASPECT:
 		s->aspect = (s->aspect + direction + ASPECTS) % ASPECTS;
 		break;
@@ -226,7 +229,7 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	switch (it->kind)
 	{
 	case DIP: upper(buffer, size, settings_dip_value(s, it->dip)); return buffer;
-	case ACCURACY: return "MAME 1:1";
+	case ACCURACY: return s->accuracy ? "BOARD" : "MAME 1:1";
 	case ASPECT: return s->aspect == ASPECT_MONITOR ? "4:3 MONITOR" : "SQUARE PIXELS";
 	case SCALING: upper(buffer, size, settings_scaling_names[s->scaling]); return buffer;
 	case SMOOTH: return s->smooth ? "SMOOTH" : "SHARP";
@@ -241,7 +244,7 @@ static const char *hint_of(const item *it)
 	switch (it->kind)
 	{
 	case DIP: return "READ AS THE BOARD STARTS: F3";
-	case ACCURACY: return "BOARD MODE: NOT READY YET";
+	case ACCURACY: return "FROM THE BOARD'S START: F3";
 	case ASPECT: return "AS THE ARCADE'S MONITOR, OR 1:1";
 	case RESET: return "THE BOARD'S POWER CYCLED";
 	default: return "";
