@@ -32,6 +32,19 @@ void gng_video_render(uint32_t *pixels);
 /* The same as palette indexes (0-255): what the checks compare, before the colours */
 void gng_video_render_indexed(uint8_t *indexes);
 
+/* Board mode (docs/accuracy.md #2): the picture drawn as the beam goes, each pixel with the board as it is at its
+   time (6809 cycle t: pixel clocks 4t-4 to 4t-1; line 0's first pixel at cycle 0, 384 pixel clocks a line, 262
+   lines, the visible ones 16-239 and their pixels 0-255). gng_video_render then gives the last frame the beam
+   finished. board.c calls these before a write that changes the picture */
+void gng_video_reset(void);
+void gng_video_raster_to(uint64_t cycle);
+
+/* A palette write (3800-39FF) at the bus cycle ending at 'cycle', in board mode: during the active display the
+   palette's address is the video's (jt_gng's jtgng_colmix.v, GNGPAL), so for the 4 pixel clocks of the cycle the
+   pixel shows the CPU's data and the entry being drawn takes the write (entry 0 in the horizontal blank), the
+   addressed entry not. 1 if it was so (the write taken), 0 if outside the active display (the caller writes it) */
+int gng_video_palette_write(uint64_t cycle, uint16_t address, uint8_t value);
+
 /* A pixel of the text layer's character 'code' (0-1023): its pen, 0-3 (3 transparent), after gng_video_decode */
 int gng_video_char_pen(int code, int x, int y);
 

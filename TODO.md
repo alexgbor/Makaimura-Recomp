@@ -24,7 +24,10 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [ ] Board mode #1, to settle: the DMA's latency to a cycle, the 6809's self-refresh during it, the IRQ
       flip-flop at the reset's SYNC loop (a recording of the board's boot and of a slowdown)
 - [ ] An input script with a busy scene (slowdown), to see board mode move it
-- [ ] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch)
+- [x] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch), after jt_gng's
+      jtgng_colmix.v; the picture drawn as the beam goes (docs/accuracy.md #2, #2b); gref and the translation the
+      same in board mode, MAME mode unchanged (against gref and against MAME)
+- [ ] Board mode #2, to see: a busy scene's flashes against the recordings MAME's header cites
 - [x] Board mode: a read of 3C00 starts the DMA (jt_gng's decode has no R/W)
 
 ## M1. The 6809 program, read

@@ -66,6 +66,7 @@ typedef struct gng_board {
 	uint8_t sound_latch;          /* 3A00 */
 	uint32_t sound_latch_writes;  /* how many times the latch was written (the sound side follows them) */
 	uint32_t dma_count;           /* sprite DMAs since the reset */
+	uint32_t palette_conflicts;   /* board mode: palette writes in the active display (gng/video.h) */
 	gng_inputs inputs;
 	gng_roms roms;
 	gng_accuracy_mode accuracy;   /* (kept over gng_power_on: set it before or after) */
@@ -76,6 +77,9 @@ typedef struct gng_board {
 	/* board mode: an access to 3C00 started the sprite DMA, which halts the 6809: the host stops its CPU for
 	   gng_dma_halt(the access's time) cycles */
 	void (*on_dma)(struct gng_board *board);
+	/* board mode: the 6809's time now (cycles from power-on), at the end of the bus cycle being made: the raster
+	   (gng/video.h) draws up to it before a write that changes the picture */
+	uint64_t (*clock)(void);
 } gng_board;
 
 extern gng_board gng;

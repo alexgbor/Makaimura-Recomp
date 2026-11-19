@@ -172,6 +172,11 @@ static void on_latch(gng_board *, uint8_t value)
 		gs_latch(2 * time, value);    // (Z80 cycles: two a 6809 cycle)
 }
 
+static uint64_t clock_now()
+{
+	return board_time();
+}
+
 static void on_dma(gng_board *)
 {
 	cpu->eat(int(gng_dma_halt(board_time())));
@@ -321,6 +326,7 @@ int main(int argc, char **argv)
 	gng.on_sound_latch = on_latch;
 	gng.on_ls259 = on_ls259;
 	gng.on_dma = on_dma;
+	gng.clock = clock_now;
 	FILE *sound_out = nullptr, *ym_out = nullptr, *wav_out = nullptr, *marks_out = nullptr;
 	if (sound)
 	{
@@ -406,7 +412,25 @@ int main(int argc, char **argv)
 		// one VBLANK, and screen:pixels() at the next frame notifier turns them into colours with the palette of
 		// that next VBLANK. So frame N's picture for the check is frame N's indexes in frame N+1's colours,
 		// written at frame N+1 (what the board shows is frame N's indexes in frame N's colours: --ppm)
-		if (sample_pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
+		if (sample_pictures && gng.accuracy == GNG_ACCURACY_BOARD)
+		{
+			// board mode: the frame the beam drew, at its own VBLANK (as gng_headless takes it)
+			if (frame % pictures_every == 0)
+			{
+				std::vector<u8> rgb;
+				picture_rgb(rgb);
+				if (pictures)
+					std::fwrite(rgb.data(), 1, rgb.size(), pictures);
+				if (picture_hashes)
+				{
+					u32 hash = 2166136261u;
+					for (u8 byte : rgb)
+						hash = (hash ^ byte) * 16777619u;
+					std::fprintf(picture_hashes, "%d %08x\n", frame, hash);
+				}
+			}
+		}
+		else if (sample_pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
 		{
 			std::vector<u8> rgb(sizeof(check_indexes) * 3);
 			for (size_t i = 0; i < sizeof(check_indexes); i++)
@@ -427,7 +451,7 @@ int main(int argc, char **argv)
 				std::fprintf(picture_hashes, "%d %08x\n", frame - 1, hash);
 			}
 		}
-		if (sample_pictures && frame % pictures_every == 0)
+		if (sample_pictures && gng.accuracy != GNG_ACCURACY_BOARD && frame % pictures_every == 0)
 			gng_video_render_indexed(check_indexes);
 		if (frame == ppm_frame)
 		{

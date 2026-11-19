@@ -13,6 +13,7 @@
  *    places (palette, latch, scroll, 3C00, 3D00, 3E00). Writes to the ROM go nowhere.
  */
 #include "gng/board.h"
+#include "gng/video.h"
 
 #include <string.h>
 
@@ -23,6 +24,7 @@ void gng_power_on(const gng_roms *roms)
 	const gng_accuracy_mode accuracy = gng.accuracy;
 	memset(&gng, 0, sizeof(gng));
 	gng.accuracy = accuracy;
+	gng_video_reset();
 	if (roms)
 		gng.roms = *roms;
 	gng.inputs.system = 0xFF;
@@ -61,6 +63,12 @@ uint8_t gng_rom_byte(uint16_t address)
 
 static void start_dma(void)
 {
+	/* the copy lands at the blank (the beam drawn up to there with the buffer as it was: the 6809, halted, changes
+	   nothing meanwhile) */
+	if (gng.clock) {
+		const uint64_t now = gng.clock();
+		gng_video_raster_to(now + gng_dma_halt(now) - GNG_DMA_DEAD_CYCLES - GNG_DMA_COPY_CYCLES);
+	}
 	memcpy(gng.sprite_buffer, gng.sprite_ram, GNG_DMA_SPRITE_BYTES);
 	gng.dma_count++;
 	if (gng.on_dma)
@@ -104,6 +112,17 @@ uint8_t gng_read(uint16_t address)
 
 void gng_write(uint16_t address, uint8_t value)
 {
+	/* board mode: the beam drawn up to this write if it changes the picture (the video RAMs, the palette, the
+	   scroll, the flip), the palette's bus conflict during the active display (docs/accuracy.md #2) */
+	if (gng.accuracy == GNG_ACCURACY_BOARD && gng.clock && address >= 0x2000u && address < 0x3E00u &&
+		(address < 0x3000u || address >= 0x3800u) && address != 0x3A00u && address != 0x3C00u) {
+		if (address >= 0x3800u && address < 0x3A00u) {
+			if (gng_video_palette_write(gng.clock(), address, value))
+				return;
+		}
+		else
+			gng_video_raster_to(gng.clock());
+	}
 	if (address < 0x1E00u) {
 		gng.ram[address] = value;
 		return;

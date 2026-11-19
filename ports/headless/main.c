@@ -264,13 +264,41 @@ static void on_vblank(uint64_t frame)
 	}
 	if (bus_hashes)
 		fprintf(bus_hashes, "%llu %08x %04x\n", (unsigned long long)frame, bus_hash(), 0);
-	if ((pictures || picture_hashes) && frame >= 1 && (frame - 1) % pictures_every == 0)
+	if ((pictures || picture_hashes) && gng.accuracy == GNG_ACCURACY_BOARD)
 	{
-		picture_frame = frame - 1;
-		write_check_picture();
+		/* board mode: the frame the beam drew, at its own VBLANK (no MAME sampling to follow) */
+		if (frame % pictures_every == 0)
+		{
+			static uint32_t colours[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+			static uint8_t rgb[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT * 3];
+			gng_video_render(colours);
+			for (size_t i = 0; i < GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT; i++)
+			{
+				rgb[3 * i] = (uint8_t)(colours[i] >> 16);
+				rgb[3 * i + 1] = (uint8_t)(colours[i] >> 8);
+				rgb[3 * i + 2] = (uint8_t)colours[i];
+			}
+			if (pictures)
+				fwrite(rgb, 1, sizeof(rgb), pictures);
+			if (picture_hashes)
+			{
+				uint32_t hash = 2166136261u;
+				for (size_t i = 0; i < sizeof(rgb); i++)
+					hash = (hash ^ rgb[i]) * 16777619u;
+				fprintf(picture_hashes, "%llu %08x\n", (unsigned long long)frame, hash);
+			}
+		}
 	}
-	if ((pictures || picture_hashes) && frame % pictures_every == 0)
-		gng_video_render_indexed(check_indexes);
+	else
+	{
+		if ((pictures || picture_hashes) && frame >= 1 && (frame - 1) % pictures_every == 0)
+		{
+			picture_frame = frame - 1;
+			write_check_picture();
+		}
+		if ((pictures || picture_hashes) && frame % pictures_every == 0)
+			gng_video_render_indexed(check_indexes);
+	}
 	if ((int64_t)frame == ppm_frame)
 	{
 		static uint32_t picture[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
@@ -413,6 +441,9 @@ int main(int argc, char **argv)
 	m6809_host host = { on_vblank, on_irq, on_fault };
 	m6809_power_on(&host);
 	const int result = m6809_run((uint64_t)frames);
+	if (gng.accuracy == GNG_ACCURACY_BOARD)
+		printf("board mode: %u sprite DMAs, %u palette writes in the active display\n", gng.dma_count,
+			gng.palette_conflicts);
 	if (bus_hashes) fclose(bus_hashes);
 	if (irq_hashes) fclose(irq_hashes);
 	if (pictures) fclose(pictures);

@@ -448,7 +448,7 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "[game]\n; The board's DIP switches, as MAME's makaimurg names them. They are read as the board starts\n"
 		"; (and at a reset, F3)\n");
 	fprintf(file, "; mame: the board exactly as MAME 0.289 models it (checked against MAME frame by frame); board: what\n"
-		"; the real board does and MAME leaves out (docs/accuracy.md: so far the sprite DMA halting the CPU). From the\n"
+		"; the real board does and MAME leaves out (docs/accuracy.md: the sprite DMA halting the CPU, the palette flashes). From the\n"
 		"; board's start (F3)\naccuracy = %s\n", s->accuracy ? "board" : "mame");
 	for (int i = 0; i < DIPS; i++)
 	{

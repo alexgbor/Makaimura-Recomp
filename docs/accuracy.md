@@ -30,7 +30,8 @@ setting of the window port (once board mode differs from MAME's).
 | # | What | MAME (gng.cpp) | The board | Status |
 |---|---|---|---|---|
 | 1 | **Sprite DMA** (an access to 3C00) | `buffered_spriteram8`: the 512 bytes copied at once, the 6809 not delayed, 128 sprites drawn | a DMA copies the object RAM to the video's buffer and **halts the 6809** while it runs (jotego; noted in MAME's own header) — this changes the cycle count of every frame, and so where the slowdown happens | **in board mode** (below): 194 cycles a DMA, 96 sprites |
-| 2 | **Palette writes during the active display** | applied at once, no glitch | bus conflicts: wrong colours on screen, the "lightning" effect when the VBLANK routine overruns into the next frame (MAME's header cites recordings) | to research |
+| 2 | **Palette writes during the active display** | applied at once, no glitch | bus conflicts: wrong colours on screen, the "lightning" effect when the VBLANK routine overruns into the next frame (MAME's header cites recordings) | **in board mode** (below): the pixels show the data, the entry being drawn takes the write |
+| 2b | **The picture drawn line by line** | the whole frame drawn at the VBLANK from the board as it is then | the beam draws each pixel from the board as it is at that time: a write to the video RAMs, the scroll or the palette during the active display shows from its pixel on | **in board mode**: the raster (`runtime/src/video.c`) |
 | 3 | **Read of 3C00** (`LDA $3C00` at 6017, the reset's wait) | 3C00 is mapped for writes only: a read does nothing | jt_gng: any access to 3C00-3CFF, read or write, starts the DMA (jtgng_main.v's decode has no R/W); the program reads it at reset in a loop built like the IRQ's start (an access, three NOPs) | **in board mode**: a read starts the DMA too |
 | 4 | **Power-on palette** | every 4 colours 00/55/AA/FF (a MAME TODO: "the POST has random/filled data") | random | cosmetic (the boot clears it); MAME's kept in both modes unless a recording says otherwise |
 | 4b | **Power-on LS259** (3D00-3D07) | every output 0: the screen flipped and the sound CPU held in reset until the boot writes 3D00/3D01 (MAME's first frame is drawn flipped) | the LS259's state before the first write depends on whether its /CLR is tied to the reset (schematics) | cosmetic (the first frame, during the boot); MAME's kept unless the schematics say otherwise |
@@ -82,6 +83,40 @@ for a cycle after 15 cycles of DMA/BREQ; whether the board's DMA holds the reque
 jt_gng's 6809 models it, is not known: if it does, the halt is about 13 x 3 cycles longer); whether the real
 board's IRQ flip-flop is cleared other than by the acknowledge (then the reset loop's SYNC would wait a frame
 each time). To settle with a recording of the board's boot (its length to the first picture) or of a slowdown.
+
+## #2, the palette's bus conflict, and the raster, in board mode
+
+What is known, and from where:
+
+- **MAME's header**: writing to the palette during the active display causes bus conflicts, at busy moments when
+  the VBLANK routine overflows to the next frame (two recordings cited: youtube h7473QQwZYA at 21:41 and
+  KWUphU2rx9Y at 23:59); not emulated.
+- **jt_gng** (`cores/gng/hdl/jtgng_colmix.v`, `jtgng_main.v`, `jtgng_game.v`; facts only): its release notes say it
+  "makes color flash bug possible, like the original board". The palette RAMs (RRRRGGGG at 3800, BBBB at 3900)
+  are read at the pixel's colour index; their write enable is the CPU's chip select alone, and during the active
+  display their address is the video's, not the CPU's: a write lands in the entry of the pixel being drawn (in the
+  horizontal blank of a visible line, entry 0), and while it lasts the colour output is the CPU's data bus. Its
+  option "Block yellow flashes" (off by default) drops such writes instead.
+
+The model: the picture is drawn as the beam goes (384 pixel clocks a line, 4 a 6809 cycle, line 0's first pixel at
+cycle 0, the visible lines 16-239 and pixels 0-255): before any write that changes it (the text and background
+RAMs, the scroll, the palette, the flip), the beam is drawn up to the write's bus cycle with the board as it was.
+A palette write in the active display takes the 4 pixel clocks of its bus cycle: for each, the entry the beam is
+drawing (entry 0 in the horizontal blank) takes the byte, and the pixel shows it (the written half of the colour,
+the RAM's other half); the addressed entry is not written. The sprite DMA's copy lands at the blank. The frame
+the beam finished is the picture (`gng_video_render`). gref and the translation are the same in board mode
+(pictures as the beam drew them).
+
+Measured: the program writes the palette in the active display rarely in the scripts: at the boot's end (frame
+316, 103 writes) and once in walk_right (frame 5555, 80 writes), all on lines 16-17: the palette routine running
+a little past the blank, coloured streaks over the score's line, gone the next frame (the game writes those
+colours again). The large flashes of the recordings need busy scenes, which the scripts do not reach.
+
+Not known, and so not modelled: which of the 4 pixel clocks the write strobe really covers (jt_gng: all of the
+cycle's, its chip select being the address decode alone); the pixel pipeline's delay between the beam's position
+and the colour shown (jt_gng: a pixel); whether the text and background layers' fetches are ahead of the beam by
+some pixels (a write shows from its pixel here); jt_gng's bypass shows a blue write's low nibble while its RAM
+keeps the high one (here: the high one, as the RAM keeps it and MAME's BBBBxxxx).
 
 ## How MAME's own picture is sampled
 

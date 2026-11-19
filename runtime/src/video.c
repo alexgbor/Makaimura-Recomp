@@ -176,8 +176,160 @@ void gng_video_render_indexed(uint8_t *out)
 	}
 }
 
+/* ---- board mode: the raster ---- */
+
+#define LINE_CLOCKS  384u
+#define FRAME_CLOCKS (384u * 262u)    /* = 4 x GNG_CPU_CYCLES_PER_FRAME */
+
+static uint32_t raster_frame[GNG_SCREEN_HEIGHT][GNG_SCREEN_WIDTH];    /* the frame the beam draws */
+static uint32_t raster_done[GNG_SCREEN_HEIGHT][GNG_SCREEN_WIDTH];     /* the last one it finished */
+static uint64_t raster_at;                                            /* pixel clocks drawn, from power-on */
+
+static inline uint32_t colour_of(int index)
+{
+	/* RGBx_444: the 3800 byte RRRRGGGG, the 3900 byte BBBBxxxx; 4 bits to 8 as pal4bit */
+	const int r = gng.palette_ext[index] >> 4, g = gng.palette_ext[index] & 15, b = gng.palette_base[index] >> 4;
+	return ((uint32_t)(r * 17) << 16) | ((uint32_t)(g * 17) << 8) | (uint32_t)(b * 17);
+}
+
+/* Line y (of the 256) as gng_video_render_indexed draws it, unflipped: the same layers, the same order */
+static void screen_line(int y, uint8_t *out)
+{
+	uint8_t front[256];
+	const int scroll_x = gng.scroll_x[0] + 256 * gng.scroll_x[1];
+	const int scroll_y = gng.scroll_y[0] + 256 * gng.scroll_y[1];
+	for (int x = 0; x < 256; x++) {
+		int pen, colour, group;
+		background_pixel((x + scroll_x) & 511, (y + scroll_y) & 511, &pen, &colour, &group);
+		const uint8_t index = (uint8_t)(colour * 8 + pen);
+		const int behind = group == 0 || pen == 0 || pen == 6;
+		out[x] = behind ? index : 0;
+		front[x] = behind ? 0xFF : index;
+	}
+	const int bytes = gng.accuracy == GNG_ACCURACY_BOARD ? (int)GNG_DMA_SPRITE_BYTES : 0x200;
+	for (int offs = bytes - 4; offs >= 0; offs -= 4) {
+		const uint8_t *s = &gng.sprite_buffer[offs];
+		const int py = y - s[2];
+		if (py < 0 || py > 15)
+			continue;
+		const uint8_t attr = s[1];
+		const int sx = s[3] - 0x100 * (attr & 0x01);
+		const int code = s[0] + ((attr << 2) & 0x300);
+		const int colour = (attr >> 4) & 3;
+		for (int px = 0; px < 16; px++) {
+			const int x = sx + px;
+			if (x < 0 || x > 255)
+				continue;
+			const uint8_t pen = sprite_pens[code][attr & 0x08 ? 15 - py : py][attr & 0x04 ? 15 - px : px];
+			if (pen != 15)
+				out[x] = (uint8_t)(0x40 + colour * 16 + pen);
+		}
+	}
+	for (int x = 0; x < 256; x++) {
+		if (front[x] != 0xFF)
+			out[x] = front[x];
+		const int index = (y >> 3) * 32 + (x >> 3);
+		const uint8_t attr = gng.fg_ram[index + 0x400];
+		const int code = gng.fg_ram[index] + ((attr & 0xC0) << 2);
+		int tx = x & 7, ty = y & 7;
+		if (attr & 0x10)
+			tx = 7 - tx;
+		if (attr & 0x20)
+			ty = 7 - ty;
+		const uint8_t pen = char_pens[code][ty][tx];
+		if (pen != 3)
+			out[x] = (uint8_t)(0x80 + (attr & 0x0F) * 4 + pen);
+	}
+}
+
+/* The beam's line 'line' (16-239) as the board shows it now: the flipped screen turns it 180 degrees */
+static void beam_line(int line, uint8_t *out)
+{
+	if (gng.ls259 & 0x01) {
+		screen_line(line, out);
+		return;
+	}
+	uint8_t source[256];
+	screen_line(255 - line, source);
+	for (int x = 0; x < 256; x++)
+		out[x] = source[255 - x];
+}
+
+static void draw_until(uint64_t target)
+{
+	uint8_t indexes[256];
+	while (raster_at < target) {
+		const uint32_t in = (uint32_t)(raster_at % FRAME_CLOCKS);
+		const uint32_t line = in / LINE_CLOCKS, h = in % LINE_CLOCKS;
+		const uint64_t line_end = raster_at - h + LINE_CLOCKS;
+		const uint64_t stop = target < line_end ? target : line_end;
+		if (line >= GNG_SCREEN_FIRST_LINE && line < GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT && h < 256) {
+			const uint32_t end = h + (uint32_t)(stop - raster_at) < 256 ? h + (uint32_t)(stop - raster_at) : 256;
+			beam_line((int)line, indexes);
+			for (uint32_t x = h; x < end; x++)
+				raster_frame[line - GNG_SCREEN_FIRST_LINE][x] = colour_of(indexes[x]);
+		}
+		raster_at = stop;
+		if (stop == line_end && line == GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT - 1)
+			memcpy(raster_done, raster_frame, sizeof(raster_done));
+	}
+}
+
+void gng_video_reset(void)
+{
+	raster_at = 0;
+	memset(raster_frame, 0, sizeof(raster_frame));
+	memset(raster_done, 0, sizeof(raster_done));
+}
+
+void gng_video_raster_to(uint64_t cycle)
+{
+	draw_until(4 * cycle);
+}
+
+int gng_video_palette_write(uint64_t cycle, uint16_t address, uint8_t value)
+{
+	const uint64_t start = 4 * (cycle - 1);
+	const uint32_t in = (uint32_t)(start % FRAME_CLOCKS);
+	const uint32_t line = in / LINE_CLOCKS, h = in % LINE_CLOCKS;
+	if (line < GNG_SCREEN_FIRST_LINE || line >= GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT) {
+		draw_until(4 * cycle);
+		return 0;
+	}
+	draw_until(start);
+	gng.palette_conflicts++;
+	uint8_t indexes[256];
+	beam_line((int)line, indexes);
+	const int red_green = address < 0x3900u;
+	for (uint32_t k = 0; k < 4; k++) {
+		/* (a bus cycle is 4 of the line's 384 pixel clocks: it never crosses a line's end) */
+		const uint32_t x = h + k;
+		const int entry = x < 256 ? indexes[x] : 0;
+		if (red_green)
+			gng.palette_ext[entry] = value;
+		else
+			gng.palette_base[entry] = value;
+		if (x < 256 && start + k >= raster_at) {
+			/* the pixel shows the data bus: the written byte for its half of the colour, the RAM's other half
+			   (jtgng_colmix shows a blue write's low nibble; the blue RAM keeps its high one, as MAME's BBBBxxxx:
+			   the high nibble here, the one the RAM stores) */
+			raster_frame[line - GNG_SCREEN_FIRST_LINE][x] = colour_of(entry);
+		}
+	}
+	if (raster_at < 4 * cycle)
+		raster_at = 4 * cycle;
+	return 1;
+}
+
 void gng_video_render(uint32_t *pixels)
 {
+	if (gng.accuracy == GNG_ACCURACY_BOARD) {
+		/* the last frame the beam finished: hosts call this at the VBLANK, when it has just finished one */
+		if (gng.clock)
+			draw_until(4 * gng.clock());
+		memcpy(pixels, raster_done, sizeof(raster_done));
+		return;
+	}
 	static uint8_t indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 	uint32_t colours[256];
 	for (int i = 0; i < 256; i++) {
