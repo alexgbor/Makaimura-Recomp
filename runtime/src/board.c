@@ -20,7 +20,9 @@ gng_board gng;
 
 void gng_power_on(const gng_roms *roms)
 {
+	const gng_accuracy_mode accuracy = gng.accuracy;
 	memset(&gng, 0, sizeof(gng));
+	gng.accuracy = accuracy;
 	if (roms)
 		gng.roms = *roms;
 	gng.inputs.system = 0xFF;

@@ -12,9 +12,12 @@
  *    latch's writes are logged with their cycle for the sound side.
  *
  *    gref [options]
+ *      --accuracy MODE   mame (the default: MAME 0.289's board) or board (the real board's: docs/accuracy.md)
  *      --regions FILE    the ROM regions (python tools/makaimura_rom.py --extract FILE); default build/makaimurg.regions
  *      --frames N        how many frames (VBLANKs) to run (default 600)
  *      --hashes FILE     each frame's state hash (at its VBLANK, before the IRQ): "frame hash"
+ *      --bus-hashes FILE each frame's hash of the bus 0000-2FFF and the PC, as tools/mame/trace.lua writes MAME's
+ *      --bus-dumps FILE  the bus bytes 0000-2FFF of every frame
  *      --executed FILE   every instruction address the program ran, with its bank where 4000-5FFF: "bank:addr"
  *      --jumps FILE      every transfer of control the program made (from the instruction before), "from to",
  *                        each as the --executed addresses: the jumps through registers and tables, checked
@@ -197,6 +200,7 @@ int main(int argc, char **argv)
 	std::string regions_path = "build/makaimurg.regions";
 	int frames = 600;
 	const char *jumps_path = nullptr;
+	const char *bus_hashes_path = nullptr, *bus_dumps_path = nullptr;
 	const char *hashes_path = nullptr, *executed_path = nullptr, *inputs_path = nullptr, *dump_path = nullptr;
 	int text_frame = -1, dump_frame = -1;
 	for (int i = 1; i < argc; i++)
@@ -204,8 +208,16 @@ int main(int argc, char **argv)
 		std::string a = argv[i];
 		auto next = [&]() -> const char * { if (i + 1 >= argc) { std::fprintf(stderr, "gref: %s needs a value\n", a.c_str()); std::exit(2); } return argv[++i]; };
 		if (a == "--regions") regions_path = next();
+		else if (a == "--accuracy")
+		{
+			const std::string mode = next();
+			if (mode != "mame" && mode != "board") { std::fprintf(stderr, "gref: --accuracy mame or board\n"); return 2; }
+			gng.accuracy = mode == "board" ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
+		}
 		else if (a == "--frames") frames = std::atoi(next());
 		else if (a == "--hashes") hashes_path = next();
+		else if (a == "--bus-hashes") bus_hashes_path = next();
+		else if (a == "--bus-dumps") bus_dumps_path = next();
 		else if (a == "--executed") executed_path = next();
 		else if (a == "--jumps") jumps_path = next();
 		else if (a == "--registers-at")
@@ -253,6 +265,8 @@ int main(int argc, char **argv)
 	core.reset();
 
 	FILE *hashes = hashes_path ? std::fopen(hashes_path, "w") : nullptr;
+	FILE *bus_hashes = bus_hashes_path ? std::fopen(bus_hashes_path, "w") : nullptr;
+	FILE *bus_dumps = bus_dumps_path ? std::fopen(bus_dumps_path, "wb") : nullptr;
 	for (int frame = 0; frame < frames; frame++)
 	{
 		const u64 vblank = GNG_VBLANK_CYCLE + u64(frame) * GNG_CPU_CYCLES_PER_FRAME;
@@ -260,6 +274,21 @@ int main(int argc, char **argv)
 		// the VBLANK: the frame is what the board holds now; then the inputs for the next frame; then the IRQ
 		if (hashes)
 			std::fprintf(hashes, "%d %08x\n", frame, gng_state_hash());
+		if (bus_hashes || bus_dumps)
+		{
+			// the bus 0000-2FFF as tools/mame/trace.lua reads it in MAME: an FNV-1a, and the PC
+			u8 bus[0x3000];
+			u32 hash = 2166136261u;
+			for (unsigned address = 0; address < 0x3000; address++)
+			{
+				bus[address] = gng_read(u16(address));
+				hash = (hash ^ bus[address]) * 16777619u;
+			}
+			if (bus_hashes)
+				std::fprintf(bus_hashes, "%d %08x %04x\n", frame, hash, core.pc());
+			if (bus_dumps)
+				std::fwrite(bus, 1, sizeof(bus), bus_dumps);
+		}
 		if (frame == text_frame)
 		{
 			std::printf("text layer at frame %d (codes; attributes' high bits in brackets where set):\n", frame);
@@ -288,6 +317,10 @@ int main(int argc, char **argv)
 	}
 	if (hashes)
 		std::fclose(hashes);
+	if (bus_hashes)
+		std::fclose(bus_hashes);
+	if (bus_dumps)
+		std::fclose(bus_dumps);
 
 	if (executed_path)
 	{

@@ -7,14 +7,17 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Repository, `AGENTS.md`, this plan, `docs/hardware.md`, `.gitignore` (nothing from the ROM)
 - [x] arcade-decomp as `tools/core` (CapsLock4284/arcade-decomp, `timing-model`, as DonPachi Recomp's)
 - [x] The ROM set: `tools/makaimura_rom.py` (MAME's makaimurg and its parent gng: CRC32, SHA-1, regions, banks)
-- [ ] The parent set `gng.zip` (sound program, graphics, PROMs) from the owner
+- [x] The parent set `gng.zip` (sound program, graphics, PROMs): all 19 files with MAME's SHA-1; MAME 0.289 says
+      "romset makaimurg [gng] is good"
+- [x] Licence: BSD-3-Clause (`LICENSE`), as the sibling projects
 
-## Decisions to take
+## Accuracy: MAME mode, then board mode (`docs/accuracy.md`)
 
-- The sprite DMA halts the 6809 on the board (jotego's jt_gng research) but not in MAME: first match MAME
-  exactly (verifiable), then model the halt from jt_gng's verilog as the board does, and measure the difference.
-- The palette's bus conflicts during the active display (the "lightning" glitch): not in MAME; the same way.
-- 3C00 read at the reset (`LDA $3C00` at 6017): MAME maps 3C00 for writes only; does a read start the DMA?
+- [x] Decided: match MAME exactly first; then the real board's behaviour 1:1 (jotego's jt_gng research), as a
+      switchable mode (`gng.accuracy`, `gref --accuracy`), board mode the final default
+- [ ] Board mode: the sprite DMA's halt of the 6809 (its length, when the CPU stops)
+- [ ] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch)
+- [ ] Board mode: does a read of 3C00 start the DMA (the reset's `LDA $3C00`)?
 
 ## M1. The 6809 program, read
 
@@ -27,7 +30,13 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [~] The dispatch tables in `symbols.txt` (IRQ states, round robin jobs, the main loop's tasks, the objects')
 - [ ] Still unresolved: 6F76 `JMP [B,X]`, AA36 `JSR [B,U]`; 6 illegal opcodes reached (tables read too far:
       B0B9/B131, BA80, 40F3) and a 0000 entry: give those tables their sizes in `symbols.txt`
-- [ ] Input scripts (coin, start, play through the stages) for the reference, to trace the game itself
+- [~] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing);
+      every instruction they run is found statically (16636 instructions, 78.7% of the fixed ROM); to do: the
+      whole game, both loops, every weapon and enemy
+- [ ] Data-driven dispatches (U from an object's record at 9AF4: 9C97, 9ECC; the two-level table at 6F6B): find
+      where those values come from, so that the tables are complete without traces
+- [ ] A safety net for the translation: an address the static analysis missed is reported (crash log), never
+      run wrongly
 - [ ] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check)
 - [ ] Every jump through a register resolved, checked against the reference's executed addresses
 - [ ] Coverage of the program ROM: code, data, fill (all banks)
@@ -42,8 +51,10 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [~] Per frame: state hash (`--hashes`), executed addresses with their bank (`--executed`), every transfer
       of control (`--jumps`), registers at an address (`--registers-at`), input scripts (`--inputs`); to do:
       picture hash, sound hash
-- [ ] Ground truth from MAME itself: pictures and sound of the same inputs (MAME binary + Lua script), to check
-      the board model's video and sound
+- [x] Ground truth from MAME itself (`tools/mame_trace.py`, `tools/mame/trace.lua`, MAME 0.289): the bus
+      0000-2FFF and the PC at every VBLANK identical to gref's, 1200 frames of the attract mode and 7000 frames
+      with a game played (`tests/controls/walk_right.txt`)
+- [ ] The same for the picture (MAME's screen pixels) and the sound (MAME's WAV)
 
 ## M3. The board model (`runtime/`)
 

@@ -28,7 +28,12 @@ cores running the original program, and MAME itself for the picture and the soun
 4. **Licences.** MAME's and ymfm's code is BSD-3-Clause: it may be vendored into `tools/reference/` (the
    verification tools) with its copyright headers kept. The game's runtime is this project's own code, written
    after MAME's drivers (credited in each file's header).
-5. **`tools/core` is a submodule** (arcade-decomp, CapsLock4284's `timing-model` branch). Do not edit it in
+5. **Two accuracy modes, always switchable** (`docs/accuracy.md`): *MAME mode* is MAME 0.289's board exactly and
+   must keep matching MAME (`tools/mame_trace.py`); *board mode* adds what the real PCB does and MAME does not
+   (the sprite DMA halting the CPU, the palette's bus conflicts..., after jotego's jt_gng research: facts only,
+   jt_gng is GPL-3). Board mode is the final goal and the game's default once done. Differences live in the
+   board model behind `gng.accuracy`, never in the translated program; list each one in `docs/accuracy.md`.
+6. **`tools/core` is a submodule** (arcade-decomp, CapsLock4284's `timing-model` branch). Do not edit it in
    place; the 6809 frontend lives in this repository (`tools/m6809/`) until it is worth contributing upstream.
 
 ## The board, in one paragraph
@@ -62,6 +67,11 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
   Python that reads ROM-derived data runs with `-I` when it reads untrusted downloads.
 - C: CMake 3.20+ and MSVC (Visual Studio 2022 Build Tools are installed) or gcc/clang. C11 for the runtime,
   C++20 only in the reference tools (MAME's cores).
+- MAME 0.289 (the official Windows build, outside the repository) is at `D:/repositories/mame0289/mame.exe`
+  (or the `MAME` environment variable). `python tools/mame_trace.py --frames N [--inputs FILE] [--dumps]` runs
+  MAME's own makaimurg with `tools/mame/trace.lua` and compares it with `gref` frame by frame.
+- Input scripts are `tests/controls/*.txt`: "FRAME PORT VALUE" (the byte the board reads, active low, from the
+  VBLANK after FRAME on); the same file drives `gref --inputs` and MAME.
 - The ROM set goes in `rom/`: `makaimurg.zip` (the clone's 5 files) and `gng.zip` (the parent's: the sound
   program, graphics, PROMs). `python tools/makaimura_rom.py` lists what is there.
 - Documentation, comments and commit messages are in English (as the sibling projects). The project owner

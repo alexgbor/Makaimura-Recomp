@@ -18,6 +18,10 @@ python tools/makaimura_rom.py        # which of the set's files are found in rom
 python tools/disassemble.py --listing # the static analysis, and build/makaimurg.lst
 ```
 
+## License
+
+BSD 3-Clause (`LICENSE`). The game is not included and not covered by it.
+
 ## Credits
 
 - **Makaimura** is © 1985 Capcom. This is an unofficial fan project, not connected with or endorsed by Capcom.

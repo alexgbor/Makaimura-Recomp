@@ -21,6 +21,15 @@
 extern "C" {
 #endif
 
+/* How faithful the board model is (docs/accuracy.md): MAME 0.289's gng.cpp exactly, or the real board (MAME's
+   plus what MAME leaves out: the sprite DMA's halt of the 6809, the palette's bus conflicts...). Every check
+   names the mode it ran in; the program itself is the same in both. Board mode adds nothing yet: each
+   difference is added, checked and listed in docs/accuracy.md */
+typedef enum gng_accuracy_mode {
+	GNG_ACCURACY_MAME = 0,
+	GNG_ACCURACY_BOARD = 1,
+} gng_accuracy_mode;
+
 #define GNG_CPU_CYCLES_PER_FRAME 25152u    /* 384 x 262 pixel clocks at 6 MHz, the 6809 at a quarter of it */
 #define GNG_VBLANK_CYCLE         23040u    /* line 240's start (MAME's vblank begin), in 6809 cycles from line 0 */
 
@@ -59,6 +68,7 @@ typedef struct gng_board {
 	uint32_t dma_count;           /* sprite DMAs since the reset */
 	gng_inputs inputs;
 	gng_roms roms;
+	gng_accuracy_mode accuracy;   /* (kept over gng_power_on: set it before or after) */
 	/* the host's hooks (may be NULL): a latch write, with the board's time in 6809 cycles */
 	void (*on_sound_latch)(struct gng_board *board, uint8_t value);
 } gng_board;
