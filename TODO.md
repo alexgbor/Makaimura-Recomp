@@ -29,7 +29,10 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Board mode: the palette's bus conflicts during the active display (the "lightning" glitch), after jt_gng's
       jtgng_colmix.v; the picture drawn as the beam goes (docs/accuracy.md #2, #2b); gref and the translation the
       same in board mode, MAME mode unchanged (against gref and against MAME)
-- [ ] Board mode #2, to see: a busy scene's flashes against the recordings MAME's header cites
+- [x] Board mode #2 seen in busy scenes (`gng_headless --palette-conflicts`): the palette routine runs into the active
+      display in stages 1, 2, 4, 5; in stage 4 the cave's background flashes yellow for 1-3 frames (board mode only),
+      the "yellow flashes" of jt_gng's option
+- [ ] Board mode #2, to compare: those flashes against the recordings MAME's header cites
 - [x] Board mode: a read of 3C00 starts the DMA (jt_gng's decode has no R/W)
 
 ## M1. The 6809 program, read

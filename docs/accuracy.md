@@ -111,7 +111,16 @@ the beam finished is the picture (`gng_video_render`). gref and the translation 
 Measured: the program writes the palette in the active display rarely in the scripts: at the boot's end (frame
 316, 103 writes) and once in walk_right (frame 5555, 80 writes), all on lines 16-17: the palette routine running
 a little past the blank, coloured streaks over the score's line, gone the next frame (the game writes those
-colours again). The large flashes of the recordings need busy scenes, which the scripts do not reach.
+colours again).
+
+In busy scenes (`tests/controls/stage*.txt`, `gng_headless --palette-conflicts FILE`: the frames with such writes)
+the palette routine runs well into the active display: in stages 1, 2, 4 and 5, 2 to 18 frames in 12000 have 2 to
+128 writes there (stages 3 and 6 and the second loop's scripts none past the boot's). Each write lands in the entry
+being drawn, and that entry keeps the wrong colour until the program writes it again: a large area of the picture
+in the wrong colour for one to three frames. In stage 4's cave the background turns yellow (frames 3303-3305 and
+7306 of stage4.txt in board mode: 16% of the picture yellow; never in MAME mode over the same 7330 frames), the
+"yellow flashes" jt_gng's option is named after; streaks of the written colours run along the lines the writes
+fell on (the score's line, mostly). Still to compare with the recordings MAME's header cites.
 
 Not known, and so not modelled: which of the 4 pixel clocks the write strobe really covers (jt_gng: all of the
 cycle's, its chip select being the address decode alone); the pixel pipeline's delay between the beam's position

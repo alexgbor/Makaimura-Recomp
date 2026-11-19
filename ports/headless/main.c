@@ -31,6 +31,8 @@
  *      --picture-hashes FILE   each frame's picture sampled as gref's, its FNV-1a: "frame hash"
  *      --ppm FRAME FILE  that frame's picture as a PPM image
  *      --charset FILE    the text layer's 1024 characters, 32 a row, as a PPM image (pens as greys), and quit
+ *      --palette-conflicts FILE  board mode: at each VBLANK where the frame had palette writes in the active
+ *                        display, "frame writes" (docs/accuracy.md #2)
  */
 #include "gng/board.h"
 #include "gng/rom_set.h"
@@ -169,6 +171,7 @@ static uint32_t bus_hash(void)
 
 static FILE *bus_hashes, *irq_hashes, *pictures, *picture_hashes;
 static FILE *sound_out, *ym_out, *marks_out, *wav_out;
+static FILE *conflicts_out;
 static uint32_t wav_samples;
 
 static void on_sample(int16_t sample)
@@ -267,6 +270,13 @@ static void on_vblank(uint64_t frame)
 	}
 	if (bus_hashes)
 		fprintf(bus_hashes, "%llu %08x %04x\n", (unsigned long long)frame, bus_hash(), 0);
+	if (conflicts_out)
+	{
+		static uint32_t seen;
+		if (gng.palette_conflicts != seen)
+			fprintf(conflicts_out, "%llu %u\n", (unsigned long long)frame, gng.palette_conflicts - seen);
+		seen = gng.palette_conflicts;
+	}
 	if ((pictures || picture_hashes) && gng.accuracy == GNG_ACCURACY_BOARD)
 	{
 		/* board mode: the frame the beam drew, at its own VBLANK (no MAME sampling to follow) */
@@ -362,6 +372,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--pictures")) { pictures_every = atoi(NEXT()); pictures = fopen(NEXT(), "wb"); }
 		else if (!strcmp(a, "--picture-hashes")) { picture_hashes = fopen(NEXT(), "w"); pictures_every = 1; }
 		else if (!strcmp(a, "--ppm")) { ppm_frame = atoi(NEXT()); ppm_path = NEXT(); }
+		else if (!strcmp(a, "--palette-conflicts")) conflicts_out = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--charset")) charset_path = NEXT();
 		else { fprintf(stderr, "gng_headless: unknown option %s\n", a); return 2; }
 #undef NEXT
