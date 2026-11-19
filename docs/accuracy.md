@@ -33,6 +33,15 @@ checks and the game all honour. Every check names the mode it ran in.
 | 4 | **Power-on palette** | every 4 colours 00/55/AA/FF (a MAME TODO: "the POST has random/filled data") | random | cosmetic (the boot clears it); MAME's kept in both modes unless a recording says otherwise |
 | 5 | **Sound timing** (latch, Z80 interrupts, YM2203) | MAME's scheduler, 4 IRQs a frame by a timer | to compare when the sound board is done | later |
 
+## How MAME's own picture is sampled
+
+MAME's screen bitmap holds palette indexes; `screen:pixels()` turns them into colours when it is called. At a
+frame notifier the bitmap is the previous VBLANK's, and the colours are this VBLANK's. `gref --pictures` takes
+its pictures the same way for the check against MAME. What MAME displays, and what `gref --ppm` and the game
+draw, is a VBLANK's indexes in that VBLANK's colours. On the real board the picture is made line by line
+during the active display, with the palette and the layers as they are on each line. That is a board-mode
+difference to model: every write during the active display then shows from its line on (#2 above is one case).
+
 ## How the board mode will be checked
 
 There is no MAME to compare with there. In order of preference: recordings of the real board (video at the

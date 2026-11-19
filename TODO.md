@@ -54,15 +54,21 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Ground truth from MAME itself (`tools/mame_trace.py`, `tools/mame/trace.lua`, MAME 0.289): the bus
       0000-2FFF and the PC at every VBLANK identical to gref's, 1200 frames of the attract mode and 7000 frames
       with a game played (`tests/controls/walk_right.txt`)
-- [ ] The same for the picture (MAME's screen pixels) and the sound (MAME's WAV)
+- [x] The picture (`--pictures N`): 6999 of 7000 frames of walk_right the same as MAME's screen, pixel for
+      pixel. MAME's `screen:pixels()` at a frame notifier is the previous VBLANK's indexes in this VBLANK's
+      colours: the check samples gref the same way (`--pictures`); `--ppm` is the board's own picture
+- [ ] Frame 0 (the first VBLANK after power-on) differs from MAME's: find why (MAME's first render, its
+      initial sprite buffer?)
+- [ ] The sound (MAME's WAV)
 
 ## M3. The board model (`runtime/`)
 
 - [ ] Bus: RAM, sprite RAM, the two layers' RAM, inputs and DIP switches, palette, latch, scroll, DMA, LS259, bank
-- [ ] Video: text layer (2 bpp, pen 3 transparent), background (3 bpp, 16x16, column-major, scroll, split
+- [x] Video (`runtime/src/video.c`), checked against MAME's screen: text layer (2 bpp, pen 3 transparent), background (3 bpp, 16x16, column-major, scroll, split
       priority: group 0 all behind, group 1 pens 0 and 6 behind), sprites (4 bpp, buffered, pen 15 transparent,
       drawn from the last to the first), flip screen; 256x224 out of the 256x256 drawn
-- [ ] Palette RGBx 444 (3800 RG, 3900 B), its power-on contents as MAME's machine_reset
+- [x] Palette RGBx 444 (3800 RG, 3900 B), its power-on contents as MAME's machine_reset
+- [ ] Flip screen (the LS259's bit 0: the cocktail cabinet's DIP)
 - [ ] Sound: the Z80's bus, the latch, two YM2203 (ymfm), the mix (FM 0.40, SSG 0.20 each), YM reset via LS259 bit 1
 - [ ] Timing: cycle-exact 6809 (the CPU's cycles as MAME's core counts them), the DMA's stolen cycles, the
       palette's bus conflicts (MAME does not emulate them: note, check)

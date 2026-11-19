@@ -1,0 +1,172 @@
+/**
+ *    Name:        video.c
+ *    Description: the board's picture (gng/video.h)
+ *    Version:     0.1.0
+ *    Created:     19-11-2026
+ *
+ *    license:BSD-3-Clause
+ *    After MAME's src/mame/capcom/gng.cpp (BSD-3-Clause, Pierpaolo Prazzoli):
+ *      charlayout    8x8, 2 planes {4, 0}, x {0,1,2,3,8,9,10,11}, y {0,16,...,112}, 16 bytes a char
+ *      tilelayout    16x16, 3 planes {2/3, 1/3, 0/3 of the region}, x {0-7, 128-135}, y {0,8,...,120}, 32 bytes
+ *      spritelayout  16x16, 4 planes {1/2+4, 1/2+0, 4, 0}, x {0-3, 8-11, 256-259, 264-267}, y {0,16,...,240},
+ *                    64 bytes
+ *      (MAME's gfx decoding: bit offsets count from each byte's high bit; the first plane is the pen's highest bit)
+ *    The colours: tiles 00-3F (8 of 8), sprites 40-7F (4 of 16), chars 80-BF (16 of 4).
+ *    screen_update: the background's back half (TILEMAP_DRAW_LAYER1), the sprites, its front half (LAYER0),
+ *    the text layer. The background's split (video_start): group 0's pens all behind (front transmask FF, back
+ *    00); group 1's pens 0 and 6 behind, the rest in front (front 41, back BE). The text layer's pen 3 is
+ *    transparent; the sprites' pen 15.
+ *    The background is 32x32 tiles of 16x16 scanned by columns, scrolled by 3B08-3B0B (16 bits each, wrapping at
+ *    512); the text layer 32x32 of 8x8 by rows, not scrolled.
+ *    Not done yet: the flipped screen (the LS259's bit 0; the game sets it for the cocktail cabinet only).
+ */
+#include "gng/video.h"
+#include "gng/board.h"
+
+#include <string.h>
+
+#define CHARS   1024    /* 0x4000 / 16 */
+#define TILES   1024    /* 0x18000 / 3 / 32 */
+#define SPRITES 1024    /* 0x20000 / 2 / 64 */
+
+static uint8_t char_pens[CHARS][8][8];
+static uint8_t tile_pens[TILES][16][16];
+static uint8_t sprite_pens[SPRITES][16][16];
+
+static inline int bit(const uint8_t *region, uint32_t offset)
+{
+	return (region[offset >> 3] >> (7 - (offset & 7))) & 1;
+}
+
+void gng_video_decode(void)
+{
+	static const int char_x[8] = { 0, 1, 2, 3, 8, 9, 10, 11 };
+	static const int sprite_x[16] = { 0, 1, 2, 3, 8, 9, 10, 11, 256, 257, 258, 259, 264, 265, 266, 267 };
+	if (gng.roms.chars) {
+		for (int c = 0; c < CHARS; c++)
+			for (int y = 0; y < 8; y++)
+				for (int x = 0; x < 8; x++) {
+					const uint32_t base = (uint32_t)c * 128u + (uint32_t)y * 16u + (uint32_t)char_x[x];
+					char_pens[c][y][x] = (uint8_t)((bit(gng.roms.chars, base + 4) << 1) | bit(gng.roms.chars, base));
+				}
+	}
+	if (gng.roms.tiles) {
+		const uint32_t third = 0x18000u / 3u * 8u;    /* in bits */
+		for (int t = 0; t < TILES; t++)
+			for (int y = 0; y < 16; y++)
+				for (int x = 0; x < 16; x++) {
+					const uint32_t base = (uint32_t)t * 256u + (uint32_t)y * 8u + (uint32_t)(x < 8 ? x : 128 + x - 8);
+					tile_pens[t][y][x] = (uint8_t)((bit(gng.roms.tiles, base + 2 * third) << 2) |
+						(bit(gng.roms.tiles, base + third) << 1) | bit(gng.roms.tiles, base));
+				}
+	}
+	if (gng.roms.sprites) {
+		const uint32_t half = 0x20000u / 2u * 8u;
+		for (int s = 0; s < SPRITES; s++)
+			for (int y = 0; y < 16; y++)
+				for (int x = 0; x < 16; x++) {
+					const uint32_t base = (uint32_t)s * 512u + (uint32_t)y * 16u + (uint32_t)sprite_x[x];
+					sprite_pens[s][y][x] = (uint8_t)((bit(gng.roms.sprites, base + half + 4) << 3) |
+						(bit(gng.roms.sprites, base + half) << 2) | (bit(gng.roms.sprites, base + 4) << 1) |
+						bit(gng.roms.sprites, base));
+				}
+	}
+}
+
+/* The background's pixel at (x, y) of its 512x512 map: its pen, colour and group */
+static inline void background_pixel(int x, int y, int *pen, int *colour, int *group)
+{
+	const int column = (x >> 4) & 31, row = (y >> 4) & 31;
+	const int index = column * 32 + row;    /* TILEMAP_SCAN_COLS */
+	const uint8_t attr = gng.bg_ram[index + 0x400];
+	const int code = gng.bg_ram[index] + ((attr & 0xC0) << 2);
+	int tx = x & 15, ty = y & 15;
+	if (attr & 0x10)
+		tx = 15 - tx;
+	if (attr & 0x20)
+		ty = 15 - ty;
+	*pen = tile_pens[code][ty][tx];
+	*colour = attr & 0x07;
+	*group = (attr & 0x08) >> 3;
+}
+
+void gng_video_render_indexed(uint8_t *out)
+{
+	/* the whole 256 lines are drawn as MAME's bitmap is (cliprect: the visible lines 16-239) */
+	static uint8_t screen[256][256];
+	static uint8_t front[256][256];     /* the background's front half: 0xFF where transparent */
+	const int scroll_x = gng.scroll_x[0] + 256 * gng.scroll_x[1];
+	const int scroll_y = gng.scroll_y[0] + 256 * gng.scroll_y[1];
+
+	for (int y = GNG_SCREEN_FIRST_LINE; y < GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT; y++) {
+		for (int x = 0; x < 256; x++) {
+			int pen, colour, group;
+			background_pixel((x + scroll_x) & 511, (y + scroll_y) & 511, &pen, &colour, &group);
+			const uint8_t index = (uint8_t)(colour * 8 + pen);
+			/* back half (LAYER1): group 0 every pen, group 1 pens 0 and 6 (back transmask BE) */
+			const int behind = group == 0 || pen == 0 || pen == 6;
+			/* front half (LAYER0): group 0 none (FF), group 1 all but pens 0 and 6 (41) */
+			if (behind)
+				screen[y][x] = index;
+			front[y][x] = behind ? 0xFF : index;
+		}
+	}
+
+	/* the sprites, from the buffer's last to its first (the first on top) */
+	for (int offs = 0x200 - 4; offs >= 0; offs -= 4) {
+		const uint8_t *s = &gng.sprite_buffer[offs];
+		const uint8_t attr = s[1];
+		const int sx = s[3] - 0x100 * (attr & 0x01);
+		const int sy = s[2];
+		const int flip_x = attr & 0x04, flip_y = attr & 0x08;
+		const int code = s[0] + ((attr << 2) & 0x300);
+		const int colour = (attr >> 4) & 3;
+		for (int py = 0; py < 16; py++) {
+			const int y = sy + py;
+			if (y < GNG_SCREEN_FIRST_LINE || y >= GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT)
+				continue;
+			for (int px = 0; px < 16; px++) {
+				const int x = sx + px;
+				if (x < 0 || x > 255)
+					continue;
+				const uint8_t pen = sprite_pens[code][flip_y ? 15 - py : py][flip_x ? 15 - px : px];
+				if (pen != 15)
+					screen[y][x] = (uint8_t)(0x40 + colour * 16 + pen);
+			}
+		}
+	}
+
+	for (int y = GNG_SCREEN_FIRST_LINE; y < GNG_SCREEN_FIRST_LINE + GNG_SCREEN_HEIGHT; y++) {
+		for (int x = 0; x < 256; x++) {
+			if (front[y][x] != 0xFF)
+				screen[y][x] = front[y][x];
+			/* the text layer: 32x32 by rows, pen 3 transparent */
+			const int index = (y >> 3) * 32 + (x >> 3);
+			const uint8_t attr = gng.fg_ram[index + 0x400];
+			const int code = gng.fg_ram[index] + ((attr & 0xC0) << 2);
+			int tx = x & 7, ty = y & 7;
+			if (attr & 0x10)
+				tx = 7 - tx;
+			if (attr & 0x20)
+				ty = 7 - ty;
+			const uint8_t pen = char_pens[code][ty][tx];
+			if (pen != 3)
+				screen[y][x] = (uint8_t)(0x80 + (attr & 0x0F) * 4 + pen);
+		}
+		memcpy(out + (size_t)(y - GNG_SCREEN_FIRST_LINE) * GNG_SCREEN_WIDTH, screen[y], GNG_SCREEN_WIDTH);
+	}
+}
+
+void gng_video_render(uint32_t *pixels)
+{
+	static uint8_t indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+	uint32_t colours[256];
+	for (int i = 0; i < 256; i++) {
+		/* RGBx_444: the 3800 byte RRRRGGGG, the 3900 byte BBBBxxxx; 4 bits to 8 as pal4bit */
+		const int r = gng.palette_ext[i] >> 4, g = gng.palette_ext[i] & 15, b = gng.palette_base[i] >> 4;
+		colours[i] = ((uint32_t)(r * 17) << 16) | ((uint32_t)(g * 17) << 8) | (uint32_t)(b * 17);
+	}
+	gng_video_render_indexed(indexes);
+	for (int i = 0; i < GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT; i++)
+		pixels[i] = colours[indexes[i]];
+}

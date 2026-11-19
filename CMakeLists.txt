@@ -41,7 +41,7 @@ target_include_directories(oracle_m6809 PRIVATE tools/reference/stub ${MAKAIMURA
 target_compile_features(oracle_m6809 PRIVATE cxx_std_20)
 
 # ---- The board (runtime/): the game's own code ----
-add_library(gng_runtime STATIC runtime/src/board.c)
+add_library(gng_runtime STATIC runtime/src/board.c runtime/src/video.c)
 target_include_directories(gng_runtime PUBLIC runtime/include)
 
 # ---- The reference: the original program on MAME's MC6809 core (m6809make.py writes the core's states from

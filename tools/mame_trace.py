@@ -24,8 +24,10 @@ DEFAULT_MAME = os.environ.get("MAME", "D:/repositories/mame0289/mame" + EXE)
 BUS = 0x3000
 
 
-def run_mame(mame, frames, inputs, out, dumps):
+def run_mame(mame, frames, inputs, out, dumps, pictures=None, every=0):
     env = dict(os.environ, MK_OUT=out, MK_FRAMES=str(frames))
+    if pictures:
+        env["MK_PICTURES"], env["MK_PICTURES_EVERY"] = pictures, str(every)
     if inputs:
         env["MK_INPUTS"] = os.path.abspath(inputs)
     if dumps:
@@ -37,8 +39,10 @@ def run_mame(mame, frames, inputs, out, dumps):
     subprocess.run(command, env=env, check=True, cwd=os.path.join(ROOT, "build"))
 
 
-def run_gref(frames, inputs, out, dumps):
+def run_gref(frames, inputs, out, dumps, pictures=None, every=0):
     command = [os.path.join(ROOT, "build", "bin", "gref" + EXE), "--frames", str(frames), "--bus-hashes", out]
+    if pictures:
+        command += ["--pictures", str(every), pictures]
     if inputs:
         command += ["--inputs", inputs]
     if dumps:
@@ -56,20 +60,59 @@ def read(path):
     return rows
 
 
+WIDTH, HEIGHT = 256, 224
+
+
+def compare_pictures(mame_path, gref_path, every):
+    """MAME's pictures (32-bit ARGB, little endian: B G R A) against gref's (R G B), frame by frame."""
+    with open(mame_path, "rb") as handle:
+        mame = handle.read()
+    with open(gref_path, "rb") as handle:
+        gref = handle.read()
+    size_mame, size_gref = WIDTH * HEIGHT * 4, WIDTH * HEIGHT * 3
+    count = min(len(mame) // size_mame, len(gref) // size_gref)
+    same = 0
+    first = None
+    for index in range(count):
+        a = mame[index * size_mame:(index + 1) * size_mame]
+        b = gref[index * size_gref:(index + 1) * size_gref]
+        converted = bytearray(size_gref)
+        converted[0::3], converted[1::3], converted[2::3] = a[2::4], a[1::4], a[0::4]
+        if converted == b:
+            same += 1
+        elif first is None:
+            differ = [i // 3 for i in range(0, size_gref, 3) if converted[i:i + 3] != b[i:i + 3]]
+            first = (index * every, len(differ), differ[:8], converted, b)
+    print(f"pictures: {count} compared (every {every} frames), {same} the same as MAME's")
+    if first:
+        frame, number, pixels, converted, b = first
+        print(f"  first difference at frame {frame}: {number} pixels, e.g. " +
+              ", ".join(f"({p % WIDTH},{p // WIDTH}) MAME {converted[3 * p:3 * p + 3].hex()} gref {b[3 * p:3 * p + 3].hex()}"
+                        for p in pixels[:4]))
+    return first is None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[2])
     parser.add_argument("--frames", type=int, default=1200)
     parser.add_argument("--inputs")
     parser.add_argument("--mame", default=DEFAULT_MAME)
     parser.add_argument("--dumps", action="store_true", help="compare the first differing frame byte by byte")
+    parser.add_argument("--pictures", type=int, default=0, metavar="N",
+                        help="compare every Nth frame's picture with MAME's screen, pixel by pixel")
     args = parser.parse_args()
 
     build = os.path.join(ROOT, "build")
     mame_out, gref_out = os.path.join(build, "mame_frames.txt"), os.path.join(build, "gref_frames.txt")
     mame_dumps = os.path.join(build, "mame_bus.bin") if args.dumps else None
     gref_dumps = os.path.join(build, "gref_bus.bin") if args.dumps else None
-    run_mame(args.mame, args.frames, args.inputs, mame_out, mame_dumps)
-    run_gref(args.frames, args.inputs, gref_out, gref_dumps)
+    mame_pictures = os.path.join(build, "mame_pictures.bin") if args.pictures else None
+    gref_pictures = os.path.join(build, "gref_pictures.bin") if args.pictures else None
+    run_mame(args.mame, args.frames, args.inputs, mame_out, mame_dumps, mame_pictures, args.pictures)
+    run_gref(args.frames, args.inputs, gref_out, gref_dumps, gref_pictures, args.pictures)
+    pictures_ok = True
+    if args.pictures:
+        pictures_ok = compare_pictures(mame_pictures, gref_pictures, args.pictures)
 
     mame, gref = read(mame_out), read(gref_out)
     first = None
@@ -82,7 +125,7 @@ def main():
     print(f"{len(mame)} frames from MAME, {len(gref)} from gref: {same} the same")
     if first is None:
         print("every frame the same as MAME's")
-        return 0
+        return 0 if pictures_ok else 1
     print(f"first difference at frame {first}: MAME {mame[first][1]} (PC {mame[first][2]}), "
           f"gref {gref[first][1]} (PC {gref[first][2]})")
     if args.dumps:

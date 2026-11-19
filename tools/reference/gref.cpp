@@ -24,6 +24,8 @@
  *      --registers-at ADDR [N]   the registers each time the instruction at ADDR (hex) starts, N times (10)
  *      --inputs FILE     an input script: lines "FRAME PORT VALUE" (PORT system, p1, p2, dsw1, dsw2; VALUE hex,
  *                        active low as the board reads it) applied at that frame's VBLANK, for the frames after
+ *      --pictures N FILE every Nth frame's picture (from frame 0), 256x224 RGB bytes each, as MAME's (trace.lua)
+ *      --ppm FRAME FILE  that frame's picture as a PPM image
  *      --text FRAME      the text layer's codes at that frame, as hex
  *      --dump FRAME FILE the board's memories at that frame (RAM, sprites, layers, palette), raw
  */
@@ -32,6 +34,7 @@
 
 #include "6x09dasm.h"
 #include "gng/board.h"
+#include "gng/video.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -200,7 +203,8 @@ int main(int argc, char **argv)
 	std::string regions_path = "build/makaimurg.regions";
 	int frames = 600;
 	const char *jumps_path = nullptr;
-	const char *bus_hashes_path = nullptr, *bus_dumps_path = nullptr;
+	const char *bus_hashes_path = nullptr, *bus_dumps_path = nullptr, *pictures_path = nullptr, *ppm_path = nullptr;
+	int pictures_every = 0, ppm_frame = -1;
 	const char *hashes_path = nullptr, *executed_path = nullptr, *inputs_path = nullptr, *dump_path = nullptr;
 	int text_frame = -1, dump_frame = -1;
 	for (int i = 1; i < argc; i++)
@@ -218,6 +222,8 @@ int main(int argc, char **argv)
 		else if (a == "--hashes") hashes_path = next();
 		else if (a == "--bus-hashes") bus_hashes_path = next();
 		else if (a == "--bus-dumps") bus_dumps_path = next();
+		else if (a == "--pictures") { pictures_every = std::atoi(next()); pictures_path = next(); }
+		else if (a == "--ppm") { ppm_frame = std::atoi(next()); ppm_path = next(); }
 		else if (a == "--executed") executed_path = next();
 		else if (a == "--jumps") jumps_path = next();
 		else if (a == "--registers-at")
@@ -244,6 +250,7 @@ int main(int argc, char **argv)
 	if (regions.count("tiles")) roms.tiles = regions["tiles"].data();
 	if (regions.count("sprites")) roms.sprites = regions["sprites"].data();
 	gng_power_on(&roms);
+	gng_video_decode();
 	gng.on_sound_latch = on_latch;
 
 	std::vector<input_change> inputs;
@@ -267,6 +274,19 @@ int main(int argc, char **argv)
 	FILE *hashes = hashes_path ? std::fopen(hashes_path, "w") : nullptr;
 	FILE *bus_hashes = bus_hashes_path ? std::fopen(bus_hashes_path, "w") : nullptr;
 	FILE *bus_dumps = bus_dumps_path ? std::fopen(bus_dumps_path, "wb") : nullptr;
+	FILE *pictures = pictures_path ? std::fopen(pictures_path, "wb") : nullptr;
+	static uint32_t picture[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+	static uint8_t check_indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+	auto picture_rgb = [&](std::vector<u8> &rgb) {
+		gng_video_render(picture);
+		rgb.resize(sizeof(picture) / 4 * 3);
+		for (size_t i = 0; i < sizeof(picture) / 4; i++)
+		{
+			rgb[3 * i] = u8(picture[i] >> 16);
+			rgb[3 * i + 1] = u8(picture[i] >> 8);
+			rgb[3 * i + 2] = u8(picture[i]);
+		}
+	};
 	for (int frame = 0; frame < frames; frame++)
 	{
 		const u64 vblank = GNG_VBLANK_CYCLE + u64(frame) * GNG_CPU_CYCLES_PER_FRAME;
@@ -288,6 +308,36 @@ int main(int argc, char **argv)
 				std::fprintf(bus_hashes, "%d %08x %04x\n", frame, hash, core.pc());
 			if (bus_dumps)
 				std::fwrite(bus, 1, sizeof(bus), bus_dumps);
+		}
+		// --pictures, as tools/mame/trace.lua samples MAME's: MAME's screen bitmap holds palette indexes drawn at
+		// one VBLANK, and screen:pixels() at the next frame notifier turns them into colours with the palette of
+		// that next VBLANK. So frame N's picture for the check is frame N's indexes in frame N+1's colours,
+		// written at frame N+1 (what the board shows is frame N's indexes in frame N's colours: --ppm)
+		if (pictures && frame >= 1 && (frame - 1) % pictures_every == 0)
+		{
+			std::vector<u8> rgb(sizeof(check_indexes) * 3);
+			for (size_t i = 0; i < sizeof(check_indexes); i++)
+			{
+				const u8 index = check_indexes[i];
+				const int r = gng.palette_ext[index] >> 4, g = gng.palette_ext[index] & 15, b = gng.palette_base[index] >> 4;
+				rgb[3 * i] = u8(r * 17);
+				rgb[3 * i + 1] = u8(g * 17);
+				rgb[3 * i + 2] = u8(b * 17);
+			}
+			std::fwrite(rgb.data(), 1, rgb.size(), pictures);
+		}
+		if (pictures && frame % pictures_every == 0)
+			gng_video_render_indexed(check_indexes);
+		if (frame == ppm_frame)
+		{
+			std::vector<u8> rgb;
+			picture_rgb(rgb);
+			{
+				FILE *ppm = std::fopen(ppm_path, "wb");
+				std::fprintf(ppm, "P6\n%d %d\n255\n", GNG_SCREEN_WIDTH, GNG_SCREEN_HEIGHT);
+				std::fwrite(rgb.data(), 1, rgb.size(), ppm);
+				std::fclose(ppm);
+			}
 		}
 		if (frame == text_frame)
 		{
@@ -321,6 +371,8 @@ int main(int argc, char **argv)
 		std::fclose(bus_hashes);
 	if (bus_dumps)
 		std::fclose(bus_dumps);
+	if (pictures)
+		std::fclose(pictures);
 
 	if (executed_path)
 	{
