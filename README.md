@@ -73,7 +73,8 @@ game starts:
 
 The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
 upright cabinet (the default) the two players take turns on the same controls. Every control can be changed in
-`makaimura.ini`.
+the menu (CONTROLS: Enter, then the key or the pad's button; Delete gives it its default back) or in
+`makaimura.ini` (up to four keys or buttons each).
 
 ## Recording
 

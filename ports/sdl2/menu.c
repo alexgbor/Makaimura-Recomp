@@ -7,7 +7,8 @@
  *    license:BSD-3-Clause
  *    The letters are the game's own: its text layer's characters (gng/video.h's gng_video_char_pen), whose codes
  *    are ASCII's (upper and lower case, digits, punctuation); pen 0 the letter, 1 and 2 its shading, 3 clear.
- *    32 columns of 8 pixels, 28 rows.
+ *    32 columns of 8 pixels, 28 rows. Two pages: the main one, and the controls (each action and the window's own
+ *    keys: Enter, then the key or the pad's button that takes it; Delete gives it its defaults back).
  */
 #include "menu.h"
 
@@ -17,13 +18,17 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, RESUME, RESET, QUIT };
+enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
+	ACTION, HOTKEY, DEFAULTS, BACK };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
-static item items[40];
+static item main_items[40], control_items[40];
+static int main_count, control_count;
+static item *items = main_items;
 static int item_count;
-static int selected;
+static int selected, main_selected;
+static int capturing;                 /* the selected control waits for its key or button */
 
 #define COLUMNS 32
 #define VALUE_COLUMN 14
@@ -39,6 +44,27 @@ static void add(int kind, int dip, const char *label)
 	item_count++;
 }
 
+static const char *const action_labels[ACTIONS] = {
+	"UP", "DOWN", "LEFT", "RIGHT", "ATTACK", "JUMP", "START 1P", "START 2P", "COIN 1", "COIN 2", "SERVICE" };
+static const char *const hotkey_labels[HOTKEYS] = { "RESET", "PAUSE", "FULL SCREEN", "QUIT", "MENU", "RECORD" };
+
+static void build_controls(void)
+{
+	items = control_items;
+	item_count = 0;
+	add(HEADER, 0, "CONTROLS");
+	for (int a = 0; a < ACTIONS; a++)
+		add(ACTION, a, action_labels[a]);
+	add(BLANK, 0, "");
+	add(HEADER, 0, "THE WINDOW'S KEYS");
+	for (int h = 0; h < HOTKEYS; h++)
+		add(HOTKEY, h, hotkey_labels[h]);
+	add(BLANK, 0, "");
+	add(DEFAULTS, 0, "ALL TO DEFAULTS");
+	add(BACK, 0, "BACK");
+	control_count = item_count;
+}
+
 static int selectable(int i)
 {
 	return items[i].kind != HEADER && items[i].kind != BLANK;
@@ -47,6 +73,7 @@ static int selectable(int i)
 static void build(void)
 {
 	static char dip_labels[16][24];
+	items = main_items;
 	item_count = 0;
 	add(HEADER, 0, "GAME");
 	for (int d = 0; d < settings_dip_count() && d < 16; d++)
@@ -68,19 +95,140 @@ static void build(void)
 	add(SMOOTH, 0, "PIXELS");
 	add(FULLSCREEN, 0, "FULL SCREEN");
 	add(VOLUME, 0, "VOLUME");
+	add(CONTROLS, 0, "CONTROLS");
 	add(BLANK, 0, "");
 	add(RESUME, 0, "RESUME");
 	add(RESET, 0, "RESET THE BOARD");
 	add(QUIT, 0, "QUIT");
+	main_count = item_count;
+}
+
+static void show_page(item *page, int count, int first)
+{
+	items = page;
+	item_count = count;
+	selected = first;
+	while (!selectable(selected))
+		selected++;
+	capturing = 0;
 }
 
 void menu_open(void)
 {
-	if (!item_count)
+	if (!main_count)
+	{
+		build_controls();
 		build();
-	selected = 0;
-	while (!selectable(selected))
-		selected++;
+	}
+	show_page(main_items, main_count, 0);
+}
+
+/* ---- the controls ---- */
+
+static void clear_key(SDL_Scancode *slot, SDL_Scancode code)
+{
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		if (slot[i] == code)
+		{
+			for (int j = i; j < BINDINGS_MAX - 1; j++)
+				slot[j] = slot[j + 1];
+			slot[BINDINGS_MAX - 1] = SDL_SCANCODE_UNKNOWN;
+			i--;
+		}
+}
+
+static void clear_pad(pad_input *slot, pad_input input)
+{
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		if (slot[i].kind == input.kind && slot[i].index == input.index)
+		{
+			for (int j = i; j < BINDINGS_MAX - 1; j++)
+				slot[j] = slot[j + 1];
+			slot[BINDINGS_MAX - 1].kind = PAD_NONE;
+			slot[BINDINGS_MAX - 1].index = 0;
+			i--;
+		}
+}
+
+/* The key now the selected control's only key, taken from every other control (one key, one thing) */
+static void bind_key(settings *s, SDL_Scancode code)
+{
+	for (int a = 0; a < ACTIONS; a++)
+		clear_key(s->keys[a], code);
+	for (int h = 0; h < HOTKEYS; h++)
+		clear_key(s->hot_keys[h], code);
+	SDL_Scancode *slot = items[selected].kind == ACTION ? s->keys[items[selected].dip] :
+		s->hot_keys[items[selected].dip];
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		slot[i] = SDL_SCANCODE_UNKNOWN;
+	slot[0] = code;
+}
+
+/* The pad's button or trigger now the selected action's only one (the menu's own: its button) */
+static void bind_pad(settings *s, pad_input input)
+{
+	for (int a = 0; a < ACTIONS; a++)
+		clear_pad(s->buttons[a], input);
+	clear_pad(s->menu_buttons, input);
+	pad_input *slot = NULL;
+	if (items[selected].kind == ACTION)
+		slot = s->buttons[items[selected].dip];
+	else if (items[selected].dip == HOTKEY_MENU)
+		slot = s->menu_buttons;
+	if (!slot)
+		return;    /* (the other window keys have no buttons) */
+	for (int i = 0; i < BINDINGS_MAX; i++)
+		slot[i].kind = PAD_NONE, slot[i].index = 0;
+	slot[0] = input;
+}
+
+/* The selected control's defaults back (settings.c's) */
+static void control_defaults(settings *s, const item *it)
+{
+	settings defaults;
+	settings_defaults(&defaults);
+	if (it->kind == ACTION)
+	{
+		memcpy(s->keys[it->dip], defaults.keys[it->dip], sizeof(s->keys[0]));
+		memcpy(s->buttons[it->dip], defaults.buttons[it->dip], sizeof(s->buttons[0]));
+	}
+	else if (it->kind == HOTKEY)
+	{
+		memcpy(s->hot_keys[it->dip], defaults.hot_keys[it->dip], sizeof(s->hot_keys[0]));
+		if (it->dip == HOTKEY_MENU)
+			memcpy(s->menu_buttons, defaults.menu_buttons, sizeof(s->menu_buttons));
+	}
+	else if (it->kind == DEFAULTS)
+	{
+		memcpy(s->keys, defaults.keys, sizeof(s->keys));
+		memcpy(s->buttons, defaults.buttons, sizeof(s->buttons));
+		memcpy(s->hot_keys, defaults.hot_keys, sizeof(s->hot_keys));
+		memcpy(s->menu_buttons, defaults.menu_buttons, sizeof(s->menu_buttons));
+	}
+}
+
+/* An event while a control waits: its key, button or trigger (Escape: left as it was) */
+static void capture(const SDL_Event *event, settings *s)
+{
+	if (event->type == SDL_KEYDOWN)
+	{
+		if (event->key.repeat)
+			return;
+		if (event->key.keysym.scancode != SDL_SCANCODE_ESCAPE)
+			bind_key(s, event->key.keysym.scancode);
+		capturing = 0;
+	}
+	else if (event->type == SDL_CONTROLLERBUTTONDOWN)
+	{
+		bind_pad(s, (pad_input){ PAD_BUTTON, event->cbutton.button });
+		capturing = 0;
+	}
+	else if (event->type == SDL_CONTROLLERAXISMOTION && event->caxis.value > 16384 &&
+		(event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT))
+	{
+		bind_pad(s, (pad_input){ PAD_TRIGGER, event->caxis.axis });
+		capturing = 0;
+	}
 }
 
 static void step(settings *s, int direction, int *changed)
@@ -126,11 +274,17 @@ static void move(int direction)
 int menu_event(const SDL_Event *event, settings *s, int *changed)
 {
 	*changed = MENU_CHANGED_NONE;
-	int up = 0, down = 0, left = 0, right = 0, accept = 0, back = 0;
+	if (capturing)
+	{
+		capture(event, s);
+		return MENU_STAY;
+	}
+	int up = 0, down = 0, left = 0, right = 0, accept = 0, back = 0, erase = 0;
 	if (event->type == SDL_KEYDOWN)
 	{
 		switch (event->key.keysym.scancode)
 		{
+		case SDL_SCANCODE_DELETE: erase = 1; break;
 		case SDL_SCANCODE_UP: up = 1; break;
 		case SDL_SCANCODE_DOWN: down = 1; break;
 		case SDL_SCANCODE_LEFT: left = 1; break;
@@ -161,8 +315,15 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 			break;
 		}
 	}
+	if (back && items == control_items)
+	{
+		show_page(main_items, main_count, main_selected);
+		return MENU_STAY;
+	}
 	if (back)
 		return MENU_RESUME;
+	if (erase)
+		control_defaults(s, &items[selected]);
 	if (up)
 		move(-1);
 	if (down)
@@ -178,6 +339,13 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 		case RESUME: return MENU_RESUME;
 		case RESET: return MENU_RESET;
 		case QUIT: return MENU_QUIT;
+		case CONTROLS:
+			main_selected = selected;
+			show_page(control_items, control_count, 0);
+			break;
+		case ACTION: case HOTKEY: capturing = 1; break;
+		case DEFAULTS: control_defaults(s, &items[selected]); break;
+		case BACK: show_page(main_items, main_count, main_selected); break;
 		default: step(s, 1, changed); break;
 		}
 	}
@@ -224,10 +392,56 @@ static void upper(char *out, size_t size, const char *in)
 	out[i] = 0;
 }
 
+/* a pad's input, short: "A", "LB", "LT", "D UP" */
+static const char *pad_name(pad_input input, char *buffer, size_t size)
+{
+	static const struct { const char *sdl, *shown; } names[] = {
+		{ "leftshoulder", "LB" }, { "rightshoulder", "RB" }, { "lefttrigger", "LT" }, { "righttrigger", "RT" },
+		{ "leftstick", "LS" }, { "rightstick", "RS" }, { "dpup", "D UP" }, { "dpdown", "D DOWN" },
+		{ "dpleft", "D LEFT" }, { "dpright", "D RIGHT" } };
+	const char *name = input.kind == PAD_BUTTON ?
+		SDL_GameControllerGetStringForButton((SDL_GameControllerButton)input.index) :
+		SDL_GameControllerGetStringForAxis((SDL_GameControllerAxis)input.index);
+	if (!name)
+		return "?";
+	for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++)
+		if (!strcmp(name, names[i].sdl))
+			return names[i].shown;
+	upper(buffer, size, name);
+	return buffer;
+}
+
+/* "Z, LEFT CTRL / B, X": the keys, then the pad's */
+static const char *bindings(const SDL_Scancode *keys, const pad_input *pad, char *buffer, size_t size)
+{
+	char name[32];
+	size_t used = 0;
+	buffer[0] = 0;
+	for (int i = 0; i < BINDINGS_MAX && keys[i] != SDL_SCANCODE_UNKNOWN; i++)
+	{
+		upper(name, sizeof(name), SDL_GetScancodeName(keys[i]));
+		used += (size_t)snprintf(buffer + used, size - used, "%s%s", i ? ", " : "", name);
+		if (used >= size) return buffer;
+	}
+	for (int i = 0; pad && i < BINDINGS_MAX && pad[i].kind != PAD_NONE; i++)
+	{
+		used += (size_t)snprintf(buffer + used, size - used, "%s%s", i ? ", " : used ? " / " : "",
+			pad_name(pad[i], name, sizeof(name)));
+		if (used >= size) return buffer;
+	}
+	if (!buffer[0])
+		snprintf(buffer, size, "NONE");
+	return buffer;
+}
+
 static const char *value_of(const item *it, const settings *s, char *buffer, size_t size)
 {
 	switch (it->kind)
 	{
+	case ACTION:
+		return bindings(s->keys[it->dip], s->buttons[it->dip], buffer, size);
+	case HOTKEY:
+		return bindings(s->hot_keys[it->dip], it->dip == HOTKEY_MENU ? s->menu_buttons : NULL, buffer, size);
 	case DIP: upper(buffer, size, settings_dip_value(s, it->dip)); return buffer;
 	case ACCURACY: return s->accuracy ? "BOARD" : "MAME 1:1";
 	case ASPECT: return s->aspect == ASPECT_MONITOR ? "4:3 MONITOR" : "SQUARE PIXELS";
@@ -235,6 +449,7 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case SMOOTH: return s->smooth ? "SMOOTH" : "SHARP";
 	case FULLSCREEN: return s->fullscreen ? "ON" : "OFF";
 	case VOLUME: snprintf(buffer, size, "%d", s->volume); return buffer;
+	case CONTROLS: return "ENTER";
 	default: return "";
 	}
 }
@@ -247,6 +462,7 @@ static const char *hint_of(const item *it)
 	case ACCURACY: return "FROM THE BOARD'S START: F3";
 	case ASPECT: return "AS THE ARCADE'S MONITOR, OR 1:1";
 	case RESET: return "THE BOARD'S POWER CYCLED";
+	case ACTION: case HOTKEY: return "ENTER: CHANGE  DELETE: DEFAULT";
 	default: return "";
 	}
 }
@@ -258,7 +474,7 @@ void menu_draw(uint32_t *pixels, const settings *s)
 		pixels[i] = (pixels[i] >> 4) & 0x0F0F0F;
 	put_text(pixels, 8, 0, "MAKAIMURA RECOMP", yellow);
 	int row = 2;
-	char buffer[40];
+	char buffer[64];
 	for (int i = 0; i < item_count && row < 27; i++, row++)
 	{
 		const item *it = &items[i];
@@ -272,12 +488,15 @@ void menu_draw(uint32_t *pixels, const settings *s)
 		if (i == selected)
 			fill_row(pixels, row, bar);
 		put_text(pixels, 1, row, it->label, i == selected ? yellow : white);
-		const char *value = value_of(it, s, buffer, sizeof(buffer));
-		/* a value too long for its column starts earlier, over the label's spaces */
+		const char *value = i == selected && capturing ? "PRESS A KEY" : value_of(it, s, buffer, sizeof(buffer));
+		/* a value too long for its column starts earlier, over the label's spaces (and ends at the screen's) */
+		const int room = COLUMNS - 1 - (int)strlen(it->label) - 1;
+		if ((int)strlen(value) > room && value == buffer)
+			buffer[room] = 0;
 		const int length = (int)strlen(value);
 		const int column = length > COLUMNS - VALUE_COLUMN ? COLUMNS - length : VALUE_COLUMN;
 		put_text(pixels, column, row, value, i == selected ? yellow : cyan);
 	}
-	const char *hint = hint_of(&items[selected]);
+	const char *hint = capturing ? "OR A BUTTON. ESC: AS IT WAS" : hint_of(&items[selected]);
 	put_text(pixels, (COLUMNS - (int)strlen(hint)) / 2, 27, hint, grey);
 }

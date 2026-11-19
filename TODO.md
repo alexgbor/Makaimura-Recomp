@@ -216,7 +216,9 @@ Roughly in order; each milestone is checked against the reference before it is t
       through the resampler at 48 kHz (`resample_check`); `--record-inputs FILE` writes the controls as an input
       script (the DIPs too) that `--inputs` plays again: the same AVI byte for byte; `--accuracy` for the mode;
       `tools/side_by_side.py` puts two recordings side by side (ffmpeg)
-- [ ] The keys and buttons changed from the menu (now in makaimura.ini only)
+- [x] The keys and buttons changed from the menu (CONTROLS: Enter, then the key, the pad's button or trigger; a key
+      taken from whatever had it; Delete: its defaults; Esc: as it was), kept in makaimura.ini; checked with
+      `makaimura --menu N --menu-keys LIST --shot N FILE` (the keys pressed on the menu, the settings saved)
 - [ ] A second player's own controls for the cocktail cabinet (both players share player 1's now)
 - [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
 

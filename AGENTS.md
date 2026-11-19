@@ -63,7 +63,7 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `tools/check_resampler.py` | the window's resampler against scipy's |
 | `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `sound.c`, `ym2203.c` (after ymfm), `rom_set.c` and `inflate.c` (the set from its zips) |
 | `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks |
-| `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--settings`, `--accuracy`, `--record`, `--record-inputs` |
+| `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs` |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
 | `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, loop2_stage0/6: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ |

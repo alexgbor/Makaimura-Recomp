@@ -1,7 +1,8 @@
 /**
  *    Name:        menu.h
  *    Description: the window's menu: the game's options (the DIP switches), the accuracy mode, the picture, the
- *                 sound, the board's reset, quitting; drawn over the paused game with the game's own font
+ *                 sound, the controls (each key and button changed), the board's reset, quitting; drawn over the
+ *                 paused game with the game's own font
  *    Version:     0.1.0
  *    Created:     19-11-2026
  *
@@ -22,8 +23,8 @@ enum { MENU_CHANGED_NONE = 0, MENU_CHANGED_FULLSCREEN = 1, MENU_CHANGED_VOLUME =
 
 void menu_open(void);
 
-/* A key or a gamepad button (SDL_KEYDOWN, SDL_CONTROLLERBUTTONDOWN) on the open menu: MENU_STAY or what to do;
-   *changed says what of 's' changed that needs applying */
+/* A key, a gamepad button or trigger (SDL_KEYDOWN, SDL_CONTROLLERBUTTONDOWN, SDL_CONTROLLERAXISMOTION) on the open
+   menu: MENU_STAY or what to do; *changed says what of 's' changed that needs applying */
 int menu_event(const SDL_Event *event, settings *s, int *changed);
 
 /* The menu over the game's picture (256 x 224, 0x00RRGGBB), the picture darkened behind it */

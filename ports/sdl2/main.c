@@ -12,6 +12,8 @@
  *      --frames N       quit after N frames
  *      --hidden         (for checks) the window not shown
  *      --menu N         (for checks) the menu opened at frame N (with --shot N: its picture)
+ *      --menu-keys LIST (for checks) with --menu: those keys pressed on it (SDL's names, comma separated), and the
+ *                       settings saved
  *      --inputs FILE    (for checks) the controls from an input script instead, as gng_headless takes it:
  *                       "FRAME PORT VALUE" (system, p1, p2; hex, active low) from that frame's VBLANK on
  *      --shot N FILE    (for checks) the window hidden; frame N's window, as the renderer drew it, into FILE (BMP),
@@ -69,6 +71,7 @@ static long shot_frame = -1;
 static const char *shot_path;
 static int hidden;
 static long menu_frame = -1;
+static const char *menu_keys;
 static const char *record_path;
 static int accuracy_given = -1;
 static char recording_name[1100];
@@ -425,7 +428,8 @@ static void handle_event(const SDL_Event *event)
 		if (!event->key.repeat)
 			toggle_fullscreen();
 	}
-	else if (menu_shown && (event->type == SDL_KEYDOWN || event->type == SDL_CONTROLLERBUTTONDOWN))
+	else if (menu_shown && (event->type == SDL_KEYDOWN || event->type == SDL_CONTROLLERBUTTONDOWN ||
+		event->type == SDL_CONTROLLERAXISMOTION))
 		menu_input(event);
 	else if (event->type == SDL_CONTROLLERBUTTONDOWN && is_menu_button(event->cbutton.button))
 		open_menu();
@@ -515,6 +519,21 @@ static void on_vblank(uint64_t frame)
 	if ((long)frame == menu_frame)
 	{
 		menu_open();
+		if (menu_keys)
+		{
+			char list[512];
+			snprintf(list, sizeof(list), "%s", menu_keys);
+			for (char *name = strtok(list, ","); name; name = strtok(NULL, ","))
+			{
+				SDL_Event key;
+				SDL_zero(key);
+				key.type = SDL_KEYDOWN;
+				key.key.keysym.scancode = SDL_GetScancodeFromName(name);
+				int changed;
+				menu_event(&key, &options, &changed);
+			}
+			settings_save(&options, settings_path);
+		}
 		memcpy(menu_pixels, pixels, sizeof(pixels));
 		menu_draw(menu_pixels, &options);
 		SDL_UpdateTexture(picture, NULL, menu_pixels, GNG_SCREEN_WIDTH * 4);
@@ -646,6 +665,8 @@ int main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "--menu") && i + 1 < argc)
 			menu_frame = atol(argv[++i]);
+		else if (!strcmp(argv[i], "--menu-keys") && i + 1 < argc)
+			menu_keys = argv[++i];
 		else if (!strcmp(argv[i], "--hidden"))
 			hidden = 1;
 		else if (!strcmp(argv[i], "--record") && i + 1 < argc)
