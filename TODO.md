@@ -120,8 +120,17 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 ## M5. The sound program (Z80)
 
-- [ ] Translated with the core's Z80 frontend (`tools/core/z80`: lift, timing, C), its own timing model (the
-      instruction's cycles, the IRQ between the same two instructions as MAME's core), on the game's sound board
+- [x] The sound program's lift (`tools/z80cpu/lift.py`) after MAME 0.289's z80.lst: every access at its machine
+      cycle's start, the flags the program can see (S Z H P/V N C; it never stores F, has no DAA, no LD A,R: the
+      translator refuses them); checked against MAME's core (`build/bin/oracle_z80_step`,
+      `tools/z80cpu/compare_lift_with_mame.py`): every instruction of the program and the IRQ's entry, 47040 cases
+- [x] Its static analysis (`tools/z80cpu/analysis.py`): RST $30 is a jump through the words after it, a return
+      address pushed by hand is code; every address the reference's Z80 ran is found (1177 instructions)
+- [x] Translated (`tools/z80cpu/translate.py` -> build/generated/sound) on the runtime's Z80 (`runtime/src/z80.c`:
+      a trampoline run up to a time, the IRQ a jump to 0038, EI's delay, HALT) and the board's sound side
+      (`runtime/src/sound.c`: the latch by time, the 240 Hz IRQ, Q1's reset, MAME's start a cycle late):
+      walk_right's 1,201,454 YM2203 writes the same as the reference's (so as MAME's) to the cycle, and the Z80's
+      RAM at each of them (`tools/check_translation.py`)
 - [ ] The game's own YM2203 (FM and SSG) in C, sample for sample against ymfm's (ymfm stays in the tools: BSD-3,
       but the game's chips are its own, as DonPachi's and TMNT's are)
 - [ ] The game's sound against the reference's: the YM2203 writes to the cycle, the samples; the mix out

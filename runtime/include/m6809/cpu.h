@@ -51,9 +51,12 @@ extern const unsigned m6809_ram_code_count;
 uint16_t m6809_irq_entry(uint16_t pc);
 
 /* the core's printer's helpers (tools/core/v60/emit_c.py) */
+#ifndef ARCADE_DECOMP_SHIFT_HELPERS
+#define ARCADE_DECOMP_SHIFT_HELPERS
 static inline uint32_t shl32(uint32_t value, int count) { return value << (count & 31); }
 static inline uint32_t shr32(uint32_t value, int count) { return value >> (count & 31); }
 static inline int32_t sar32(int32_t value, int count) { return value >> (count & 31); }
+#endif
 
 void m6809_board_catch_up(void);
 

@@ -48,6 +48,10 @@ def run(name, frames, inputs, dsw, pictures):
                    "--irq-hashes", prefix + "_irq.txt", "--bus-hashes", prefix + "_bus.txt"]
         if pictures:
             command += ["--picture-hashes", prefix + "_pictures.txt"]
+        # the sound board: every YM2203 write (time, chip, port, value) and the Z80's RAM at each one (the frames'
+        # ends are not compared: MAME's core may stop inside an instruction there, the translation between two)
+        command += ["--sound", prefix + "_sound.txt", "--ym-writes", prefix + "_ym.txt",
+                    "--sound-marks", prefix + "_marks.txt"]
         if inputs:
             command += ["--inputs", inputs]
         for option, value in zip(("--dsw1", "--dsw2"), dsw):
@@ -72,13 +76,26 @@ def run(name, frames, inputs, dsw, pictures):
         ok = False
         index, x, y = difference
         print(f"  VBLANKs: the first different, frame {index}: gref {x}, translation {y}")
+    ym_a, ym_b = lines(reference + "_ym.txt"), lines(translation + "_ym.txt")
+    difference = first_difference(ym_a, ym_b)
+    if difference:
+        ok = False
+        index, x, y = difference
+        print(f"  YM2203 writes: {len(ym_a)} in gref, {len(ym_b)} in the translation; the first different, {index}: "
+              f"gref {x}, translation {y}")
+    difference = first_difference(lines(reference + "_marks.txt", 2), lines(translation + "_marks.txt", 2))
+    if difference:
+        ok = False
+        index, x, y = difference
+        print(f"  the Z80's RAM at the YM2203 writes: the first different, write {index}: gref {x}, translation {y}")
     if pictures:
         difference = first_difference(lines(reference + "_pictures.txt"), lines(translation + "_pictures.txt"))
         if difference:
             ok = False
             index, x, y = difference
             print(f"  pictures: the first different, frame {index}: gref {x}, translation {y}")
-    print(f"{name}: {len(bus_a)} frames, {len(irq_a)} IRQs" + (", the pictures" if pictures else "") +
+    print(f"{name}: {len(bus_a)} frames, {len(irq_a)} IRQs, {len(ym_a)} YM2203 writes" +
+          (", the pictures" if pictures else "") +
           (": the same as gref's" if ok else ": DIFFERENT"))
     return ok
 

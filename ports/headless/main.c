@@ -17,6 +17,11 @@
  *      --inputs FILE     an input script: "FRAME PORT VALUE" (system, p1, p2, dsw1, dsw2; hex, active low),
  *                        applied at that frame's VBLANK for the frames after
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on
+ *      --sound FILE      the sound board too (the translated sound program, runtime/src/sound.c), and at each
+ *                        VBLANK "frame hash 0000 time" (the Z80's RAM, its time), as gref --sound
+ *      --ym-writes FILE  with --sound: every YM2203 write, "time chip offset value" (Z80 cycles), as gref's
+ *      --sound-marks FILE  with --sound: the Z80's RAM at each YM2203 write, "write hash 0000", as gref's (the PC
+ *                        not kept: the translation has none inside an instruction)
  *      --pictures N FILE every Nth frame's picture, sampled as gref's (frame N's indexes in frame N+1's colours)
  *      --picture-hashes FILE   each frame's picture sampled as gref's, its FNV-1a: "frame hash"
  *      --ppm FRAME FILE  that frame's picture as a PPM image
@@ -24,6 +29,7 @@
 #include "gng/board.h"
 #include "gng/video.h"
 #include "m6809/cpu.h"
+#include "gng/sound.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -124,6 +130,30 @@ static uint32_t bus_hash(void)
 }
 
 static FILE *bus_hashes, *irq_hashes, *pictures, *picture_hashes;
+static FILE *sound_out, *ym_out, *marks_out;
+static int sound;
+
+static void on_latch(gng_board *board, uint8_t value)
+{
+	(void)board;
+	if (sound)
+		gng_sound_latch(2 * cpu.cycles, value);    /* (Z80 cycles: two a 6809 cycle) */
+}
+
+static void on_ls259(gng_board *board, unsigned output, unsigned value)
+{
+	(void)board;
+	if (sound && output == 1)
+		gng_sound_q1(2 * cpu.cycles, (int)value);
+}
+
+static void on_ym(uint64_t time, int chip, int offset, uint8_t value)
+{
+	if (marks_out)
+		fprintf(marks_out, "%llu %08x 0000\n", (unsigned long long)(gng_snd.ym_writes - 1), gng_sound_ram_hash());
+	if (ym_out)
+		fprintf(ym_out, "%llu %d %d %02x\n", (unsigned long long)time, chip, offset, value);
+}
 static int pictures_every, ppm_frame = -1;
 static const char *ppm_path;
 static uint8_t check_indexes[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
@@ -154,6 +184,15 @@ static void write_check_picture(void)
 
 static void on_vblank(uint64_t frame)
 {
+	if (sound)
+	{
+		/* the sound board up to the VBLANK */
+		if (gng_sound_run_until(2 * (GNG_VBLANK_CYCLE + frame * GNG_CPU_CYCLES_PER_FRAME)) < 0)
+			fprintf(stderr, "gng_headless: the sound program faulted\n");
+		if (sound_out)
+			fprintf(sound_out, "%llu %08x 0000 %llu\n", (unsigned long long)frame, gng_sound_ram_hash(),
+				(unsigned long long)gng_sound_time());
+	}
 	if (bus_hashes)
 		fprintf(bus_hashes, "%llu %08x %04x\n", (unsigned long long)frame, bus_hash(), 0);
 	if ((pictures || picture_hashes) && frame >= 1 && (frame - 1) % pictures_every == 0)
@@ -207,6 +246,9 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--accuracy")) accuracy = !strcmp(NEXT(), "board") ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
 		else if (!strcmp(a, "--bus-hashes")) bus_hashes = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--irq-hashes")) irq_hashes = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--sound")) { sound = 1; sound_out = fopen(NEXT(), "w"); }
+		else if (!strcmp(a, "--ym-writes")) ym_out = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--sound-marks")) marks_out = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--inputs")) read_inputs(NEXT());
 		else if (!strcmp(a, "--dsw1")) dsw1 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
 		else if (!strcmp(a, "--dsw2")) dsw2 = (int)strtoul(NEXT(), NULL, 16) & 0xFF;
@@ -233,6 +275,18 @@ int main(int argc, char **argv)
 	gng.inputs.dsw1 = (uint8_t)dsw1;
 	gng.inputs.dsw2 = (uint8_t)dsw2;
 	gng_video_decode();
+	if (sound)
+	{
+		if (!roms.audiocpu)
+		{
+			fprintf(stderr, "gng_headless: no audiocpu region\n");
+			return 2;
+		}
+		gng_snd.on_ym_write = on_ym;
+		gng_sound_power_on(roms.audiocpu, accuracy == GNG_ACCURACY_MAME);
+		gng.on_sound_latch = on_latch;
+		gng.on_ls259 = on_ls259;
+	}
 
 	m6809_host host = { on_vblank, on_irq, on_fault };
 	m6809_power_on(&host);
@@ -241,5 +295,8 @@ int main(int argc, char **argv)
 	if (irq_hashes) fclose(irq_hashes);
 	if (pictures) fclose(pictures);
 	if (picture_hashes) fclose(picture_hashes);
+	if (sound_out) fclose(sound_out);
+	if (ym_out) fclose(ym_out);
+	if (marks_out) fclose(marks_out);
 	return result ? 1 : 0;
 }

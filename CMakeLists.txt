@@ -96,9 +96,12 @@ endif()
 # ---- The translation (milestone M4): build/generated/program, written by tools/m6809/translate.py from the
 # user's ROM (never committed), on the runtime's MC6809 (runtime/src/m6809.c); gng_headless runs it ----
 file(GLOB MAKAIMURA_PROGRAM CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/program/*.c)
-if(MAKAIMURA_PROGRAM)
-	add_library(gng_program STATIC runtime/src/m6809.c ${MAKAIMURA_PROGRAM})
-	target_include_directories(gng_program PUBLIC runtime/include ${CMAKE_SOURCE_DIR}/build/generated/program)
+file(GLOB MAKAIMURA_SOUND_PROGRAM CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/sound/*.c)
+if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
+	add_library(gng_program STATIC runtime/src/m6809.c runtime/src/z80.c runtime/src/sound.c ${MAKAIMURA_PROGRAM}
+		${MAKAIMURA_SOUND_PROGRAM})
+	target_include_directories(gng_program PUBLIC runtime/include ${CMAKE_SOURCE_DIR}/build/generated/program
+		${CMAKE_SOURCE_DIR}/build/generated/sound)
 	target_link_libraries(gng_program PUBLIC gng_runtime)
 	if(MSVC)
 		# (the generated C: big switches, labels nothing jumps to)
@@ -107,7 +110,7 @@ if(MAKAIMURA_PROGRAM)
 	add_executable(gng_headless ports/headless/main.c)
 	target_link_libraries(gng_headless PRIVATE gng_program)
 else()
-	message(STATUS "No translated program (python tools/m6809/translate.py): gng_headless is not built")
+	message(STATUS "No translated program (python tools/m6809/translate.py, tools/z80cpu/translate.py): gng_headless is not built")
 endif()
 
 # The sound lift's oracle: MAME 0.289's Z80 running one instruction (or the IRQ's entry) from given states
