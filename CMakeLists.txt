@@ -62,3 +62,13 @@ target_link_libraries(gref PRIVATE gng_runtime)
 if(MSVC)
 	target_compile_options(gref PRIVATE /wd4244 /wd4146 /wd4102)
 endif()
+
+# The lift's oracle: MAME's MC6809 core running one instruction (or the IRQ's entry) from given states
+# (tools/m6809/compare_lift_with_mame.py)
+add_executable(oracle_m6809_step tools/reference/oracle_m6809_step.cpp ${MAKAIMURA_M6809}/m6809.cpp
+	${MAKAIMURA_M6809}/6x09dasm.cpp ${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx)
+target_include_directories(oracle_m6809_step PRIVATE tools/reference/stub ${MAKAIMURA_M6809} ${MAKAIMURA_GENERATED})
+target_compile_features(oracle_m6809_step PRIVATE cxx_std_20)
+if(MSVC)
+	target_compile_options(oracle_m6809_step PRIVATE /wd4244 /wd4146 /wd4102)
+endif()

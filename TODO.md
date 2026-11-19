@@ -79,9 +79,16 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 ## M4. The translation (6809 to C)
 
-- [ ] `tools/m6809/lift.py`: every instruction into the core's IR, flags as MAME's core sets them (H for DAA)
-- [ ] `tools/m6809/timing.py`: each instruction's cycles as MAME's core (indexed modes' extra cycles), the IRQ
-      taken between the same two instructions as on the board (the arcade's slowdown)
+- [x] `tools/m6809/lift.py`: every instruction into the core's IR (v60/ir.py) as MAME's microcode does it: its bus
+      cycles in order, each at its cycle (the opcode space's: operands, dummy reads, VMA reads of FFFF), every
+      flag as set_flags sets it; the IRQ's entry (IrqEntry). Its cycles are the instruction's time
+- [x] Checked against MAME's core (`build/bin/oracle_m6809_step`, `tools/m6809/compare_lift_with_mame.py`, the IR
+      run by `tools/m6809/interpreter.py`): registers, flags, cycles and every bus cycle (kind, address, value,
+      cycle) the same, the program's 3983 instructions from 50 states each, and every opcode of the three pages
+      with every indexed postbyte (200632 cases)
+- [x] The IRQ's timing (MAME's core): an instruction always runs to its end, and interrupts are looked at in MAIN
+      only, before the next one, so the IRQ held from the VBLANK is taken at the first instruction boundary at or
+      after it (the arcade's slowdown: the frame's work interrupted where its cycles say)
 - [ ] A first translation (instruction by instruction, every flag) that boots and runs the attract mode,
       identical to the reference frame by frame
 - [ ] Banked code: one C function per (bank, routine); the RAM overlay
