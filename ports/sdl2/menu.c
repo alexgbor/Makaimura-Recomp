@@ -700,7 +700,13 @@ void menu_draw(uint32_t *pixels, const settings *s)
 	/* the game behind, dark */
 	for (int i = 0; i < GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT; i++)
 		pixels[i] = (pixels[i] >> 4) & 0x0F0F0F;
-	put_text(pixels, 8, 0, "MAKAIMURA RECOMP", yellow);
+#ifndef MAKAIMURA_VERSION
+#define MAKAIMURA_VERSION "?"
+#endif
+	/* the title and the version (CMakeLists.txt's) */
+	char title[COLUMNS + 1];
+	snprintf(title, sizeof(title), "MAKAIMURA RECOMP V%s", MAKAIMURA_VERSION);
+	put_text(pixels, (COLUMNS - (int)strlen(title)) / 2, 0, title, yellow);
 	int row = 2;
 	char buffer[64];
 	/* rows 2-26: a longer page scrolls with the selection */

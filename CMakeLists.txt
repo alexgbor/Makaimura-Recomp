@@ -7,7 +7,8 @@
 #   cmake --build build/msvc --config Release
 #   cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release && cmake --build build/linux -j
 cmake_minimum_required(VERSION 3.20)
-project(makaimura VERSION 0.0.1 LANGUAGES C CXX)
+# The version: the one place it is set (the menu shows it; tools/make_release.ps1 names the package from it)
+project(makaimura VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -118,8 +119,10 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	find_package(SDL2 CONFIG QUIET HINTS ${MAKAIMURA_SDL2_HINT})
 	if(SDL2_FOUND)
 		add_executable(makaimura ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
-			ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c ports/sdl2/replays.c)
+			ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c ports/sdl2/replays.c
+			ports/sdl2/rom_drop.c)
 		target_link_libraries(makaimura PRIVATE gng_program SDL2::SDL2)
+		target_compile_definitions(makaimura PRIVATE MAKAIMURA_VERSION="${PROJECT_VERSION}")
 		if(TARGET SDL2::SDL2main)
 			target_link_libraries(makaimura PRIVATE SDL2::SDL2main)
 		endif()

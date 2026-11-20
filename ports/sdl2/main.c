@@ -25,6 +25,9 @@
  *                       --inputs plays the same game again, in the other accuracy mode for one
  *      --save-state N FILE   (for checks) the board's state after frame N's VBLANK into FILE (gng/state.h)
  *      --high-scores    (for checks) the kept ranking (makaimura.hi) with --inputs too
+ *      --drop-shot FILE, --drop LIST   (for checks) the ROM set's window (rom_drop.h) hidden, LIST's places
+ *                       (comma separated) dropped on it one after the other, its picture after the last into FILE
+ *                       (--drop-shot first)
  *      --keep-replays   (for checks) each game kept as a replay (replays/) with --inputs too, without asking
  *      --load-state FILE     the game from that state instead of the power on (a slot's: states/ beside the
  *                       settings); [keyboard] save_state (F5), load_state (F7), state_slot (F6) at any time
@@ -50,6 +53,7 @@
 #include "menu.h"
 #include "recorder.h"
 #include "replays.h"
+#include "rom_drop.h"
 #include "settings.h"
 
 #include <math.h>
@@ -108,7 +112,9 @@ static int user_inputs;                  /* --record-inputs: its file instead */
 static char segment_base[1300];          /* the replay being written: its path without .inp ("" none) */
 static int segment_played, segment_sync;
 static int segment_asking;               /* its game is over: kept or not, as the player answers */
-static int keep_replays_given;           /* --keep-replays: with --inputs too, kept without asking */
+static int keep_replays_given;
+static int drop_check;                   /* --drop: the ROM window checked */
+static const char *drop_shot;           /* --keep-replays: with --inputs too, kept without asking */
 static uint8_t last_system = 0xFF;       /* the coins and starts at the last VBLANK */
 static uint64_t segment_first;
 static int replay_playing;
@@ -1438,6 +1444,13 @@ int main(int argc, char *argv[])
 			save_frame = atol(argv[++i]);
 			save_to = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--drop") && i + 1 < argc)
+		{
+			drop_check = 1;
+			rom_drop_check(argv[++i], drop_shot);
+		}
+		else if (!strcmp(argv[i], "--drop-shot") && i + 1 < argc)
+			drop_shot = argv[++i];
 		else if (!strcmp(argv[i], "--keep-replays"))
 			keep_replays_given = 1;
 		else if (!strcmp(argv[i], "--high-scores"))
@@ -1484,7 +1497,22 @@ int main(int argc, char *argv[])
 	}
 
 	char searched[2048];
-	if (!find_rom_set(rom_given, base, searched, sizeof(searched)))
+	int asked = 0;    /* (the window asked for it: closed, the program ends with no message) */
+	if (!find_rom_set(rom_given, base, searched, sizeof(searched)) &&
+		(drop_check || !(shot_path || hidden || frames_to_run >= 0)))
+	{
+		asked = 1;
+		/* the window that asks for it (rom_drop.h): the dropped .zips kept in the program's rom folder, a dropped
+		   folder named in makaimura.ini */
+		char keep[1300], folder[1100];
+		snprintf(keep, sizeof(keep), "%srom", base ? base : "");
+		if (rom_drop_screen(&rom_set, keep, folder, sizeof(folder)) && folder[0])
+		{
+			snprintf(options.rom, sizeof(options.rom), "%s", folder);
+			settings_save(&options, settings_path);
+		}
+	}
+	if (gng_rom_set_missing(&rom_set, NULL, 0))
 	{
 		char missing[512], message[3000];
 		gng_rom_set_missing(&rom_set, missing, sizeof(missing));
@@ -1492,7 +1520,10 @@ int main(int argc, char *argv[])
 			"The game's ROM set was not found: MAME's makaimurg.zip and its parent gng.zip.\n\n"
 			"Missing: %s\n\nLooked for in:\n%s\nPut them beside the program or in its rom folder, or name the "
 			"folder or zip in makaimura.ini ([files] rom).", missing, searched);
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, TITLE, message, NULL);
+		if (asked)
+			fprintf(stderr, "makaimura: the ROM set's window closed: %s missing\n", missing);
+		else
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, TITLE, message, NULL);
 		SDL_free(base);
 		SDL_Quit();
 		return 1;

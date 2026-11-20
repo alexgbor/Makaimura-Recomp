@@ -15,6 +15,21 @@ shows it, its options in `makaimura.ini`. The plan is in [TODO.md](TODO.md), the
 board is described in [docs/hardware.md](docs/hardware.md), and [docs/accuracy.md](docs/accuracy.md) explains
 the two accuracy modes: MAME's, and the real board's, which is the goal.
 
+## Download and play
+
+1. Get the latest release from [**Releases**](https://github.com/alexgbor/Makaimura-Recomp/releases/latest):
+   `Makaimura-x.y.z-win64.zip`.
+2. Unzip it somewhere you can write to (not inside *Program Files*) and run `makaimura.exe`. Windows may show
+   *"Windows protected your PC"* because the program isn't signed: click **More info → Run anyway**.
+3. On the first run a window asks for the ROM set: drag MAME's `makaimurg.zip` and its parent `gng.zip` onto it
+   (together or one after the other). The game keeps them in a `rom` folder beside it. Merged and split MAME sets
+   both work.
+
+The release's `README.txt` has the controls, the menu and the files the game keeps. What's new in each version:
+[CHANGELOG.md](CHANGELOG.md). A Linux build is made from the sources (below); there is no Linux package yet.
+
+## Building
+
 **This repository contains no game data.** You need your own copy of MAME's ROM sets: `makaimurg.zip` and its
 parent `gng.zip`, in `rom/`. The game reads them as they are (`runtime/src/rom_set.c`); the tools that check it
 read them extracted into a regions file (`build/makaimurg.regions`).
@@ -38,7 +53,19 @@ python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt 
 
 `makaimura` looks for `makaimurg.zip` and `gng.zip` beside itself, in a `rom` folder beside it, in the repository's
 `rom/` (from `build/bin`) and in the folder it is started from; or give it a zip or a folder
-(`makaimura D:/roms`), or name one in `makaimura.ini`. A folder of MAME's loose files works too.
+(`makaimura D:/roms`), or name one in `makaimura.ini`. A folder of MAME's loose files works too. If the set is not
+found whole, a window asks for it (`ports/sdl2/rom_drop.c`): the dropped zips are copied into the `rom` folder.
+
+Besides the arcade game, the window has:
+
+- **Save states**: F5 saves the whole board into a slot, F7 loads it, F6 picks the slot (8); SAVE STATE and LOAD STATE
+  on the menu. A game loaded from a state goes on exactly as it would have (`tools/check_states.py`).
+- **Practice**: PRACTICE on the menu starts a game at any area of the first loop (prepared once, then kept in `states/`).
+- **Replays**: at each game over the game asks whether to keep the game's replay (from its coin, or the state it was
+  played from); REPLAYS on the menu plays them again, frame for frame (Delete, then Enter, deletes one).
+- **High scores** kept between sessions (`makaimura.hi`): the game's own ranking written back as the board starts.
+- **Side panels** on a wide window: the score, lives, weapon, area, loop, rank, both players' controls, the frames
+  lost to slowdown, the window's keys, the menu's help.
 
 The menu (Esc) pauses the game and changes its options, the picture and the volume as it plays; it keeps them in
 `makaimura.ini`. That file, beside the program, is written with every setting and what it does the first time the
@@ -71,6 +98,7 @@ game starts:
 | Pause | P or Pause | |
 | Full screen | F11 or Alt+Enter | |
 | Record (start, stop) | F12 | |
+| Save state, load it, next slot | F5, F7, F6 | |
 
 The joystick is 4-way, like the board's: one direction at a time, up or down winning over left or right. In the
 upright cabinet (the default) the two players take turns on player 1's controls; in the cocktail cabinet player 2
