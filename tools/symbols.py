@@ -10,7 +10,12 @@ A line is   ADDRESS  KIND  NAME  [key=value ...]   [# comment]
              table (a jump table of 16-bit code addresses: count=N), file (where the C's files begin),
              overlay (RAM the program copies code to and runs: from=B:XXXX size=N, the bytes it copies)
     keys     count=N (table), noreturn (a func that never returns to its caller), bank=N (a table's targets'
-             bank, where they are in 4000-5FFF); a table in the window itself is "B:XXXX" (the bank it is read in)
+             bank, where they are in 4000-5FFF); a table in the window itself is "B:XXXX" (the bank it is read in);
+             jump=XXXX (a table's: the jump or call through a register that reads it, where the analysis cannot
+             see which tables that is: tools/m6809/function.py makes the table's entries its choices);
+             return=Y (a func entered by a jump with its return address in Y, which it pushes and returns
+             through: a call in the C); idle (a code label where the main loop waits for work, with nothing of
+             the C's on its stack but itself: where the readable C saves a state, runtime/src/m6809_program.c)
 Addresses and names only: no game data lives in symbols.txt.
 """
 from dataclasses import dataclass, field

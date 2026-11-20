@@ -25,10 +25,13 @@
                                                       # cannot do under itself
 
 # ======== the boot's continuation ========
+3:553A  func  ram_rom_test  return=Y   # the boot's RAM and ROM test, entered by JMP from 607A with its return address
+                                       # (607D) in Y: stack at 2000, PSHS Y at 557A, the RTS at 558B returns through it
 607D  code  reset_after_ram_test   # where bank 3's RAM and ROM test (553A) returns: PSHS Y there, RTS
 6134  code  main_loop_start        # the main loop's setup: the frame counters, the DSWs, sound off, then IRQs on
-617F  code  main_loop              # the task queue at <$12: each word's high bit clear is a task (its number in
-                                   # A: JSR through the table at 6188, in bank 3); 6160 clears it
+617F  code  main_loop  idle        # the task queue at <$12: each word's high bit clear is a task (its number in
+                                   # A: JSR through the table at 6188, in bank 3); 6160 clears it. Its top is where
+                                   # the main loop waits for work (idle: the readable C's states)
 6188  data  main_tasks             # (the words read by LDX A,X at 6174)
 
 # ======== the objects ========
@@ -36,14 +39,14 @@
 # The two-level dispatch at 9AF4: U = the word of 9AFE by the object's type ($5,X: 0-5), then JSR [A,U] by its
 # state (-$D,X: 0-3). Found by tests/controls/long_play.txt (types 0 and 2-4 were not met in walk_right)
 9AFE  data  object_state_tables            # 6 words: the state tables of the object types 0-5
-9B0A  table object_states_type0  count=4
-9C97  table object_states_9AF4  count=4    # type 1 (U = 9C97: gref --registers-at 9AF4); the words before it (9C8B-9C96) are pointers to data
-9CD3  table object_states_type2  count=4
-9CFA  table object_states_type3  count=4
-9D39  table object_states_type4  count=4
+9B0A  table object_states_type0  count=4 jump=9AF4
+9C97  table object_states_9AF4  count=4 jump=9AF4    # type 1 (U = 9C97: gref --registers-at 9AF4); the words before it (9C8B-9C96) are pointers to data
+9CD3  table object_states_type2  count=4 jump=9AF4
+9CFA  table object_states_type3  count=4 jump=9AF4
+9D39  table object_states_type4  count=4 jump=9AF4
 4:4712 table object_handlers   count=19   # JSR [B,U] at 9F2D: by the object's type ($5,X); entry 15 is 0000 (unused)
 4:470E table object_phase      count=2    # JSR [B,U] at 9F37: by the frame's parity (<$21 & 1)
-9ECC  table object_states_9AF4_b  count=4  # type 5
+9ECC  table object_states_9AF4_b  count=4 jump=9AF4  # type 5
 0060  var  player_lives         # copied from <$50 (the DIP's) at the game's start (6C35); DEC at 75FD on a death
 0061  var  player_rank          # dynamic difficulty: from <$57 (the DIP's), +4 up to 3F (6C55), back down (7115)
 0008  var  stage_phase          # the stage's dispatch (6F54, JMP [B,X] by it through 6F5C): 0 its start, 1 played,
@@ -63,14 +66,14 @@ E78C  code  stage_end_countdown  # <$B6 counted down, then <$08 = 2 (E799; 78C9'
 0073  var  weapon               # 1 at the start (6C0C, the lance); an item's (E702); 3 the shield, which the last
                                 # stage asks for (7129: stage 5 cleared without it, back into it)
 007F  var  loop                 # 0 the first loop; 1 the second (7298, after the last stage's illusion); 2 the end (7E18)
-AA41  table object_states_AA36  count=4   # JSR [B,U] at AA36, U = AA41 from AA96 and AAB7 (sub_AA49 follows)
+AA41  table object_states_AA36  count=4 jump=AA36   # JSR [B,U] at AA36, U = AA41 from AA96 and AAB7 (sub_AA49 follows)
 # The two-level dispatch at 6F64-6F76: X = 6F86 while <$71 is 0, else LDX #$6F78 / LDX B,X by <$72 (the stage:
 # cleared at the game's start, 6C17; the stage's map from the table at 6D32 by it), then JMP [B,X] by <$0B. 6F78's
 # 7 words (6F78-6F85, 6F86 follows) are tables, not code: stages 0-5 6F8A, stage 6 6F90. Each table runs to the
 # next one or to code (6F98)
-6F86  table player_states_6F86  count=2
-6F8A  table player_states_6F8A  count=3
-6F90  table player_states_stage6  count=4   # stage 6's (703C, 707C its own); found starting at stage 4+ (a test's cheat)
+6F86  table player_states_6F86  count=2 jump=6F76
+6F8A  table player_states_6F8A  count=3 jump=6F76
+6F90  table player_states_stage6  count=4 jump=6F76   # stage 6's (703C, 707C its own); found starting at stage 4+ (a test's cheat)
 
 # ======== tables the analysis would read past their end (the words after them are code or data) ========
 7EFF  table  object_states_7E8D  count=2   # JMP [A,U] at 7E8D; after it (7F03) a second copy of the dispatch code
@@ -79,3 +82,5 @@ B103  table  table_B0F6          count=2   # JSR [B,U] at B0F6; B10B and B119 af
 B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and B1B0 after it are data of the same kind
 4:55E4 table table_DD71          count=4   # JMP [B,X] at DD71 with X = 55E4 in the window: bank 4's (its handlers follow DD71)
 4:4942 table table_A0BE          count=8   # JMP [B,U] at A0BE with U = 4942 in the window: bank 4's (A0C0-A167)
+4:5C20 table table_E6E3          count=20  # JMP [B,U] at E6E3 with U = 5C20 in the window (by -$E,X); the analysis read a 21st
+                                           # word (E864: data, CWAI and RTI as code) past its end

@@ -213,3 +213,12 @@ uint32_t gng_state_hash(void)
 	hash = fnv(hash, &gng.sound_latch, 1);
 	return hash;
 }
+
+uint32_t gng_bus_hash_without_stack(void)
+{
+	uint32_t hash = 2166136261u;
+	for (unsigned address = 0; address < 0x3000u; address++)
+		if (!gng_stack_byte((uint16_t)address))
+			hash = (hash ^ gng_read((uint16_t)address)) * 16777619u;
+	return hash;
+}

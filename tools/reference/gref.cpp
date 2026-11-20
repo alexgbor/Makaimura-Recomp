@@ -86,12 +86,28 @@ static std::vector<std::pair<u64, u8>> latch_writes;
 static u8 host_read(u16 address) { return gng_read(address); }
 static void host_write(u16 address, u8 data) { gng_write(address, data); }
 
-static FILE *irq_hashes;
+static FILE *irq_hashes, *irq_state, *irq_dumps;
 static FILE *picture_hashes;
 static u64 irqs_taken;
 
 static void host_acknowledge(int line)
 {
+	if (line == M6809_IRQ_LINE && (irq_state || irq_dumps))
+	{
+		// as the decompiled program is checked: the bus but the stack (gng_stack_byte), the board's time
+		if (irq_state)
+			std::fprintf(irq_state, "%llu %08x %llu\n", (unsigned long long)irqs_taken, gng_bus_hash_without_stack(),
+				(unsigned long long)(cycle_base + u64(run_length - cpu->icount())));
+		if (irq_dumps)
+		{
+			u8 bus[0x3000];
+			for (unsigned address = 0; address < sizeof(bus); address++)
+				bus[address] = gng_read(u16(address));
+			std::fwrite(bus, 1, sizeof(bus), irq_dumps);
+		}
+		if (!irq_hashes)
+			irqs_taken++;
+	}
 	if (line == M6809_IRQ_LINE && irq_hashes)
 	{
 		// the bus as the CPU takes the IRQ (its state pushed), the PC it will come back to, the board's time
@@ -285,6 +301,8 @@ int main(int argc, char **argv)
 		else if (a == "--bus-hashes") bus_hashes_path = next();
 		else if (a == "--bus-dumps") bus_dumps_path = next();
 		else if (a == "--irq-hashes") irq_hashes = std::fopen(next(), "w");
+		else if (a == "--irq-state") irq_state = std::fopen(next(), "w");
+		else if (a == "--irq-dumps") irq_dumps = std::fopen(next(), "wb");
 		else if (a == "--sound") { sound = true; sound_path = next(); }
 		else if (a == "--ym-writes") ym_path = next();
 		else if (a == "--sound-marks") marks_path = next();

@@ -16,7 +16,9 @@
 #include <stddef.h>
 #include <string.h>
 
-#define MAGIC "MKRSTATE"
+/* the magic is the program's (m6809_state_magic): the translation's "MKRSTATE", the readable C's "MKRSTATC", whose
+   states are taken where its main loop waits for work only (m6809/program.h); neither goes on from the other's */
+#define MAGIC m6809_state_magic
 #define VERSION 1u
 
 /* the board's data: gng up to its ROMs and hooks (memories, latches, counters, inputs) */
@@ -92,7 +94,13 @@ const char *gng_state_check(const uint8_t *in, size_t size)
 		return "not a save state";
 	memcpy(&h, in, sizeof(h));
 	if (memcmp(h.magic, MAGIC, sizeof(h.magic)))
+	{
+		if (!memcmp(h.magic, "MKRSTATE", sizeof(h.magic)))
+			return "a state of the translated program";
+		if (!memcmp(h.magic, "MKRSTATC", sizeof(h.magic)))
+			return "a state of the readable C";
 		return "not a save state";
+	}
 	uint64_t s[4];
 	sizes(s);
 	if (h.version != VERSION || memcmp(h.sizes, s, sizeof(s)) || size != gng_state_size())

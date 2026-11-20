@@ -117,6 +117,17 @@ uint32_t gng_dma_halt(uint64_t cycle);
 /* A 32-bit FNV-1a of the board's memories and latches: the state the frame checks compare */
 uint32_t gng_state_hash(void);
 
+/* The bytes of the bus the decompiled program (src/, milestone M6) cannot have as the board does, having no stack:
+   the 6809's stack (02C0-02FF: S starts at 0300 and goes no lower than 02CF in any script, a few bytes below S
+   written by the code too) and the stack pointer the round robin's copies keep at <$E2-<$E3 */
+static inline int gng_stack_byte(uint16_t address)
+{
+	return (address >= 0x02C0u && address < 0x0300u) || address == 0x00E2u || address == 0x00E3u;
+}
+
+/* An FNV-1a of the bus 0000-2FFF but those bytes: what the decompiled program is checked by against the reference */
+uint32_t gng_bus_hash_without_stack(void);
+
 #ifdef __cplusplus
 }
 #endif

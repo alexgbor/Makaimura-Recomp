@@ -7,11 +7,15 @@ Created:     19-11-2026
 
 license:BSD-3-Clause
     python tools/check_translation.py [--frames N] [--inputs FILE ...] [--dsw1 HEX] [--dsw2 HEX] [--no-pictures]
-                                      [--accuracy mame|board]
+                                      [--accuracy mame|board] [--decompiled]
 
 With no --inputs, the attract mode and every script of tests/controls/ (*.txt). Both runs are MAME 0.289's board
 (MAME mode, the default; gref is checked against MAME itself by tools/mame_trace.py), or both the board's (board
 mode: docs/accuracy.md; the reference's MAME core and the translation with the same differences).
+
+--decompiled checks the readable C instead (build/bin/gng_headless_c, milestone M6), which has no stack: at every
+IRQ the bus but the stack's bytes (gng_stack_byte: 02C0-02FF, <$E2-<$E3) and the cycle it is taken at (it knows no
+PC), not the bus at the VBLANKs (whose stack it cannot have); the pictures and the sound as the translation's.
 """
 import argparse
 import glob
@@ -40,14 +44,16 @@ def first_difference(a, b):
     return None
 
 
-def run(name, frames, inputs, dsw, pictures, accuracy):
+def run(name, frames, inputs, dsw, pictures, accuracy, decompiled=False):
     build = os.path.join(ROOT, "build", "check")
     os.makedirs(build, exist_ok=True)
     outputs = {}
-    for program in ("gref", "gng_headless"):
+    tested = "gng_headless_c" if decompiled else "gng_headless"
+    for program in ("gref", tested):
         prefix = os.path.join(build, f"{name}_{program}")
         command = [os.path.join(BIN, program + EXE), "--frames", str(frames), "--accuracy", accuracy,
-                   "--irq-hashes", prefix + "_irq.txt", "--bus-hashes", prefix + "_bus.txt"]
+                   "--bus-hashes", prefix + "_bus.txt"]
+        command += ["--irq-state" if decompiled else "--irq-hashes", prefix + "_irq.txt"]
         if pictures:
             command += ["--picture-hashes", prefix + "_pictures.txt"]
         # the sound board: every YM2203 write (time, chip, port, value) and the Z80's RAM at each one (the frames'
@@ -64,7 +70,7 @@ def run(name, frames, inputs, dsw, pictures, accuracy):
             print(f"  {program}: {result.stderr.strip()}")
         outputs[program] = prefix
     ok = True
-    reference, translation = outputs["gref"], outputs["gng_headless"]
+    reference, translation = outputs["gref"], outputs[tested]
     irq_a, irq_b = lines(reference + "_irq.txt"), lines(translation + "_irq.txt")
     difference = first_difference(irq_a, irq_b)
     if difference:
@@ -73,7 +79,7 @@ def run(name, frames, inputs, dsw, pictures, accuracy):
         print(f"  IRQs: {len(irq_a)} in gref, {len(irq_b)} in the translation; the first different, IRQ {index}: "
               f"gref {' '.join(x) if x else '-'}, translation {' '.join(y) if y else '-'}")
     bus_a, bus_b = lines(reference + "_bus.txt", 2), lines(translation + "_bus.txt", 2)
-    difference = first_difference(bus_a, bus_b)
+    difference = None if decompiled else first_difference(bus_a, bus_b)
     if difference:
         ok = False
         index, x, y = difference
@@ -127,6 +133,7 @@ def main():
     parser.add_argument("--dsw2")
     parser.add_argument("--no-pictures", action="store_true")
     parser.add_argument("--accuracy", choices=("mame", "board"), default="mame")
+    parser.add_argument("--decompiled", action="store_true", help="the readable C (gng_headless_c) instead")
     args = parser.parse_args()
     scripts = args.inputs if args.inputs is not None else sorted(glob.glob(os.path.join(ROOT, "tests", "controls", "*.txt")))
     runs = [("attract", None)] if args.inputs is None else []
@@ -139,7 +146,7 @@ def main():
             if path:
                 last = max((int(row[0]) for row in lines(path) if row and row[0].isdigit()), default=0)
                 frames = last + 600
-        ok &= run(name, frames, path, (args.dsw1, args.dsw2), not args.no_pictures, args.accuracy)
+        ok &= run(name, frames, path, (args.dsw1, args.dsw2), not args.no_pictures, args.accuracy, args.decompiled)
     return 0 if ok else 1
 
 

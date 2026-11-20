@@ -387,8 +387,20 @@ static void on_vblank(uint64_t frame)
 		apply_input(&inputs[next_input++]);
 }
 
+static FILE *irq_state, *irq_dumps;
+
 static void on_irq(uint16_t pc, uint64_t cycles)
 {
+	if (irq_state)
+		fprintf(irq_state, "%llu %08x %llu\n", (unsigned long long)irqs, gng_bus_hash_without_stack(),
+			(unsigned long long)cycles);
+	if (irq_dumps)
+	{
+		uint8_t bus[0x3000];
+		for (unsigned address = 0; address < sizeof(bus); address++)
+			bus[address] = gng_read((uint16_t)address);
+		fwrite(bus, 1, sizeof(bus), irq_dumps);
+	}
 	if (irq_hashes)
 		fprintf(irq_hashes, "%llu %08x %04x %llu\n", (unsigned long long)irqs, bus_hash(), pc, (unsigned long long)cycles);
 	irqs++;
@@ -422,6 +434,8 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--accuracy")) accuracy = !strcmp(NEXT(), "board") ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
 		else if (!strcmp(a, "--bus-hashes")) bus_hashes = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--irq-hashes")) irq_hashes = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--irq-state")) irq_state = fopen(NEXT(), "w");
+		else if (!strcmp(a, "--irq-dumps")) irq_dumps = fopen(NEXT(), "wb");
 		else if (!strcmp(a, "--sound")) { sound = 1; sound_out = fopen(NEXT(), "w"); }
 		else if (!strcmp(a, "--ym-writes")) ym_out = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--sound-marks")) marks_out = fopen(NEXT(), "w");
@@ -556,6 +570,8 @@ int main(int argc, char **argv)
 			gng.palette_conflicts);
 	if (bus_hashes) fclose(bus_hashes);
 	if (irq_hashes) fclose(irq_hashes);
+	if (irq_state) fclose(irq_state);
+	if (irq_dumps) fclose(irq_dumps);
 	if (pictures) fclose(pictures);
 	if (picture_hashes) fclose(picture_hashes);
 	if (sound_out) fclose(sound_out);

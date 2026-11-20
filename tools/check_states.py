@@ -6,7 +6,10 @@ starts from that state. Everything the second one gives must be what the first g
 the bus at each VBLANK, each IRQ taken (its state, PC, cycle), the sound board at each VBLANK, every YM2203
 write, the mix's samples (the WAV) and the pictures.
 
-    python tools/check_states.py [--accuracy mame|board] [--inputs FILE] [--frames N] [--at K ...]
+    python tools/check_states.py [--accuracy mame|board] [--inputs FILE] [--frames N] [--at K ...] [--program EXE]
+
+--program checks another build of the runner: build/bin/gng_headless_c, the readable C (its states are taken where
+the main loop waits for work, the first time after the frame's VBLANK: runtime/src/m6809_program.c).
 """
 import argparse
 import os
@@ -63,7 +66,11 @@ def main():
     parser.add_argument('--inputs', default=os.path.join(ROOT, 'tests', 'controls', 'walk_right.txt'))
     parser.add_argument('--frames', type=int, default=2400)
     parser.add_argument('--at', type=int, nargs='+', default=[700, 1500])
+    parser.add_argument('--program', help='the runner (default: build/bin/gng_headless)')
     options = parser.parse_args()
+    global HEADLESS
+    if options.program:
+        HEADLESS = options.program
     common = ['--accuracy', options.accuracy, '--frames', str(options.frames)]
     if options.inputs:
         common += ['--inputs', options.inputs]

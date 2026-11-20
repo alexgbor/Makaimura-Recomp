@@ -196,7 +196,40 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 ## M6. Readable C
 
-- [ ] The core's decompiler on the 6809's IR (structured C, no CPU left), checked frame by frame again
+- [~] The core's decompiler on the 6809's IR (structured C, no CPU left), checked frame by frame again
+      (`docs/decompilation.md`; branch `m6-readable-c`; the translation stays the game until the readable C matches
+      gref everywhere):
+      - [x] Functions: the program split into functions (the vectors, the calls' targets, the tables', symbols.txt's)
+            and each lifted into the decompiler's blocks (`tools/m6809/function.py`: calls and returns as C has them,
+            the jumps through tables as switches, the banked window's code by its bank, PSHS/PULS as the stack's
+            slots); `tools/m6809/decompile.py --check`: 1208 functions, 17398 instructions, no stack pointer left.
+            symbols.txt: the tables the analysis cannot link to their jumps (`jump=`), table 4:5C20's size (its 21st
+            word, E864, was data taken for code), the boot's RAM test returning through Y (`return=Y`)
+      - [x] The board's time kept as the translation keeps it: each instruction's cycles after it (the IRQ taken
+            there, a call of its handler: it always returns where it was taken, checked over every script in both
+            modes; the "nesting" was the next IRQ due at the RTI, in slowdown), the accesses that may reach
+            1E00-3FFF (sprite RAM, video RAMs, palette, devices) at their bus cycle; ANDCC/ORCC/PULS CC as the
+            runtime's mask; where the IRQ cannot come in (the functions only the masked code runs: 16367 of the
+            17398 instructions), a block's cycles at once
+      - [x] The C written by the core's passes (data flow, signatures, structure, variables, the writer) into `src/`
+            (ignored, from the ROM): 1208 functions, no goto; built as `gng_headless_c` on
+            `runtime/src/m6809_program.c`
+      - [x] Checked frame by frame against gref, every script in both modes (`tools/check_translation.py
+            --decompiled`): the bus at each IRQ but the stack (02C0-02FF, the deepest S goes, and <$E2-<$E3), each
+            IRQ's cycle, the pictures, the YM2203 writes and the sound: the 17 runs of each mode the same as gref's.
+            Found on the way: the program's data read through a pointer may be the window's in its bank (ROM8
+            through the board)
+      - [x] D (A:B) a variable of its own (the Z80's pairs; a function that loops back to its start gets an entry
+            block of its own, or what the pairs put at its start would run each time round), the flags of a
+            subtraction or an addition in the core's forms: 1084 branches compare values (628 before)
+      - [x] Save states on the readable C: taken where the main loop waits for work (617F, symbols.txt's idle: the
+            C's stack is the main loop alone), U kept; the run from a state the same as the uninterrupted one
+            (`tools/check_states.py --program build/bin/gng_headless_c.exe`)
+      - [ ] The work RAM's 16-bit values as variables (the work RAM kept the other way round, as the 68000's games
+            do?), the conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code
+            the IRQ may interrupt (the main loop's tasks: 745 of them) written shorter
+      - [ ] The window on the readable C (`makaimura` on gng_decompiled: its states the readable C's; the
+            translation's states refused), checked as the translation's window was; then it becomes the game
 - [ ] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...)
 
 ## M7. The game in a window (`ports/sdl2`)

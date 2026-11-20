@@ -52,24 +52,25 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | Path | What |
 |---|---|
 | `tools/makaimura_rom.py` | the ROM set (files, CRC32, SHA-1, regions), the 6809's view of its ROM and banks; `--extract` writes `build/makaimurg.regions` for the tools |
-| `tools/m6809/` | the 6809 frontend: `disassembler.py`, `analysis.py` (code discovery with bank tracking), `lift.py` (each instruction into the core's IR, cycle by cycle as MAME's microcode), `interpreter.py` and `compare_lift_with_mame.py` (the lift against MAME's core), `translate.py` (the program as C: `build/generated/program`) |
+| `tools/m6809/` | the 6809 frontend: `disassembler.py`, `analysis.py` (code discovery with bank tracking), `lift.py` (each instruction into the core's IR, cycle by cycle as MAME's microcode), `interpreter.py` and `compare_lift_with_mame.py` (the lift against MAME's core), `translate.py` (the program as C: `build/generated/program`); the readable C (M6, `docs/decompilation.md`): `function.py` (the program's functions in the decompiler's blocks, the board's time kept), `decompile.py` (the core's passes: `src/`), `emit.py` (the 6809's board for the core's writer), `compare_dumps.py` |
 | `tools/z80cpu/` | the same for the sound program (Z80): `analysis.py`, `lift.py`, `interpreter.py`, `compare_lift_with_mame.py`, `translate.py` (`build/generated/sound`) |
 | `tools/disassemble.py` | the static analysis summary and the listing (`build/makaimurg.lst`) |
 | `tools/symbols.py`, `symbols.txt` | the program's names: routines, tables, overlays, RAM |
 | `tools/core/` | arcade-decomp (submodule): the IR, its C printer, the decompiler |
 | `tools/reference/` | `gref.cpp`: the original program on MAME 0.289's 6809 core against the board model; `sound/`: the sound board on MAME's Z80 and ymfm (`gsound`), `ymcheck`, `oracle_z80_step`; `oracle_m6809*`; `mame/`: MAME's and ymfm's vendored sources (never in the game) |
 | `tools/mame/trace.lua`, `tools/mame_trace.py` | MAME itself traced and compared with gref or gng_headless (bus, IRQs, pictures, sound) |
-| `tools/check_translation.py` | the translated game (gng_headless) against gref: bus, IRQs, pictures, YM2203 writes, the sound's WAV |
+| `tools/check_translation.py` | the translated game (gng_headless) against gref: bus, IRQs, pictures, YM2203 writes, the sound's WAV; `--decompiled`: the readable C (gng_headless_c), the bus at the IRQs but the stack |
 | `tools/check_resampler.py` | the window's resampler against scipy's |
 | `tools/coverage.py` | what the checks run: gref's executed addresses on every script against the static analyses, the code never run by routine, the ROM's map |
 | `tools/check_states.py` | save states: a run from a state against the uninterrupted run (gng_headless `--save-state`, `--load-state`) |
-| `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `sound.c`, `ym2203.c` (after ymfm), `state.c` (save states), `rom_set.c` and `inflate.c` (the set from its zips) |
-| `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks |
+| `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `m6809_program.c` (the 6809 the readable C runs on: `m6809/program.h`), `sound.c`, `ym2203.c` (after ymfm), `state.c` (save states), `rom_set.c` and `inflate.c` (the set from its zips) |
+| `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks; `gng_headless_c`: the same on the readable C |
+| `tools/game_profile.py` | what the core's modules ask of the game as they are imported (the 6809's frontend sets the rest itself) |
 | `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings), `hud.c` (the side panels), `hiscore.c` (makaimura.hi), `replays.c`, `rom_drop.c` (the ROM set's window), `updater.c` (updates from GitHub's releases), `crt.c` (the CRT look), `release/` (the package's README.txt, NOTICES.txt). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs`, `--save-state`, `--load-state`, `--high-scores`, `--keep-replays`, `--drop`, `--drop-shot`, `--update-test` |
 | `tools/make_release.ps1`, `CHANGELOG.md` | the player's package (`release/`, never committed): the version is CMakeLists.txt's `project(makaimura VERSION)`, its section in CHANGELOG.md |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
 | `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
-| `docs/hardware.md`, `docs/accuracy.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ |
+| `docs/hardware.md`, `docs/accuracy.md`, `docs/decompilation.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ; the readable C (M6): how it is made, what it does differently, how it is checked |
 
 ## Working
 

@@ -113,27 +113,57 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	add_executable(gng_headless ports/headless/main.c)
 	target_link_libraries(gng_headless PRIVATE gng_program)
 
+	# The readable C (milestone M6): src/, written by tools/m6809/decompile.py from the user's ROM (never
+	# committed), on runtime/src/m6809_program.c; gng_headless_c is gng_headless running it, for the checks
+	set(MAKAIMURA_DECOMPILED_DIR ${CMAKE_SOURCE_DIR}/src CACHE PATH "Where the readable C is (tools/m6809/decompile.py --out)")
+	file(GLOB MAKAIMURA_DECOMPILED CONFIGURE_DEPENDS ${MAKAIMURA_DECOMPILED_DIR}/*.c)
+	if(MAKAIMURA_DECOMPILED)
+		add_library(gng_decompiled STATIC runtime/src/m6809_program.c runtime/src/z80.c runtime/src/sound.c
+			runtime/src/ym2203.c runtime/src/state.c
+			${MAKAIMURA_DECOMPILED}
+			${MAKAIMURA_SOUND_PROGRAM})
+		target_include_directories(gng_decompiled PUBLIC runtime/include ${MAKAIMURA_DECOMPILED_DIR}
+			${CMAKE_SOURCE_DIR}/build/generated/sound)
+		target_link_libraries(gng_decompiled PUBLIC gng_runtime)
+		if(MSVC)
+			target_compile_options(gng_decompiled PRIVATE /wd4102 /bigobj)
+		endif()
+		add_executable(gng_headless_c ports/headless/main.c)
+		target_link_libraries(gng_headless_c PRIVATE gng_decompiled)
+	endif()
+
 	# The game in a window (ports/sdl2): SDL2 from the system, or on Windows its development package
 	# (SDL2-devel-2.x.x-VC.zip) unpacked in build/downloads/sdl2
 	file(GLOB MAKAIMURA_SDL2_HINT ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
 	find_package(SDL2 CONFIG QUIET HINTS ${MAKAIMURA_SDL2_HINT})
 	if(SDL2_FOUND)
-		add_executable(makaimura ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
-			ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c ports/sdl2/replays.c
-			ports/sdl2/rom_drop.c ports/sdl2/updater.c ports/sdl2/crt.c)
-		target_link_libraries(makaimura PRIVATE gng_program SDL2::SDL2)
-		target_compile_definitions(makaimura PRIVATE MAKAIMURA_VERSION="${PROJECT_VERSION}")
-		if(WIN32)
-			target_link_libraries(makaimura PRIVATE winhttp)    # (updater.c: the newest release looked up and downloaded)
+		# makaimura on the translation (the game); makaimura_c, the same window on the readable C (M6, to try it)
+		set(MAKAIMURA_WINDOWS makaimura)
+		if(TARGET gng_decompiled)
+			list(APPEND MAKAIMURA_WINDOWS makaimura_c)
 		endif()
-		if(TARGET SDL2::SDL2main)
-			target_link_libraries(makaimura PRIVATE SDL2::SDL2main)
-		endif()
-		if(WIN32)
-			set_target_properties(makaimura PROPERTIES WIN32_EXECUTABLE TRUE)
-			add_custom_command(TARGET makaimura POST_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:makaimura>)
-		endif()
+		foreach(window IN LISTS MAKAIMURA_WINDOWS)
+			add_executable(${window} ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
+				ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c
+				ports/sdl2/replays.c ports/sdl2/rom_drop.c ports/sdl2/updater.c ports/sdl2/crt.c)
+			if(window STREQUAL "makaimura")
+				target_link_libraries(${window} PRIVATE gng_program SDL2::SDL2)
+			else()
+				target_link_libraries(${window} PRIVATE gng_decompiled SDL2::SDL2)
+			endif()
+			target_compile_definitions(${window} PRIVATE MAKAIMURA_VERSION="${PROJECT_VERSION}")
+			if(WIN32)
+				target_link_libraries(${window} PRIVATE winhttp)    # (updater.c: the newest release looked up and downloaded)
+			endif()
+			if(TARGET SDL2::SDL2main)
+				target_link_libraries(${window} PRIVATE SDL2::SDL2main)
+			endif()
+			if(WIN32)
+				set_target_properties(${window} PROPERTIES WIN32_EXECUTABLE TRUE)
+				add_custom_command(TARGET ${window} POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:${window}>)
+			endif()
+		endforeach()
 	else()
 		message(STATUS "No SDL2: the game's window (makaimura) is not built")
 	endif()

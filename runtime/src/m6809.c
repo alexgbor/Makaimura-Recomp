@@ -19,6 +19,7 @@
 
 m6809_cpu cpu;
 uint16_t cpu_pc;
+const char m6809_state_magic[8] = { 'M', 'K', 'R', 'S', 'T', 'A', 'T', 'E' };
 uint64_t m6809_event_at;
 uint64_t m6809_board_at;
 

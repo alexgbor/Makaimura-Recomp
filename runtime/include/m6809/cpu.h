@@ -117,6 +117,9 @@ typedef struct m6809_state
 } m6809_state;
 
 void m6809_state_get(m6809_state *state);
+
+/* the first 8 bytes of a state of this program (gng/state.h): the translation's or the readable C's */
+extern const char m6809_state_magic[8];
 void m6809_state_set(const m6809_state *state);
 
 /* 'hook' called once at the next instruction boundary (before the IRQ is looked at there), with the PC of the
