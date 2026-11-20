@@ -29,6 +29,7 @@ static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen
 	"save_state", "load_state", "state_slot" };
 const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
 const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
+const char *const settings_crt_names[4] = { "off", "scanlines", "arcade", "pvm" };    /* (crt.h's order) */
 #define aspect_names settings_aspect_names
 #define scaling_names settings_scaling_names
 static const char *const sync_names[SYNCS] = { "board", "display" };
@@ -144,6 +145,7 @@ void settings_defaults(settings *s)
 	s->aspect = ASPECT_MONITOR;
 	s->scaling = SCALING_FIT;
 	s->smooth = false;
+	s->crt = 0;
 	s->vsync = true;
 	s->panels = true;
 	s->keep_high_scores = true;
@@ -347,6 +349,8 @@ static int set(settings *s, const char *section, const char *name, char *value)
 			return s->scaling = n, 1;
 		if (!SDL_strcasecmp(name, "smooth") && (n = boolean(value)) >= 0)
 			return s->smooth = n, 1;
+		if (!SDL_strcasecmp(name, "crt") && (n = choice(value, settings_crt_names, 4)) >= 0)
+			return s->crt = n, 1;
 		if (!SDL_strcasecmp(name, "vsync") && (n = boolean(value)) >= 0)
 			return s->vsync = n, 1;
 		if (!SDL_strcasecmp(name, "panels") && (n = boolean(value)) >= 0)
@@ -509,6 +513,9 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "; fit (as large as the window lets it), integer (a whole number of times the picture's lines) or"
 		" stretch\nscaling = %s\n", scaling_names[s->scaling]);
 	fprintf(file, "; true: a soft picture; false: sharp pixels\nsmooth = %s\n", s->smooth ? "true" : "false");
+	fprintf(file, "; the picture as a CRT shows it: off; scanlines (the beam's lines); arcade (a slot mask, a soft\n"
+		"; beam); pvm (an aperture grille, a sharper beam). Best full screen or in a large window\ncrt = %s\n",
+		settings_crt_names[s->crt]);
 	fprintf(file, "; the picture shown at the display's refresh (no tearing)\nvsync = %s\n", s->vsync ? "true" : "false");
 	fprintf(file, "; the side panels beside the picture (the player, the board; the menu's help), where the window "
 		"is wider\n; than the picture (full screen on a wide display; the window opens wide for them)\npanels = %s\n",

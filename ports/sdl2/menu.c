@@ -22,7 +22,7 @@
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
 	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
 	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY, UPDATE, UPDATE_YES, UPDATE_NO,
-	CHECK_UPDATES };
+	CHECK_UPDATES, CRT };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
@@ -98,6 +98,7 @@ static void build_video(void)
 	add(ASPECT, 0, "SHAPE");
 	add(SCALING, 0, "SCALING");
 	add(SMOOTH, 0, "PIXELS");
+	add(CRT, 0, "CRT");
 	add(FULLSCREEN, 0, "FULL SCREEN");
 	add(PANELS, 0, "SIDE PANELS");
 	add(VOLUME, 0, "VOLUME");
@@ -405,6 +406,9 @@ static void step(settings *s, int direction, int *changed)
 	case CHECK_UPDATES:
 		s->check_updates = !s->check_updates;    /* (from the next start) */
 		break;
+	case CRT:
+		s->crt = (s->crt + direction + 4) % 4;
+		break;
 	case SAVE_STATE: case LOAD_STATE:
 		s->state_slot = (s->state_slot - 1 + direction + STATE_SLOTS) % STATE_SLOTS + 1;
 		break;
@@ -667,6 +671,7 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: case PRACTICE_PAGE: case REPLAYS_PAGE: return ">";
 	case REPLAY: return confirming >= 0 && it == &items[confirming] ? "DELETE? ENTER" : replay_values[it->dip];
 	case CHECK_UPDATES: return s->check_updates ? "ON" : "OFF";
+	case CRT: upper(buffer, size, settings_crt_names[s->crt]); return buffer;
 	case UPDATE: return ">";
 	case UPDATE_YES:
 		switch (updater_state())
@@ -737,6 +742,8 @@ static const char *help_of(const item *it)
 	case ASPECT: return "4:3 AS THE ARCADE'S MONITOR SHOWS IT, OR EACH PIXEL SQUARE.";
 	case SCALING: return "FIT: AS LARGE AS IT GOES. INTEGER: WHOLE TIMES THE PICTURE'S LINES. STRETCH: THE WHOLE WINDOW.";
 	case SMOOTH: return "SHARP PIXELS, OR A SOFT PICTURE.";
+	case CRT: return "THE PICTURE AS A CRT SHOWS IT. SCANLINES: THE BEAM'S LINES, WIDER WHERE IT IS BRIGHT. ARCADE: A "
+		"SLOT MASK TOO. PVM: AN APERTURE GRILLE, A SHARPER BEAM. BEST FULL SCREEN OR IN A LARGE WINDOW.";
 	case DIP: return "READ AS THE BOARD STARTS: RESET IT (F3) FOR A CHANGE TO COUNT.";
 	case ACTION: case HOTKEY: return "ENTER: CHANGE IT (A KEY, OR THE PAD'S BUTTON). DELETE: ITS DEFAULT.";
 	case DEFAULTS: return "EVERY CONTROL BACK TO ITS DEFAULT.";

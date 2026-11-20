@@ -68,6 +68,8 @@ Besides the arcade game, the window has:
 - **Replays**: at each game over the game asks whether to keep the game's replay (from its coin, or the state it was
   played from); REPLAYS on the menu plays them again, frame for frame (Delete, then Enter, deletes one).
 - **High scores** kept between sessions (`makaimura.hi`): the game's own ranking written back as the board starts.
+- **A CRT look**: PICTURE AND SOUND > CRT draws the picture as a tube's beam does (SCANLINES), with a phosphor mask
+  if wanted (ARCADE, PVM).
 - **Side panels** on a wide window: the score, lives, weapon, area, loop, rank, both players' controls, the frames
   lost to slowdown, the window's keys, the menu's help.
 

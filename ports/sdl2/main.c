@@ -45,6 +45,7 @@
 
 #include "audio_out.h"
 #include "hiscore.h"
+#include "crt.h"
 #include "hud.h"
 #include "gng/board.h"
 #include "gng/rom_set.h"
@@ -265,6 +266,12 @@ static char notice[40];
 static Uint64 notice_until;
 static uint32_t notice_pixels[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
 
+/* the CRT (crt.h): the picture last shown, drawn into a texture at the size it has on the screen */
+static uint32_t crt_source[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+static SDL_Texture *crt_texture;
+static uint32_t *crt_pixels;
+static int crt_width, crt_height;
+
 static void tell(const char *text)
 {
 	snprintf(notice, sizeof(notice), "%s", text);
@@ -282,6 +289,7 @@ static void update_picture(const uint32_t *source)
 		source = notice_pixels;
 	}
 	SDL_UpdateTexture(picture, NULL, source, GNG_SCREEN_WIDTH * 4);
+	memcpy(crt_source, source, sizeof(crt_source));    /* (what the CRT draws from) */
 }
 
 /* the slot's file: states/makaimura-SLOT-MODE.state beside makaimura.ini (a state is for the mode it was saved
@@ -706,7 +714,34 @@ static void show_picture(void)
 	SDL_RenderClear(renderer);
 	const int kx = (place.w + GNG_SCREEN_WIDTH - 1) / GNG_SCREEN_WIDTH;
 	const int ky = (place.h + GNG_SCREEN_HEIGHT - 1) / GNG_SCREEN_HEIGHT;
-	if (options.smooth || (place.w == kx * GNG_SCREEN_WIDTH && place.h == ky * GNG_SCREEN_HEIGHT))
+	if (options.crt)
+	{
+		/* the CRT at the picture's size on the screen (at most 1440 lines: a larger screen enlarges it) */
+		int w = place.w, h = place.h;
+		if (h > 1440)
+		{
+			w = w * 1440 / h;
+			h = 1440;
+		}
+		if (!crt_texture || crt_width != w || crt_height != h)
+		{
+			if (crt_texture)
+				SDL_DestroyTexture(crt_texture);
+			free(crt_pixels);
+			crt_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+			SDL_SetTextureScaleMode(crt_texture, SDL_ScaleModeLinear);
+			crt_pixels = malloc(sizeof(uint32_t) * (size_t)w * (size_t)h);
+			crt_width = w;
+			crt_height = h;
+		}
+		if (crt_texture && crt_pixels)
+		{
+			crt_render(crt_source, GNG_SCREEN_WIDTH, GNG_SCREEN_HEIGHT, crt_pixels, w, h, options.crt);
+			SDL_UpdateTexture(crt_texture, NULL, crt_pixels, w * 4);
+			SDL_RenderCopy(renderer, crt_texture, NULL, &place);
+		}
+	}
+	else if (options.smooth || (place.w == kx * GNG_SCREEN_WIDTH && place.h == ky * GNG_SCREEN_HEIGHT))
 	{
 		SDL_SetTextureScaleMode(picture, options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
 		SDL_RenderCopy(renderer, picture, NULL, &place);

@@ -54,7 +54,8 @@ Esc pauses the game and opens the menu:
   PRACTICE                 a game from the start of any area of the first loop
   REPLAYS                  the games you kept, played again frame for frame (Delete, then Enter: delete one)
   GAME OPTIONS             the board's DIP switches: lives, difficulty, bonus life, coinage, free play...
-  PICTURE AND SOUND        4:3 or square pixels, scaling, sharp or smooth, full screen, the side panels, volume
+  PICTURE AND SOUND        4:3 or square pixels, scaling, sharp or smooth, a CRT look (SCANLINES, ARCADE, PVM),
+                           full screen, the side panels, volume
   CONTROLS                 every key and button
   ACCURACY                 "MAME 1:1" (the board as MAME 0.289 has it) or "BOARD" (what the real board also does:
                            its sprite copy halting the CPU, so a little more slowdown, and the palette's flashes)

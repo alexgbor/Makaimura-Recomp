@@ -76,6 +76,7 @@ typedef struct settings
 	int aspect;
 	int scaling;
 	bool smooth;          /* a soft picture instead of sharp pixels */
+	int crt;              /* crt.h's style: off, scanlines, arcade, pvm */
 	bool vsync;
 	bool panels;          /* the side panels (hud.h) where the window is wider than the picture */
 	bool panels_debug;    /* the panels' sections for checking the port (the palette's flashes) */
@@ -102,6 +103,7 @@ typedef struct settings
 extern const char *const settings_action_names[ACTIONS];
 extern const char *const settings_aspect_names[ASPECTS];
 extern const char *const settings_scaling_names[SCALINGS];
+extern const char *const settings_crt_names[4];
 
 /* The game's options (the DIP switches) for the menu: how many, each one's name ("bonus_life") and value's name
    ("20k 70k every 70k"), the next or previous value (direction 1 or -1) */

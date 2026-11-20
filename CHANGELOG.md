@@ -5,7 +5,9 @@ What changes from one version to the next, for players. The version is set in `C
 
 ## Unreleased
 
-Nothing yet.
+- **A CRT look:** PICTURE AND SOUND > CRT. SCANLINES draws the picture as a tube's beam does, its lines wider where
+  the picture is bright; ARCADE and PVM add a phosphor mask (a slot mask, an aperture grille). Best full screen or
+  in a large window.
 
 ## v0.1.0 (2026-11-20)
 

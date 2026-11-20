@@ -286,7 +286,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       makaimura.ini; the version in the window's title and on the menu. Checked end to end in a sandbox against a
       public repository's release (`makaimura --update-test REPO VERSION`)
 - [ ] A Linux build and package (the sources are portable C and SDL2; not built yet: no Linux toolchain here)
-- [ ] CRT look (not for now)
+- [x] CRT look (`ports/sdl2/crt.c`; PICTURE AND SOUND > CRT, `crt` in makaimura.ini): in linear light, each line a
+      Gaussian beam that widens with its brightness, a narrow horizontal spot, drawn by the CPU's threads at the
+      picture's size on the screen (1.5-3.4 ms a frame at 896-1440 lines here); SCANLINES (the beam alone: the
+      owner's choice, first after OFF), ARCADE (a slot mask) and PVM (an aperture grille); recordings and shots keep
+      the board's own picture
 
 ## Later, maybe
 
