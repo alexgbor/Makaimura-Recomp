@@ -30,4 +30,7 @@ int menu_event(const SDL_Event *event, settings *s, int *changed);
 /* The menu over the game's picture (256 x 224, 0x00RRGGBB), the picture darkened behind it */
 void menu_draw(uint32_t *pixels, const settings *s);
 
+/* The selected entry's name and what it does, for the side panel */
+void menu_help(const char **title, const char **text);
+
 #endif

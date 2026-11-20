@@ -117,7 +117,7 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	find_package(SDL2 CONFIG QUIET HINTS ${MAKAIMURA_SDL2_HINT})
 	if(SDL2_FOUND)
 		add_executable(makaimura ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
-			ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c)
+			ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c)
 		target_link_libraries(makaimura PRIVATE gng_program SDL2::SDL2)
 		if(TARGET SDL2::SDL2main)
 			target_link_libraries(makaimura PRIVATE SDL2::SDL2main)

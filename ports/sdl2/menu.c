@@ -19,12 +19,12 @@
 #include <string.h>
 
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
-	ACTION, HOTKEY, DEFAULTS, BACK };
+	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
-static item main_items[40], control_items[40];
-static int main_count, control_count;
+static item main_items[40], control_items[40], game_items[40], video_items[40];
+static int main_count, control_count, game_count, video_count;
 static item *items = main_items;
 static int item_count;
 static int selected, main_selected;
@@ -72,12 +72,45 @@ static int selectable(int i)
 	return items[i].kind != HEADER && items[i].kind != BLANK;
 }
 
+static void build_video(void)
+{
+	items = video_items;
+	item_count = 0;
+	add(HEADER, 0, "PICTURE AND SOUND");
+	add(ASPECT, 0, "SHAPE");
+	add(SCALING, 0, "SCALING");
+	add(SMOOTH, 0, "PIXELS");
+	add(FULLSCREEN, 0, "FULL SCREEN");
+	add(PANELS, 0, "SIDE PANELS");
+	add(VOLUME, 0, "VOLUME");
+	add(BLANK, 0, "");
+	add(BACK, 0, "BACK");
+	video_count = item_count;
+}
+
+static void build_main(void)
+{
+	items = main_items;
+	item_count = 0;
+	add(HEADER, 0, "PAUSED");
+	add(RESUME, 0, "RESUME");
+	add(BLANK, 0, "");
+	add(GAME_PAGE, 0, "GAME OPTIONS");
+	add(VIDEO_PAGE, 0, "PICTURE AND SOUND");
+	add(CONTROLS, 0, "CONTROLS");
+	add(ACCURACY, 0, "ACCURACY");
+	add(BLANK, 0, "");
+	add(RESET, 0, "RESET THE BOARD");
+	add(QUIT, 0, "QUIT");
+	main_count = item_count;
+}
+
 static void build(void)
 {
 	static char dip_labels[16][24];
-	items = main_items;
+	items = game_items;
 	item_count = 0;
-	add(HEADER, 0, "GAME");
+	add(HEADER, 0, "GAME OPTIONS");
 	for (int d = 0; d < settings_dip_count() && d < 16; d++)
 	{
 		/* "bonus_life" as "BONUS LIFE" */
@@ -89,20 +122,9 @@ static void build(void)
 		/* (the labels end before the values' column) */
 		add(DIP, d, !strcmp(name, "coinage_affects") ? "COINAGE FOR" : dip_labels[d]);
 	}
-	add(ACCURACY, 0, "ACCURACY");
 	add(BLANK, 0, "");
-	add(HEADER, 0, "PICTURE AND SOUND");
-	add(ASPECT, 0, "SHAPE");
-	add(SCALING, 0, "SCALING");
-	add(SMOOTH, 0, "PIXELS");
-	add(FULLSCREEN, 0, "FULL SCREEN");
-	add(VOLUME, 0, "VOLUME");
-	add(CONTROLS, 0, "CONTROLS");
-	add(BLANK, 0, "");
-	add(RESUME, 0, "RESUME");
-	add(RESET, 0, "RESET THE BOARD");
-	add(QUIT, 0, "QUIT");
-	main_count = item_count;
+	add(BACK, 0, "BACK");
+	game_count = item_count;
 }
 
 static void show_page(item *page, int count, int first)
@@ -120,7 +142,9 @@ void menu_open(void)
 	if (!main_count)
 	{
 		build_controls();
+		build_video();
 		build();
+		build_main();
 	}
 	show_page(main_items, main_count, 0);
 }
@@ -257,6 +281,9 @@ static void step(settings *s, int direction, int *changed)
 	case SMOOTH:
 		s->smooth = !s->smooth;
 		break;
+	case PANELS:
+		s->panels = !s->panels;
+		break;
 	case FULLSCREEN:
 		*changed |= MENU_CHANGED_FULLSCREEN;
 		break;
@@ -321,7 +348,7 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 			break;
 		}
 	}
-	if (back && items == control_items)
+	if (back && items != main_items)
 	{
 		show_page(main_items, main_count, main_selected);
 		return MENU_STAY;
@@ -348,6 +375,14 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 		case CONTROLS:
 			main_selected = selected;
 			show_page(control_items, control_count, 0);
+			break;
+		case GAME_PAGE:
+			main_selected = selected;
+			show_page(game_items, game_count, 0);
+			break;
+		case VIDEO_PAGE:
+			main_selected = selected;
+			show_page(video_items, video_count, 0);
 			break;
 		case ACTION: case HOTKEY: capturing = 1; break;
 		case DEFAULTS: control_defaults(s, &items[selected]); break;
@@ -455,7 +490,8 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case SMOOTH: return s->smooth ? "SMOOTH" : "SHARP";
 	case FULLSCREEN: return s->fullscreen ? "ON" : "OFF";
 	case VOLUME: snprintf(buffer, size, "%d", s->volume); return buffer;
-	case CONTROLS: return "ENTER";
+	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: return ">";
+	case PANELS: return s->panels ? "ON" : "OFF";
 	default: return "";
 	}
 }
@@ -471,6 +507,36 @@ static const char *hint_of(const item *it)
 	case ACTION: case HOTKEY: return "ENTER: CHANGE  DELETE: DEFAULT";
 	default: return "";
 	}
+}
+
+/* what an entry does, for the side panel */
+static const char *help_of(const item *it)
+{
+	switch (it->kind)
+	{
+	case RESUME: return "BACK TO THE GAME, FROM THE SAME FRAME.";
+	case GAME_PAGE: return "THE BOARD'S DIP SWITCHES: LIVES, DIFFICULTY, BONUS LIFE, COINAGE... READ AS THE BOARD STARTS (F3).";
+	case VIDEO_PAGE: return "THE PICTURE'S SHAPE AND SIZE, SHARP OR SMOOTH PIXELS, FULL SCREEN, THESE PANELS, THE VOLUME.";
+	case CONTROLS: return "EVERY KEY AND BUTTON, PLAYER 2'S TOO, AND THE WINDOW'S OWN KEYS.";
+	case ACCURACY: return "MAME 1:1: THE BOARD AS MAME 0.289 MODELS IT. BOARD: WHAT THE REAL BOARD ALSO DOES: THE SPRITE "
+		"COPY HALTING THE CPU (MORE SLOWDOWN) AND THE PALETTE'S FLASHES. FROM THE BOARD'S START (F3).";
+	case RESET: return "THE BOARD'S POWER CYCLED: ITS CHECKS AND THE BOOT AGAIN.";
+	case QUIT: return "THE SETTINGS ARE KEPT IN MAKAIMURA.INI.";
+	case PANELS: return "THESE PANELS, WHERE THE WINDOW IS WIDER THAN THE PICTURE.";
+	case ASPECT: return "4:3 AS THE ARCADE'S MONITOR SHOWS IT, OR EACH PIXEL SQUARE.";
+	case SCALING: return "FIT: AS LARGE AS IT GOES. INTEGER: WHOLE TIMES THE PICTURE'S LINES. STRETCH: THE WHOLE WINDOW.";
+	case SMOOTH: return "SHARP PIXELS, OR A SOFT PICTURE.";
+	case DIP: return "READ AS THE BOARD STARTS: RESET IT (F3) FOR A CHANGE TO COUNT.";
+	case ACTION: case HOTKEY: return "ENTER: CHANGE IT (A KEY, OR THE PAD'S BUTTON). DELETE: ITS DEFAULT.";
+	case DEFAULTS: return "EVERY CONTROL BACK TO ITS DEFAULT.";
+	default: return hint_of(it);
+	}
+}
+
+void menu_help(const char **title, const char **text)
+{
+	*title = items[selected].label;
+	*text = capturing ? "PRESS THE KEY OR THE PAD'S BUTTON FOR IT. ESC: AS IT WAS" : help_of(&items[selected]);
 }
 
 void menu_draw(uint32_t *pixels, const settings *s)
@@ -508,7 +574,10 @@ void menu_draw(uint32_t *pixels, const settings *s)
 		if ((int)strlen(value) > room && value == buffer)
 			buffer[room] = 0;
 		const int length = (int)strlen(value);
-		const int column = length > COLUMNS - VALUE_COLUMN ? COLUMNS - length : VALUE_COLUMN;
+		const int after_label = 1 + (int)strlen(it->label) + 1;
+		int column = after_label > VALUE_COLUMN ? after_label : VALUE_COLUMN;
+		if (column + length > COLUMNS)
+			column = COLUMNS - length;
 		put_text(pixels, column, row, value, i == selected ? yellow : cyan);
 	}
 	const char *hint = capturing ? "OR A BUTTON. ESC: AS IT WAS" : hint_of(&items[selected]);

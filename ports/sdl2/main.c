@@ -29,9 +29,12 @@
  *    MAME mode), as the arcade's 4:3 monitor shows it or with square pixels; the sound the board's 125 kHz mix
  *    resampled to the device's rate (audio_out.c). Controls: settings.c's defaults (MAME's keys, and Z / X).
  */
+#include <ctype.h>
+
 #include <SDL.h>
 
 #include "audio_out.h"
+#include "hud.h"
 #include "gng/board.h"
 #include "gng/rom_set.h"
 #include "gng/sound.h"
@@ -87,6 +90,17 @@ static input_change *script;
 static int script_count, script_next;
 static uint64_t current_frame;
 
+/* the side panels (hud.h) */
+static SDL_Texture *panel_textures[2];
+static uint32_t panel_pixels[2][HUD_W * HUD_H];
+static hud_info hud;
+static uint64_t irqs_taken, last_irq_frame;
+static int irq_seen;
+static uint32_t last_conflicts;
+static uint32_t lost_history[60];        /* the last second's lost frames, by frame */
+static Uint64 fps_since;
+static int fps_frames;
+
 /* ---- the picture ---- */
 
 static double picture_aspect(void)
@@ -121,6 +135,57 @@ static SDL_Rect picture_place(int width, int height)
 	place.w = w;
 	place.h = h;
 	return place;
+}
+
+/* the side panels, where the window leaves room beside the picture (at least a third of a panel's width) */
+static void draw_panels(SDL_Rect place, int width, int height)
+{
+	const int side = place.x;
+	if (!options.panels || side < HUD_W / 2 || width - (place.x + place.w) < HUD_W / 2)
+		return;
+	/* (--menu's frame shows the menu without stopping the run: the panels show its help too) */
+	if (menu_shown || (long)current_frame == menu_frame)
+	{
+		hud.menu = 1;
+		menu_help(&hud.help_title, &hud.help_text);
+	}
+	else
+		hud.menu = 0;
+	hud.paused = paused;
+	hud.recording = recorder_on();
+	/* the window's keys: each one's first key, its name in capitals (as the menu's) cut to fit */
+	static const int hotkeys[HUD_HOTKEYS] = { HOTKEY_MENU, HOTKEY_PAUSE, HOTKEY_RESET, HOTKEY_RECORD,
+		HOTKEY_FULLSCREEN };
+	for (int i = 0; i < HUD_HOTKEYS; i++)
+	{
+		const SDL_Scancode code = options.hot_keys[hotkeys[i]][0];
+		const char *name = code != SDL_SCANCODE_UNKNOWN ? SDL_GetScancodeName(code) : "";
+		size_t n = 0;
+		for (; name[n] && n < sizeof(hud.hot_keys[i]) - 1; n++)
+			hud.hot_keys[i][n] = (char)toupper((unsigned char)name[n]);
+		hud.hot_keys[i][n] = 0;
+	}
+	hud_draw(panel_pixels[0], panel_pixels[1], &hud);
+	/* a panel as large as its side lets it, a margin around it, centred in its side: the same room above and
+	   below, left and right */
+	const int margin = side / 16 + 2;
+	double scale = (double)(side - 2 * margin) / HUD_W;
+	if (scale * HUD_H > height - 2 * margin)
+		scale = (double)(height - 2 * margin) / HUD_H;
+	const int w = (int)(HUD_W * scale), h = (int)(HUD_H * scale);
+	for (int i = 0; i < 2; i++)
+	{
+		if (!panel_textures[i])
+		{
+			panel_textures[i] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING,
+				HUD_W, HUD_H);
+			SDL_SetTextureScaleMode(panel_textures[i], SDL_ScaleModeLinear);
+		}
+		SDL_UpdateTexture(panel_textures[i], NULL, panel_pixels[i], HUD_W * 4);
+		const SDL_Rect at = { i == 0 ? (side - w) / 2 : place.x + place.w + (width - place.x - place.w - w) / 2,
+			(height - h) / 2, w, h };
+		SDL_RenderCopy(renderer, panel_textures[i], NULL, &at);
+	}
 }
 
 static void show_picture(void)
@@ -163,6 +228,7 @@ static void show_picture(void)
 		SDL_SetRenderTarget(renderer, NULL);
 		SDL_RenderCopy(renderer, prescaled, NULL, &place);
 	}
+	draw_panels(place, width, height);
 	if (shot_now)
 	{
 		SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_XRGB8888);
@@ -537,10 +603,56 @@ static void wait_for_next_frame(void)
 	}
 }
 
+static void on_irq(uint16_t pc, uint64_t cycles)
+{
+	(void)pc;
+	(void)cycles;
+	irqs_taken++;
+	irq_seen = 1;
+	last_irq_frame = current_frame;
+}
+
+/* the panels' facts at a VBLANK: a frame lost (the last VBLANK's IRQ not taken by now: the program's slowdown,
+   counted from its first IRQ on: the boot waits with it masked), the palette's flashes, the pace */
+static void panel_facts(uint64_t frame)
+{
+	const int lost = irq_seen && frame > 0 && last_irq_frame + 1 < frame;
+	if (lost)
+		hud.lost_frames++;
+	lost_history[frame % 60] = (uint32_t)lost;
+	hud.recent_lost = 0;
+	for (int i = 0; i < 60; i++)
+	{
+		hud.lost_last[i] = (uint8_t)lost_history[(frame + 1 + i) % 60];
+		hud.recent_lost += lost_history[i];
+	}
+	if (lost)
+		last_irq_frame = frame - 1;    /* (one lost a VBLANK) */
+	if (gng.palette_conflicts != last_conflicts)
+		hud.flash_frames++;
+	last_conflicts = gng.palette_conflicts;
+	hud.board_mode = gng.accuracy == GNG_ACCURACY_BOARD;
+	hud.p1 = gng.inputs.p1;
+	hud.p2 = gng.inputs.p2;
+	hud.system = gng.inputs.system;
+	const Uint64 now = SDL_GetPerformanceCounter();
+	if (!fps_since)
+		fps_since = now;
+	fps_frames++;
+	const double seconds = (double)(now - fps_since) / SDL_GetPerformanceFrequency();
+	if (seconds >= 1.0)
+	{
+		hud.fps = fps_frames / seconds;
+		fps_frames = 0;
+		fps_since = now;
+	}
+}
+
 static void on_vblank(uint64_t frame)
 {
 	SDL_Event event;
 	current_frame = frame;
+	panel_facts(frame);
 	if (frames_to_run >= 0 && (long)frame >= frames_to_run)
 		quit_requested = 1;
 	gng_sound_run_until(2 * (GNG_VBLANK_CYCLE + frame * GNG_CPU_CYCLES_PER_FRAME));
@@ -633,7 +745,13 @@ static void power_on(void)
 	gng_sound_power_on(roms.audiocpu, gng.accuracy == GNG_ACCURACY_MAME);
 	gng.on_sound_latch = on_latch;
 	gng.on_ls259 = on_ls259;
-	m6809_host host = { on_vblank, NULL, on_fault };
+	m6809_host host = { on_vblank, on_irq, on_fault };
+	irqs_taken = 0;
+	irq_seen = 0;
+	last_irq_frame = 0;
+	hud.lost_frames = hud.flash_frames = 0;
+	memset(lost_history, 0, sizeof(lost_history));
+	last_conflicts = 0;
 	m6809_power_on(&host);
 }
 
@@ -759,7 +877,7 @@ int main(int argc, char *argv[])
 
 	const int height = GNG_SCREEN_HEIGHT * options.scale;
 	window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		(int)lround(height * picture_aspect()), height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+		(int)lround(height * (options.panels ? 16.0 / 9.0 : picture_aspect())), height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
 		(shot_path || hidden ? SDL_WINDOW_HIDDEN : options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 	if (options.fullscreen)
 		SDL_ShowCursor(SDL_DISABLE);
