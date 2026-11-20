@@ -264,10 +264,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       plugin), kept a second after the program changes it (a name entered: checked with long_play's game over, its
       score raised), written back after a state is loaded; logged as RAM writes in a replay; not with --inputs
       (but with `--high-scores`); `keep_high_scores` in makaimura.ini
-- [x] The ROM set's window (`ports/sdl2/rom_drop.c`, after DonPachi Recomp's): when the set is not found whole, drop
-      makaimurg.zip and gng.zip onto it (together or one after the other: the files known by their CRC-32), what
-      is missing said by zip; the dropped zips copied into the program's `rom` folder, a dropped folder named in
-      makaimura.ini; checked hidden (`makaimura --drop LIST --drop-shot FILE`)
+- [x] The ROM set's window (`ports/sdl2/rom_drop.c`: its own 7 x 7 letters, the game's dark colours): when the set
+      is not found whole, drop makaimurg.zip and gng.zip onto it (together or one after the other: the files known
+      by their CRC-32), what is missing said by zip (the clone's 5 files makaimurg.zip's, the rest gng.zip's); the
+      dropped zips copied into the program's `rom` folder, a dropped folder named in makaimura.ini; checked hidden
+      (`makaimura --drop LIST --drop-shot FILE`)
 - [x] The player's package (`tools/make_release.ps1`, after DonPachi Recomp's): release\Makaimura-x.y.z-win64.zip
       with makaimura.exe (the C runtime built in), SDL2.dll, README.txt (`ports/sdl2/release`), CHANGES.txt and the
       licenses; an allow list, no ROM, settings or saves, no ROM file's start in the .exe; the version CMakeLists.txt's

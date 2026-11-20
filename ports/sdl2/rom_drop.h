@@ -6,7 +6,7 @@
  *    Created:     20-11-2026
  *
  *    license:BSD-3-Clause
- *    After DonPachi Recomp's rom_drop.c (its 5 x 7 font among it): the game's own font is in the ROMs it waits for.
+ *    Its letters are the window's own: the game's font is in the ROMs it waits for.
  */
 #ifndef MAKAIMURA_ROM_DROP_H
 #define MAKAIMURA_ROM_DROP_H
