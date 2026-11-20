@@ -145,6 +145,7 @@ void settings_defaults(settings *s)
 	s->smooth = false;
 	s->vsync = true;
 	s->panels = true;
+	s->panels_debug = false;
 	s->sync = SYNC_BOARD;
 	s->sound = true;
 	s->volume = 100;
@@ -336,6 +337,8 @@ static int set(settings *s, const char *section, const char *name, char *value)
 			return s->vsync = n, 1;
 		if (!SDL_strcasecmp(name, "panels") && (n = boolean(value)) >= 0)
 			return s->panels = n, 1;
+		if (!SDL_strcasecmp(name, "panels_debug") && (n = boolean(value)) >= 0)
+			return s->panels_debug = n, 1;
 		if (!SDL_strcasecmp(name, "sync") && (n = choice(value, sync_names, SYNCS)) >= 0)
 			return s->sync = n, 1;
 		return 0;
@@ -489,6 +492,8 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "; the side panels beside the picture (the player, the board; the menu's help), where the window "
 		"is wider\n; than the picture (full screen on a wide display; the window opens wide for them)\npanels = %s\n",
 		s->panels ? "true" : "false");
+	fprintf(file, "; the panels' sections for checking the port too: board mode's palette flashes (docs/accuracy.md)\n"
+		"panels_debug = %s\n", s->panels_debug ? "true" : "false");
 	fprintf(file, "; board: the board's own pace, 59.637 frames a second, by the clock (exact: on a 60 Hz display a\n"
 		"; frame is shown twice every 2.7 seconds); display: a frame a refresh of the display when it is near\n"
 		"; 59.637 Hz (smooth, but at 60 Hz the game runs 0.6%% fast, the sound with it)\nsync = %s\n",

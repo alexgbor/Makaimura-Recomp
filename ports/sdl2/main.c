@@ -152,6 +152,7 @@ static void draw_panels(SDL_Rect place, int width, int height)
 	else
 		hud.menu = 0;
 	hud.paused = paused;
+	hud.debug = options.panels_debug;
 	hud.recording = recorder_on();
 	/* the window's keys: each one's first key, its name in capitals (as the menu's) cut to fit */
 	static const int hotkeys[HUD_HOTKEYS] = { HOTKEY_MENU, HOTKEY_PAUSE, HOTKEY_RESET, HOTKEY_RECORD,

@@ -72,6 +72,7 @@ typedef struct settings
 	bool smooth;          /* a soft picture instead of sharp pixels */
 	bool vsync;
 	bool panels;          /* the side panels (hud.h) where the window is wider than the picture */
+	bool panels_debug;    /* the panels' sections for checking the port (the palette's flashes) */
 	int sync;             /* SYNC_BOARD: the board's 59.637 Hz by the clock; SYNC_DISPLAY: a frame a refresh */
 	/* [sound] */
 	bool sound;

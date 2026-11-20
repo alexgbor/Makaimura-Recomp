@@ -79,7 +79,8 @@ static void section(uint32_t *p, int y, int h, const char *title, uint32_t title
 	box(p, 4, y + 19, HUD_W - 8, 1, frame_colour);
 }
 
-/* the sections' places: their heights grown to fill the panel, their tops, where their contents start */
+/* the sections' places: their heights grown to fill the panel, their tops, where their contents start (a section
+   0 high is left out: the others share its room) */
 typedef struct layout
 {
 	int top, height, content;
@@ -87,14 +88,20 @@ typedef struct layout
 
 static void spread(layout *out, const int *heights, int count)
 {
-	int total = GAP * (count - 1);
+	int total = 0, shown = 0;
 	for (int i = 0; i < count; i++)
-		total += heights[i];
+		if (heights[i])
+			total += heights[i], shown++;
+	total += GAP * (shown - 1);
 	const int room = HUD_H - total > 0 ? HUD_H - total : 0;
 	int y = 0;
-	for (int i = 0; i < count; i++)
+	for (int i = 0, k = 0; i < count; i++)
 	{
-		const int extra = room * (i + 1) / count - room * i / count;
+		out[i] = (layout){ 0 };
+		if (!heights[i])
+			continue;
+		const int extra = room * (k + 1) / shown - room * k / shown;
+		k++;
 		out[i].top = y;
 		out[i].height = heights[i] + extra;
 		out[i].content = y + TITLE_ROOM + extra / 2;
@@ -258,7 +265,7 @@ static void right_panel(uint32_t *p, const hud_info *info)
 	const int heights[COUNT] = {
 		TITLE_ROOM + 30 + 8 + PAD,
 		TITLE_ROOM + 2 * LINE + 15 + PAD,
-		TITLE_ROOM + LINE + 8 + PAD,
+		info->debug ? TITLE_ROOM + LINE + 8 + PAD : 0,
 		TITLE_ROOM + LINE + 8 + PAD,
 		TITLE_ROOM + (HUD_HOTKEYS - 1) * 12 + 8 + PAD,
 	};
@@ -294,18 +301,22 @@ static void right_panel(uint32_t *p, const hud_info *info)
 			box(p, x0, graph_y, x1 - x0, 13, red);
 	}
 
-	section(p, at[PALETTE].top, at[PALETTE].height, "PALETTE", yellow);
-	y = at[PALETTE].content;
-	text(p, y, "FLASHES", grey);
-	if (info->board_mode)
+	/* (the palette's flashes: a check of board mode's, shown with panels_debug only) */
+	if (info->debug)
 	{
-		snprintf(line, sizeof(line), "%u", info->flash_frames);
-		right_text(p, y, line, white);
-	}
-	else
-	{
-		right_text(p, y, "-", grey);
-		text(p, y + LINE, "BOARD ONLY", unlit);
+		section(p, at[PALETTE].top, at[PALETTE].height, "PALETTE", yellow);
+		y = at[PALETTE].content;
+		text(p, y, "FLASHES", grey);
+		if (info->board_mode)
+		{
+			snprintf(line, sizeof(line), "%u", info->flash_frames);
+			right_text(p, y, line, white);
+		}
+		else
+		{
+			right_text(p, y, "-", grey);
+			text(p, y + LINE, "BOARD ONLY", unlit);
+		}
 	}
 
 	section(p, at[STATUS].top, at[STATUS].height, "STATUS", yellow);

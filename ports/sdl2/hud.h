@@ -33,6 +33,7 @@ typedef struct hud_info
 	bool recording;
 	bool paused;
 	bool menu;                /* the menu is open: the right panel shows its help */
+	bool debug;               /* the checks' sections too (makaimura.ini's panels_debug): the palette's flashes */
 	const char *help_title, *help_text;
 	uint8_t p1, p2, system;   /* the controls as the board reads them (active low) */
 	char hot_keys[HUD_HOTKEYS][7];    /* the window's keys' names: menu, pause, reset, record, full screen */
