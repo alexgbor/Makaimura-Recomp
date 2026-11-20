@@ -46,6 +46,12 @@
 9ECC  table object_states_9AF4_b  count=4  # type 5
 0060  var  player_lives         # copied from <$50 (the DIP's) at the game's start (6C35); DEC at 75FD on a death
 0061  var  player_rank          # dynamic difficulty: from <$57 (the DIP's), +4 up to 3F (6C55), back down (7115)
+0008  var  stage_phase          # the stage's dispatch (6F54, JMP [B,X] by it through 6F5C): 0 its start, 1 played,
+                                # 2 cleared (711F: E799 sets it as a stage ends), 3 after a death; <$0B its step
+711F  code  stage_cleared        # stages 0-4: the walk to the next (73AD, 72A5) until <$90; stage 5 without the
+                                # shield (7129) back into it; stage 6 (71C3): the first loop's illusion (7254, <$7F
+                                # = 1) or, in the second, the ending (7D3F, then 71D7 once 7E18 sets <$7F = 2)
+E78C  code  stage_end_countdown  # <$B6 counted down, then <$08 = 2 (E799; 78C9's sound first but in stage 6)
 0072  var  stage                # 0-6: cleared at the start (6C17); the stage's map (6D32), the player's dispatch (6F6B)
 0071  var  stage_state          # 0: the stage's start ("PLAYER ONE READY": 6F64 by 6F86), 1 playing (7AA0), 2 (7CF9)
 00D0  var  top_score            # 4 BCD bytes: 10000 at main_loop_start (6134, once after the power on), raised as

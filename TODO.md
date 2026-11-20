@@ -64,9 +64,18 @@ Roughly in order; each milestone is checked against the reference before it is t
       then <$0B; each table runs to the next or to code
 - [x] A safety net for the translation: an address the static analysis missed is reported (m6809_fault: the
       message box in the window, stderr in gng_headless), never run wrongly (it found AB83)
-- [ ] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check)
+- [x] The RAM overlay: bank 3's 560C-5659 copied to 1A00 and run there (the boot's ROM check): symbols.txt's
+      `overlay`, analysed and translated from the ROM bytes the boot copies, checked in RAM before it runs; its 31
+      instructions run in every script
 - [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
-- [ ] Coverage of the program ROM: code, data, fill (all banks)
+- [x] Coverage of the program ROM (`tools/coverage.py`: gref on the attract mode and every script): every address
+      run is an instruction the analyses found (6809 and Z80); 71.3% of the 16830 instructions found are run by
+      the scripts (the Z80's: 91.8%); the fixed ROM is 57% code run, 22% code never run, 19% data, banks 0-2 and 4
+      data only (graphics' tables, the stages' maps), bank 3 code (the boot, the test mode, the ranking) and data
+- [~] The code never run (114 routines, 6.9 KB): enemies the scripts never meet (object_handlers 6, 8 and 10:
+      C39D, CE20, BD4F and what they call), the stage clears of stages 0-4 (they wait for the gate, <$90),
+      the test mode's other screens; their translation is checked instruction by instruction against MAME's core
+      (`compare_lift_with_mame.py`: the 3983 forms of every instruction found, 50 states each), not in context
 
 ## M2. The reference (`tools/reference`, "gref")
 
@@ -144,7 +153,12 @@ Roughly in order; each milestone is checked against the reference before it is t
       mode, where gref (MAME's core) played on
 - [x] Every stage, both loops, frame by frame against the reference, in both modes (stage1-6, loop2_stage0,
       loop2_stage6: bus, IRQs, pictures, sound the same as gref's)
-- [ ] The ending (Astaroth beaten in the second loop: <$7F = 2, 7E18) against the reference
+- [x] The ending against the reference in both modes (`tests/controls/ending.txt`: loop2_stage6's, its stage
+      cleared at frame 2100 as E799 clears one, <$08 = 2: 7D3F, 7E18 sets <$7F = 2, 71D7 plays it, 724F back to the
+      first loop): bus, IRQs, sound, pictures the same as gref's ("CONGRATULATION", "RETURN TO STARTING POINT")
+- [x] The features no script had reached (`tests/controls/make_features.py`): the test mode (service_mode), every
+      weapon (weapons), a cocktail cabinet flipped with 7 lives, two players and a continue (cocktail), free play
+      and the other DIPs (dips), each stage cleared in turn (clears); against the reference in both modes
 
 ## M5. The sound program (Z80)
 
