@@ -275,6 +275,25 @@ static void draw_until(uint64_t target)
 	}
 }
 
+size_t gng_video_state_size(void)
+{
+	return sizeof(raster_frame) + sizeof(raster_done) + sizeof(raster_at);
+}
+
+void gng_video_state_save(uint8_t *out)
+{
+	memcpy(out, raster_frame, sizeof(raster_frame)); out += sizeof(raster_frame);
+	memcpy(out, raster_done, sizeof(raster_done)); out += sizeof(raster_done);
+	memcpy(out, &raster_at, sizeof(raster_at));
+}
+
+void gng_video_state_load(const uint8_t *in)
+{
+	memcpy(raster_frame, in, sizeof(raster_frame)); in += sizeof(raster_frame);
+	memcpy(raster_done, in, sizeof(raster_done)); in += sizeof(raster_done);
+	memcpy(&raster_at, in, sizeof(raster_at));
+}
+
 void gng_video_reset(void)
 {
 	raster_at = 0;

@@ -16,6 +16,7 @@
 #ifndef GNG_SOUND_H
 #define GNG_SOUND_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -47,6 +48,11 @@ void gng_sound_q1(uint64_t time, int value);
 
 /* The board's time moves on (a frame's end): the Z80 up to Z80 time 'time'; -1 if the sound program faulted */
 int gng_sound_run_until(uint64_t time);
+
+/* Save states (gng/state.h): the sound board's state, between two runs of the Z80 */
+size_t gng_sound_state_size(void);
+void gng_sound_state_save(uint8_t *out);
+void gng_sound_state_load(const uint8_t *in);
 
 uint32_t gng_sound_ram_hash(void);
 uint64_t gng_sound_time(void);

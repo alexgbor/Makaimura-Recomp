@@ -65,6 +65,22 @@ uint16_t z80_not_code(uint16_t pc)
 	return pc;
 }
 
+void z80_state_get(z80_state *state)
+{
+	memset(state, 0, sizeof(*state));
+	state->cpu = z80;
+	state->line = (uint32_t)line;
+	state->timer_at = timer_at;
+}
+
+void z80_state_set(const z80_state *state)
+{
+	z80 = state->cpu;
+	line = (int)state->line;
+	timer_at = state->timer_at;
+	update_event_at();
+}
+
 void z80_di(void)
 {
 	z80.iff1 = z80.iff2 = 0;

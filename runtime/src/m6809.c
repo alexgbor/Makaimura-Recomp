@@ -28,6 +28,11 @@ static uint64_t frame;
 static uint64_t frames_to_run;
 static jmp_buf stop;
 static int faulted;
+/* save states: the hook the next instruction boundary calls; where a resumed run goes on */
+static void (*boundary_hook)(uint16_t pc);
+static jmp_buf resume_jump;
+static int running, resume_pending;
+static uint16_t resume_pc;
 
 /* the dispatch: every instruction's region, by address (and the bank in the window) */
 static m6809_region fixed[0x10000];
@@ -35,7 +40,7 @@ static m6809_region banked[5][0x2000];
 
 static void update_event_at(void)
 {
-	m6809_event_at = irq_line && !cpu.fi ? 0 : m6809_board_at;
+	m6809_event_at = (irq_line && !cpu.fi) || boundary_hook ? 0 : m6809_board_at;
 }
 
 void m6809_mask_changed(void)
@@ -110,6 +115,13 @@ uint16_t m6809_rti(uint16_t pc)
 
 uint16_t m6809_event(uint16_t pc)
 {
+	if (boundary_hook)
+	{
+		void (*hook)(uint16_t) = boundary_hook;
+		boundary_hook = NULL;
+		update_event_at();
+		hook(pc);
+	}
 	if (cpu.cycles >= m6809_board_at)
 		m6809_board_catch_up();
 	if (irq_line && !cpu.fi)
@@ -189,6 +201,8 @@ void m6809_power_on(const m6809_host *h)
 	irq_line = 0;
 	frame = 0;
 	faulted = 0;
+	boundary_hook = NULL;
+	resume_pending = 0;
 	m6809_board_at = GNG_VBLANK_CYCLE;
 	update_event_at();
 	gng.on_dma = on_dma;
@@ -210,12 +224,57 @@ void m6809_request_stop(void)
 	frames_to_run = frame + 1;
 }
 
+void m6809_state_get(m6809_state *state)
+{
+	memset(state, 0, sizeof(*state));
+	state->cpu = cpu;
+	state->irq_line = (uint32_t)irq_line;
+	state->frame = frame;
+	state->board_at = m6809_board_at;
+}
+
+void m6809_state_set(const m6809_state *state)
+{
+	cpu = state->cpu;
+	irq_line = (int)state->irq_line;
+	frame = state->frame;
+	m6809_board_at = state->board_at;
+	boundary_hook = NULL;
+	update_event_at();
+}
+
+void m6809_at_boundary(void (*hook)(uint16_t pc))
+{
+	boundary_hook = hook;
+	update_event_at();
+}
+
+void m6809_resume(uint16_t pc)
+{
+	resume_pc = pc;
+	resume_pending = 1;
+	if (running)
+		longjmp(resume_jump, 1);
+}
+
 int m6809_run(uint64_t frames)
 {
 	frames_to_run = frames;
 	if (setjmp(stop))
+	{
+		running = 0;
 		return faulted ? -1 : 0;
-	uint16_t pc = (uint16_t)(gng_read(0xFFFE) << 8 | gng_read(0xFFFF));
+	}
+	running = 1;
+	uint16_t pc;
+	if (setjmp(resume_jump) == 0 && !resume_pending)
+		pc = (uint16_t)(gng_read(0xFFFE) << 8 | gng_read(0xFFFF));
+	else
+	{
+		/* a state loaded: its boundary's event, as the saved run made it after the hook */
+		resume_pending = 0;
+		pc = m6809_event(resume_pc);
+	}
 	for (;;)
 		pc = dispatch(pc);
 }

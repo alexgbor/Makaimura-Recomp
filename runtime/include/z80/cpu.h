@@ -78,6 +78,16 @@ void z80_reset(uint64_t time);
 typedef uint64_t (*z80_timer_callback)(uint64_t time);    /* returns the timer's next time */
 void z80_set_timer(uint64_t next, z80_timer_callback callback);
 int z80_run(uint64_t until);
+
+/* Save states: the CPU between two runs (its registers, the IRQ line, the timer's next time) */
+typedef struct z80_state
+{
+	z80_cpu cpu;
+	uint32_t line;
+	uint64_t timer_at;
+} z80_state;
+void z80_state_get(z80_state *state);
+void z80_state_set(const z80_state *state);
 void z80_init(void (*fault)(const char *what, uint16_t pc));
 
 #ifdef __cplusplus

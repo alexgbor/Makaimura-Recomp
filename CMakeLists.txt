@@ -99,6 +99,7 @@ file(GLOB MAKAIMURA_PROGRAM CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generate
 file(GLOB MAKAIMURA_SOUND_PROGRAM CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/sound/*.c)
 if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	add_library(gng_program STATIC runtime/src/m6809.c runtime/src/z80.c runtime/src/sound.c runtime/src/ym2203.c
+		runtime/src/state.c
 		${MAKAIMURA_PROGRAM}
 		${MAKAIMURA_SOUND_PROGRAM})
 	target_include_directories(gng_program PUBLIC runtime/include ${CMAKE_SOURCE_DIR}/build/generated/program

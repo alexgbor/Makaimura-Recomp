@@ -107,6 +107,27 @@ int m6809_run(uint64_t frames);
 /* From the host's vblank: the run ends at this VBLANK (a window closed) */
 void m6809_request_stop(void);
 
+/* Save states (gng/state.h). The CPU's state between two instructions: its registers, the IRQ line, the frame
+   count, the next VBLANK's time */
+typedef struct m6809_state
+{
+	m6809_cpu cpu;
+	uint32_t irq_line;
+	uint64_t frame, board_at;
+} m6809_state;
+
+void m6809_state_get(m6809_state *state);
+void m6809_state_set(const m6809_state *state);
+
+/* 'hook' called once at the next instruction boundary (before the IRQ is looked at there), with the PC of the
+   instruction that comes next: where a state can be saved */
+void m6809_at_boundary(void (*hook)(uint16_t pc));
+
+/* After m6809_state_set and the board's: the program goes on at 'pc', an instruction boundary, as it did when
+   the state was saved (the boundary's event first: the VBLANK, the IRQ). In a run (from the host's vblank) it
+   leaves the instruction being made, whatever it was; otherwise the next m6809_run starts there */
+void m6809_resume(uint16_t pc);
+
 #ifdef __cplusplus
 }
 #endif

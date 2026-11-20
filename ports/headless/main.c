@@ -33,9 +33,16 @@
  *      --charset FILE    the text layer's 1024 characters, 32 a row, as a PPM image (pens as greys), and quit
  *      --palette-conflicts FILE  board mode: at each VBLANK where the frame had palette writes in the active
  *                        display, "frame writes" (docs/accuracy.md #2)
+ *      --save-state FRAME FILE   the board's state at the first instruction boundary after that frame's VBLANK
+ *                        (gng/state.h), the run going on (the sound board run, as in every state)
+ *      --ram-watch LIST FILE   at each VBLANK where one of the work RAM's bytes at LIST (hex, comma separated)
+ *                        changed, "frame byte=value ..." (all of them): for finding what the program keeps where
+ *      --load-state FILE the run from that state instead of power-on (the same options as the run that saved it:
+ *                        the outputs are then those of its frames after the state's; tools/check_states.py)
  */
 #include "gng/board.h"
 #include "gng/rom_set.h"
+#include "gng/state.h"
 #include "gng/video.h"
 #include "m6809/cpu.h"
 #include "gng/sound.h"
@@ -257,8 +264,58 @@ static void write_check_picture(void)
 	}
 }
 
+/* --ram-watch */
+static uint16_t watched[32];
+static int watched_count;
+static FILE *watch_out;
+
+static void watch_ram(uint64_t frame)
+{
+	static uint8_t last[32];
+	static int started;
+	int changed = !started;
+	for (int i = 0; i < watched_count; i++)
+		changed |= gng.ram[watched[i]] != last[i];
+	if (!changed)
+		return;
+	started = 1;
+	fprintf(watch_out, "%llu", (unsigned long long)frame);
+	for (int i = 0; i < watched_count; i++)
+	{
+		last[i] = gng.ram[watched[i]];
+		fprintf(watch_out, " %02x=%02x", watched[i], last[i]);
+	}
+	fputc('\n', watch_out);
+}
+
+/* --save-state: the state at the boundary after its frame's VBLANK */
+static long save_frame = -1;
+static const char *save_path;
+
+static void save_state(uint16_t pc)
+{
+	const size_t size = gng_state_size();
+	uint8_t *state = malloc(size);
+	gng_state_save(state, pc);
+	FILE *file = fopen(save_path, "wb");
+	if (!file || fwrite(state, 1, size, file) != size)
+	{
+		fprintf(stderr, "gng_headless: could not write %s\n", save_path);
+		exit(1);
+	}
+	fclose(file);
+	printf("state saved in frame %llu (pc %04X, cycle %llu, sound sample %llu)\n",
+		(unsigned long long)gng_state_frame(state), pc, (unsigned long long)cpu.cycles,
+		(unsigned long long)gng_snd.samples);
+	free(state);
+}
+
 static void on_vblank(uint64_t frame)
 {
+	if ((long)frame == save_frame)
+		m6809_at_boundary(save_state);
+	if (watch_out)
+		watch_ram(frame);
 	if (sound)
 	{
 		/* the sound board up to the VBLANK */
@@ -346,6 +403,7 @@ int main(int argc, char **argv)
 	const char *regions_path = "build/makaimurg.regions";
 	const char *write_path = NULL;
 	const char *charset_path = NULL;
+	const char *load_path = NULL;
 	int rom_places = 0;
 	gng_rom_set_clear(&rom_set);
 	long frames = 600;
@@ -374,9 +432,22 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--ppm")) { ppm_frame = atoi(NEXT()); ppm_path = NEXT(); }
 		else if (!strcmp(a, "--palette-conflicts")) conflicts_out = fopen(NEXT(), "w");
 		else if (!strcmp(a, "--charset")) charset_path = NEXT();
+		else if (!strcmp(a, "--save-state")) { save_frame = atol(NEXT()); save_path = NEXT(); }
+		else if (!strcmp(a, "--load-state")) load_path = NEXT();
+		else if (!strcmp(a, "--ram-watch"))
+		{
+			char list[256];
+			snprintf(list, sizeof(list), "%s", NEXT());
+			for (char *item = strtok(list, ","); item && watched_count < 32; item = strtok(NULL, ","))
+				watched[watched_count++] = (uint16_t)(strtoul(item, NULL, 16) % sizeof(gng.ram));
+			watch_out = fopen(NEXT(), "w");
+		}
 		else { fprintf(stderr, "gng_headless: unknown option %s\n", a); return 2; }
 #undef NEXT
 	}
+	/* (a state is the whole board's, its sound board too: makaimura loads it) */
+	if (save_frame >= 0 || load_path)
+		sound = 1;
 	if (rom_places)
 	{
 		char missing[512];
@@ -454,6 +525,26 @@ int main(int argc, char **argv)
 
 	m6809_host host = { on_vblank, on_irq, on_fault };
 	m6809_power_on(&host);
+	if (load_path)
+	{
+		FILE *file = fopen(load_path, "rb");
+		const size_t size = gng_state_size();
+		uint8_t *state = malloc(size + 1);
+		const size_t got = file ? fread(state, 1, size + 1, file) : 0;
+		if (file)
+			fclose(file);
+		const char *problem = gng_state_check(state, got);
+		if (problem)
+		{
+			fprintf(stderr, "gng_headless: %s: %s\n", load_path, file ? problem : "cannot be read");
+			return 2;
+		}
+		/* the script's changes up to the state's frame are in it already */
+		while (next_input < input_count && inputs[next_input].frame < (int64_t)gng_state_frame(state))
+			next_input++;
+		gng_state_load(state);
+		free(state);
+	}
 	const int result = m6809_run((uint64_t)frames);
 	if (gng.accuracy == GNG_ACCURACY_BOARD)
 		printf("board mode: %u sprite DMAs, %u palette writes in the active display\n", gng.dma_count,

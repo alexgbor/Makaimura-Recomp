@@ -13,6 +13,7 @@
 #ifndef GNG_VIDEO_H
 #define GNG_VIDEO_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -44,6 +45,11 @@ void gng_video_raster_to(uint64_t cycle);
    pixel shows the CPU's data and the entry being drawn takes the write (entry 0 in the horizontal blank), the
    addressed entry not. 1 if it was so (the write taken), 0 if outside the active display (the caller writes it) */
 int gng_video_palette_write(uint64_t cycle, uint16_t address, uint8_t value);
+
+/* Save states (gng/state.h): board mode's raster, the frame being drawn and the last one done */
+size_t gng_video_state_size(void);
+void gng_video_state_save(uint8_t *out);
+void gng_video_state_load(const uint8_t *in);
 
 /* A pixel of the text layer's character 'code' (0-1023): its pen, 0-3 (3 transparent), after gng_video_decode */
 int gng_video_char_pen(int code, int x, int y);

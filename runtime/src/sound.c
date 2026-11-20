@@ -17,6 +17,7 @@
 #include "z80/cpu.h"
 
 #include <math.h>
+#include <stddef.h>
 
 #include <string.h>
 
@@ -166,6 +167,43 @@ void gng_sound_q1(uint64_t time, int value)
 		z80_reset(start);
 		z80_set_timer(start + IRQ_PERIOD, irq_timer);
 	}
+}
+
+/* the state: gng_snd up to its hooks, the latch's history, the chips, the Z80 */
+#define SOUND_DATA offsetof(gng_sound, on_ym_write)
+
+size_t gng_sound_state_size(void)
+{
+	return SOUND_DATA + sizeof(latch_time) + sizeof(latch_value) + sizeof(uint32_t) + sizeof(chips) +
+		sizeof(z80_state);
+}
+
+void gng_sound_state_save(uint8_t *out)
+{
+	const uint32_t count = latch_count;
+	z80_state z;
+	z80_state_get(&z);
+	memcpy(out, &gng_snd, SOUND_DATA); out += SOUND_DATA;
+	memcpy(out, latch_time, sizeof(latch_time)); out += sizeof(latch_time);
+	memcpy(out, latch_value, sizeof(latch_value)); out += sizeof(latch_value);
+	memcpy(out, &count, sizeof(count)); out += sizeof(count);
+	memcpy(out, chips, sizeof(chips)); out += sizeof(chips);
+	memcpy(out, &z, sizeof(z));
+}
+
+void gng_sound_state_load(const uint8_t *in)
+{
+	uint32_t count;
+	z80_state z;
+	memcpy(&gng_snd, in, SOUND_DATA); in += SOUND_DATA;
+	memcpy(latch_time, in, sizeof(latch_time)); in += sizeof(latch_time);
+	memcpy(latch_value, in, sizeof(latch_value)); in += sizeof(latch_value);
+	memcpy(&count, in, sizeof(count)); in += sizeof(count);
+	memcpy(chips, in, sizeof(chips)); in += sizeof(chips);
+	memcpy(&z, in, sizeof(z));
+	latch_count = count;
+	z80_state_set(&z);
+	z80_set_timer(z.timer_at, irq_timer);
 }
 
 uint32_t gng_sound_ram_hash(void)
