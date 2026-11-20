@@ -65,6 +65,15 @@ controls and the slowdown; the right one explains the menu's options while it is
 At each game over the game asks whether to keep its replay (KEEP REPLAY, LET IT GO).
 
 
+UPDATES
+-------
+
+As it starts, the game looks up its newest version on GitHub (only the request is sent). If there is one, the menu
+offers it first (UPDATE TO V...): it asks, downloads it, checks it, puts it in place and starts again, keeping your
+settings, scores, states, replays and ROM set. GAME OPTIONS > CHECK FOR UPDATES turns the look-up off (or
+check_updates in makaimura.ini). The version you have is in the window's title and on the menu.
+
+
 FILES THE GAME KEEPS (beside makaimura.exe)
 ------------------------------------------
 

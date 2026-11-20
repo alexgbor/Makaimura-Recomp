@@ -28,6 +28,8 @@
  *      --drop-shot FILE, --drop LIST   (for checks) the ROM set's window (rom_drop.h) hidden, LIST's places
  *                       (comma separated) dropped on it one after the other, its picture after the last into FILE
  *                       (--drop-shot first)
+ *      --update-test REPO VERSION   (for checks) the newest release of REPO ("owner/name") looked up as if this
+ *                       were VERSION, even hidden (UPDATE on the menu: downloaded and installed, not started again)
  *      --keep-replays   (for checks) each game kept as a replay (replays/) with --inputs too, without asking
  *      --load-state FILE     the game from that state instead of the power on (a slot's: states/ beside the
  *                       settings); [keyboard] save_state (F5), load_state (F7), state_slot (F6) at any time
@@ -54,6 +56,7 @@
 #include "recorder.h"
 #include "replays.h"
 #include "rom_drop.h"
+#include "updater.h"
 #include "settings.h"
 
 #include <math.h>
@@ -68,7 +71,10 @@
 #include <time.h>
 
 #define FRAME_RATE (6000000.0 / (384.0 * 262.0))
-#define TITLE "Makaimura"
+#ifndef MAKAIMURA_VERSION
+#define MAKAIMURA_VERSION "?"
+#endif
+#define TITLE "Makaimura Recomp v" MAKAIMURA_VERSION    /* (the version: CMakeLists.txt's) */
 
 static settings options;
 static char settings_path[1024];
@@ -112,6 +118,25 @@ static int user_inputs;                  /* --record-inputs: its file instead */
 static char segment_base[1300];          /* the replay being written: its path without .inp ("" none) */
 static int segment_played, segment_sync;
 static int segment_asking;               /* its game is over: kept or not, as the player answers */
+/* the update (updater.h): the releases' repository, the package's end (tools/make_release.ps1) */
+#define UPDATE_REPOSITORY "alexgbor/Makaimura-Recomp"
+#define UPDATE_PACKAGE "-win64.zip"
+static int update_restart;               /* installed: the new program started as this one closes */
+static const char *update_test_repository, *update_test_version;    /* --update-test */
+
+/* a release downloaded (the player said yes): its files put in place, the game closed to start again */
+static void install_update(void)
+{
+	if (updater_state() != UPDATER_READY)
+		return;
+	if (updater_install())
+	{
+		update_restart = !update_test_repository;    /* (a check's install: not started again) */
+		quit_requested = 1;
+		menu_shown = 0;
+		fprintf(stderr, "makaimura: the update installed\n");
+	}
+}
 static int keep_replays_given;
 static int drop_check;                   /* --drop: the ROM window checked */
 static const char *drop_shot;           /* --keep-replays: with --inputs too, kept without asking */
@@ -1227,6 +1252,7 @@ static void on_vblank(uint64_t frame)
 	{
 		if (SDL_WaitEventTimeout(&event, 50))
 			handle_event(&event);
+		install_update();
 		if (menu_shown)
 		{
 			memcpy(menu_pixels, pixels, sizeof(pixels));
@@ -1238,6 +1264,7 @@ static void on_vblank(uint64_t frame)
 		show_picture();
 		next_frame = 0;
 	}
+	install_update();    /* (a download the player chose, once it is there) */
 	if (quit_requested || reset_requested)
 	{
 		paused = 0;
@@ -1457,6 +1484,11 @@ int main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "--drop-shot") && i + 1 < argc)
 			drop_shot = argv[++i];
+		else if (!strcmp(argv[i], "--update-test") && i + 2 < argc)
+		{
+			update_test_repository = argv[++i];
+			update_test_version = argv[++i];
+		}
 		else if (!strcmp(argv[i], "--keep-replays"))
 			keep_replays_given = 1;
 		else if (!strcmp(argv[i], "--high-scores"))
@@ -1536,6 +1568,20 @@ int main(int argc, char *argv[])
 	}
 	SDL_free(base);
 
+	/* the update: what an update before left cleared away; the newest release looked up (not in a check's run) */
+	{
+		char *folder = SDL_GetBasePath();
+		if (folder)
+		{
+			updater_cleanup(folder);
+			if (update_test_repository)
+				updater_check(folder, update_test_repository, UPDATE_PACKAGE, update_test_version);
+			else if (options.check_updates && !(shot_path || hidden || frames_to_run >= 0 || script || drop_check))
+				updater_check(folder, UPDATE_REPOSITORY, UPDATE_PACKAGE, MAKAIMURA_VERSION);
+			SDL_free(folder);
+		}
+	}
+
 	/* the kept ranking: makaimura.hi beside the settings */
 	{
 		char path[1300];
@@ -1602,6 +1648,8 @@ int main(int argc, char *argv[])
 		audio_out_report();
 	stop_recording();
 	drop_segment();
+	if (update_restart && !updater_restart(argv))
+		fprintf(stderr, "makaimura: updated: the new program could not be started, start it again\n");
 	hiscore_close();
 	if (inputs_out)
 		fclose(inputs_out);

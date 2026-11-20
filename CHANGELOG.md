@@ -23,3 +23,5 @@ The first release.
 - **The menu:** the board's DIP switches, the picture (4:3 or square pixels, scaling, sharp or smooth), full screen,
   the volume, every control (keyboard and two gamepads), reset.
 - **Recordings:** F12 records the board's picture and sound into an AVI.
+- **Updates:** the newest release looked up as the game starts and offered on the menu (UPDATE TO V...): downloaded,
+  checked and installed only if you choose it, your files kept. The version is in the window's title and on the menu.

@@ -279,6 +279,12 @@ Roughly in order; each milestone is checked against the reference before it is t
       licenses; an allow list, no ROM, settings or saves, no ROM file's start in the .exe; the version CMakeLists.txt's
       (the menu shows it), its section in CHANGELOG.md; the unpacked package checked in an empty folder (the ROM
       window, the game)
+- [x] Updates (`ports/sdl2/updater.c`: DonPachi Recomp's shared updater, its DEFLATE the runtime's): the newest
+      GitHub release looked up as the game starts (not in a check's run), UPDATE TO V... first on the menu, its page
+      asking and showing the download; the package checked by its SHA-256, put in place (the files it replaces
+      renamed .old, gone at the next start), the game started again; CHECK FOR UPDATES in GAME OPTIONS and
+      makaimura.ini; the version in the window's title and on the menu. Checked end to end in a sandbox against a
+      public repository's release (`makaimura --update-test REPO VERSION`)
 - [ ] A Linux build and package (the sources are portable C and SDL2; not built yet: no Linux toolchain here)
 - [ ] CRT look (not for now)
 

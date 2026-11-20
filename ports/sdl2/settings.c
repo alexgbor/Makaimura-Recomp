@@ -148,6 +148,7 @@ void settings_defaults(settings *s)
 	s->panels = true;
 	s->keep_high_scores = true;
 	s->keep_replays = true;
+	s->check_updates = true;
 	s->panels_debug = false;
 	s->sync = SYNC_BOARD;
 	s->sound = true;
@@ -314,6 +315,8 @@ static int set(settings *s, const char *section, const char *name, char *value)
 			return s->keep_high_scores = n, 1;
 		if (!SDL_strcasecmp(name, "keep_replays") && (n = boolean(value)) >= 0)
 			return s->keep_replays = n, 1;
+		if (!SDL_strcasecmp(name, "check_updates") && (n = boolean(value)) >= 0)
+			return s->check_updates = n, 1;
 		for (i = 0; i < DIPS; i++)
 			if (!SDL_strcasecmp(name, dips[i].name))
 			{
@@ -487,6 +490,9 @@ const char *settings_save(const settings *s, const char *path)
 		"starts)\nkeep_high_scores = %s\n", s->keep_high_scores ? "true" : "false");
 	fprintf(file, "; each game recorded, and kept as a replay in replays/ beside this file if you say so at its game "
 		"over\n; (the menu's REPLAYS plays them)\nkeep_replays = %s\n", s->keep_replays ? "true" : "false");
+	fprintf(file, "; the newest release looked up on GitHub as the game starts: offered on the menu (UPDATE TO ...),\n"
+		"; downloaded and installed only when it is chosen (this file, the scores, states and replays are kept)\n"
+		"check_updates = %s\n", s->check_updates ? "true" : "false");
 	for (int i = 0; i < DIPS; i++)
 	{
 		const uint8_t port = dips[i].port == 1 ? s->dsw1 : s->dsw2;

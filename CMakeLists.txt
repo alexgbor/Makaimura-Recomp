@@ -120,9 +120,12 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	if(SDL2_FOUND)
 		add_executable(makaimura ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
 			ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c ports/sdl2/replays.c
-			ports/sdl2/rom_drop.c)
+			ports/sdl2/rom_drop.c ports/sdl2/updater.c)
 		target_link_libraries(makaimura PRIVATE gng_program SDL2::SDL2)
 		target_compile_definitions(makaimura PRIVATE MAKAIMURA_VERSION="${PROJECT_VERSION}")
+		if(WIN32)
+			target_link_libraries(makaimura PRIVATE winhttp)    # (updater.c: the newest release looked up and downloaded)
+		endif()
 		if(TARGET SDL2::SDL2main)
 			target_link_libraries(makaimura PRIVATE SDL2::SDL2main)
 		endif()

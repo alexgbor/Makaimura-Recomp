@@ -13,6 +13,7 @@
 #include "menu.h"
 
 #include "gng/video.h"
+#include "updater.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -20,7 +21,8 @@
 
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
 	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
-	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY };
+	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY, UPDATE, UPDATE_YES, UPDATE_NO,
+	CHECK_UPDATES };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
@@ -33,6 +35,13 @@ static char replay_labels[MENU_REPLAYS][16], replay_values[MENU_REPLAYS][16];
 static int confirming = -1;           /* the replay entry whose deletion waits for Enter */
 static item question_items[6];
 static int question_count;
+static item update_items[6];
+static int update_count;
+static char update_label[32], update_header[40];
+
+#ifndef MAKAIMURA_VERSION
+#define MAKAIMURA_VERSION "?"
+#endif
 static item *items = main_items;
 static int item_count;
 static int selected, main_selected;
@@ -166,11 +175,32 @@ void menu_ask_keep_replay(void)
 	show_page(question_items, question_count, 0);
 }
 
+/* a newer release (updater.h): the page that asks, and shows the download */
+static void build_update(void)
+{
+	items = update_items;
+	item_count = 0;
+	snprintf(update_header, sizeof(update_header), "UPDATE: V%s TO V%s", MAKAIMURA_VERSION, updater_latest());
+	add(HEADER, 0, update_header);
+	add(BLANK, 0, "");
+	add(UPDATE_YES, 0, "YES, UPDATE");
+	add(UPDATE_NO, 0, "NOT NOW");
+	update_count = item_count;
+}
+
 static void build_main(void)
 {
 	items = main_items;
 	item_count = 0;
 	add(HEADER, 0, "PAUSED");
+	/* (a newer release first, where it is seen at once) */
+	const int update_state = updater_state();
+	if (update_state == UPDATER_AVAILABLE || update_state == UPDATER_DOWNLOADING || update_state == UPDATER_READY ||
+		(update_state == UPDATER_FAILED && updater_latest()[0]))
+	{
+		snprintf(update_label, sizeof(update_label), "UPDATE TO V%s", updater_latest());
+		add(UPDATE, 0, update_label);
+	}
 	add(RESUME, 0, "RESUME");
 	add(SAVE_STATE, 0, "SAVE STATE");
 	add(LOAD_STATE, 0, "LOAD STATE");
@@ -205,6 +235,8 @@ static void build(void)
 		add(DIP, d, !strcmp(name, "coinage_affects") ? "COINAGE FOR" : dip_labels[d]);
 	}
 	add(BLANK, 0, "");
+	add(CHECK_UPDATES, 0, "CHECK FOR UPDATES");
+	add(BLANK, 0, "");
 	add(BACK, 0, "BACK");
 	game_count = item_count;
 }
@@ -221,6 +253,9 @@ static void show_page(item *page, int count, int first)
 
 void menu_open(void)
 {
+	/* (the main page again each time: a newer release may have been found since) */
+	if (main_count)
+		build_main();
 	if (!main_count)
 	{
 		build_controls();
@@ -367,6 +402,9 @@ static void step(settings *s, int direction, int *changed)
 	case PANELS:
 		s->panels = !s->panels;
 		break;
+	case CHECK_UPDATES:
+		s->check_updates = !s->check_updates;    /* (from the next start) */
+		break;
 	case SAVE_STATE: case LOAD_STATE:
 		s->state_slot = (s->state_slot - 1 + direction + STATE_SLOTS) % STATE_SLOTS + 1;
 		break;
@@ -491,6 +529,17 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 			replay_chosen = items[selected].dip;
 			show_page(main_items, main_count, main_selected);
 			return MENU_REPLAY;
+		case UPDATE:
+			main_selected = selected;
+			build_update();
+			show_page(update_items, update_count, 0);
+			break;
+		case UPDATE_YES:
+			updater_download();    /* (on its thread: the entry shows how far it is; main.c installs it once there) */
+			break;
+		case UPDATE_NO:
+			show_page(main_items, main_count, main_selected);
+			break;
 		case KEEP_REPLAY:
 			show_page(main_items, main_count, 1);
 			return MENU_KEEP_REPLAY;
@@ -617,6 +666,16 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case VOLUME: snprintf(buffer, size, "%d", s->volume); return buffer;
 	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: case PRACTICE_PAGE: case REPLAYS_PAGE: return ">";
 	case REPLAY: return confirming >= 0 && it == &items[confirming] ? "DELETE? ENTER" : replay_values[it->dip];
+	case CHECK_UPDATES: return s->check_updates ? "ON" : "OFF";
+	case UPDATE: return ">";
+	case UPDATE_YES:
+		switch (updater_state())
+		{
+		case UPDATER_DOWNLOADING: snprintf(buffer, size, "%d%%", updater_progress()); return buffer;
+		case UPDATER_READY: return "INSTALLING";
+		case UPDATER_FAILED: return "FAILED: AGAIN?";
+		default: return "";
+		}
 	case PANELS: return s->panels ? "ON" : "OFF";
 	case SAVE_STATE: case LOAD_STATE: snprintf(buffer, size, "SLOT %d", s->state_slot); return buffer;
 	default: return "";
@@ -655,6 +714,13 @@ static const char *help_of(const item *it)
 	case KEEP_REPLAY: return "THE GAME JUST PLAYED KEPT IN REPLAYS/, FROM ITS COIN TO ITS GAME OVER: THE MENU'S "
 		"REPLAYS PLAYS IT.";
 	case DROP_REPLAY: return "THE GAME JUST PLAYED NOT KEPT.";
+	case UPDATE: return "A NEWER VERSION OF THE GAME IS OUT: DOWNLOADED AND PUT IN PLACE OF THIS ONE IF YOU SAY SO, "
+		"THEN THE GAME STARTS AGAIN. YOUR SETTINGS, SCORES, STATES, REPLAYS AND ROM SET ARE KEPT.";
+	case UPDATE_YES: return updater_state() == UPDATER_FAILED ? updater_problem() :
+		"THE NEW VERSION DOWNLOADED FROM GITHUB, CHECKED, PUT IN PLACE; THE GAME STARTS AGAIN.";
+	case UPDATE_NO: return "LATER: IT STAYS ON THE MENU.";
+	case CHECK_UPDATES: return "THE NEWEST VERSION LOOKED UP ON GITHUB AS THE GAME STARTS (NOTHING IS SENT BUT THE "
+		"REQUEST): OFFERED ON THE MENU, INSTALLED ONLY IF YOU CHOOSE IT. FROM THE NEXT START.";
 	case PRACTICE: return "A NEW GAME FROM THIS AREA'S START: THE BOARD'S OWN GAME WITH ITS STAGE SET AS THE PLAYER "
 		"STARTS, THE LANCE, THE LIVES OF THE GAME OPTIONS. THE FIRST TIME IT IS PREPARED (A FEW SECONDS), THEN KEPT "
 		"IN STATES/.";

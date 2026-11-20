@@ -25,6 +25,10 @@ the two accuracy modes: MAME's, and the real board's, which is the goal.
    (together or one after the other). The game keeps them in a `rom` folder beside it. Merged and split MAME sets
    both work.
 
+From then on the game looks up its newest release as it starts and offers it on the menu (UPDATE TO V...): it asks
+first, then downloads it, checks it and starts again, keeping your settings, scores, states, replays and ROM set
+(GAME OPTIONS > CHECK FOR UPDATES turns the look-up off).
+
 The release's `README.txt` has the controls, the menu and the files the game keeps. What's new in each version:
 [CHANGELOG.md](CHANGELOG.md). A Linux build is made from the sources (below); there is no Linux package yet.
 

@@ -68,6 +68,7 @@ typedef struct settings
 	int accuracy;         /* gng/board.h's gng_accuracy_mode: 0 MAME 1:1, 1 the board's (docs/accuracy.md) */
 	bool keep_high_scores;    /* the ranking kept between sessions (hiscore.h) */
 	bool keep_replays;        /* each game recorded, kept as a replay if the player says so (replays.h) */
+	bool check_updates;       /* the newest release looked up as the program starts (updater.h) */
 	/* [window] */
 	int scale;            /* the window's height, in the picture's lines (224 each) */
 	bool fullscreen;
