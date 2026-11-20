@@ -1389,10 +1389,16 @@ static int find_rom_set(const char *given, const char *base, char *searched, siz
 	{
 		snprintf(from_base[0], sizeof(from_base[0]), "%s.", base);
 		snprintf(from_base[1], sizeof(from_base[1]), "%srom", base);
-		snprintf(from_base[2], sizeof(from_base[2]), "%s../../rom", base);    /* (build/bin in the repository) */
 		places[count++] = from_base[0];
 		places[count++] = from_base[1];
-		places[count++] = from_base[2];
+		/* the repository's rom/ only for the program built in its build/bin (a package elsewhere asks for the set) */
+		const size_t length = strlen(base);
+		if (length >= 10 && (!SDL_strcasecmp(base + length - 10, "build\\bin\\") ||
+			!SDL_strcasecmp(base + length - 10, "build/bin/")))
+		{
+			snprintf(from_base[2], sizeof(from_base[2]), "%s../../rom", base);
+			places[count++] = from_base[2];
+		}
 	}
 	places[count++] = ".";
 	places[count++] = "rom";
