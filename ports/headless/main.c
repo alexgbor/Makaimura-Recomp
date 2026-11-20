@@ -37,6 +37,7 @@
  *                        (gng/state.h), the run going on (the sound board run, as in every state)
  *      --ram-watch LIST FILE   at each VBLANK where one of the work RAM's bytes at LIST (hex, comma separated)
  *                        changed, "frame byte=value ..." (all of them): for finding what the program keeps where
+ *      --sample-phase N  (an experiment) the YM2203s' sample grid at Z80 time 24 n + N (MAME mode: 3, board: 0)
  *      --load-state FILE the run from that state instead of power-on (the same options as the run that saved it:
  *                        the outputs are then those of its frames after the state's; tools/check_states.py)
  */
@@ -404,6 +405,7 @@ int main(int argc, char **argv)
 	const char *write_path = NULL;
 	const char *charset_path = NULL;
 	const char *load_path = NULL;
+	int sample_phase = -1;
 	int rom_places = 0;
 	gng_rom_set_clear(&rom_set);
 	long frames = 600;
@@ -434,6 +436,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(a, "--charset")) charset_path = NEXT();
 		else if (!strcmp(a, "--save-state")) { save_frame = atol(NEXT()); save_path = NEXT(); }
 		else if (!strcmp(a, "--load-state")) load_path = NEXT();
+		else if (!strcmp(a, "--sample-phase")) sample_phase = atoi(NEXT());
 		else if (!strcmp(a, "--ram-watch"))
 		{
 			char list[256];
@@ -519,6 +522,8 @@ int main(int argc, char **argv)
 			gng_snd.on_sample = on_sample;
 		}
 		gng_sound_power_on(roms.audiocpu, accuracy == GNG_ACCURACY_MAME);
+		if (sample_phase >= 0)
+			gng_snd.sample_phase = (uint32_t)sample_phase;    /* (--sample-phase: an experiment's) */
 		gng.on_sound_latch = on_latch;
 		gng.on_ls259 = on_ls259;
 	}

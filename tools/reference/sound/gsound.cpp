@@ -53,6 +53,11 @@ constexpr uint32_t kSampleRate = 125000;
 // Z80 RAM and YM2203 write one Z80 cycle later against the 6809's time than 2 x the release): its scheduler's
 // rounding while the Z80 is suspended, a MAME mode effect (docs/accuracy.md #7): none in board mode
 static uint64_t g_release_delay = 1;
+// MAME's chips' samples are on its own time's grid, sample k at MAME time 24 k Z80 cycles, made up to a write's time
+// included: with its time origin (docs/accuracy.md #6: 2110 6809 cycles, 4220 Z80 cycles, 4220 = 24 x 176 - 4), on
+// this board's time sample n starts at 24 n + 4, and a write at t sees those at t or before: here, those that start
+// before t + 1, 24 n + 3 < t (measured against MAME's -wavwrite: tools/compare_mame_sound.py, docs/accuracy.md #6b)
+static uint64_t g_sample_phase = 3;
 
 class sound_cpu : public gs::z80_device
 {
@@ -106,7 +111,7 @@ uint64_t now()
 // the chips' samples that start before 'time'
 void make_samples(uint64_t time)
 {
-	while (g_samples * kSamplePeriod < time)
+	while (g_samples * kSamplePeriod + g_sample_phase < time)
 	{
 		const ymfm::ym2203::output_data a = g_fm[0].generate();
 		const ymfm::ym2203::output_data b = g_fm[1].generate();
@@ -206,6 +211,7 @@ void gs_power_on(const uint8_t *program, int mame_mode)
 {
 	g_program = program;
 	g_release_delay = mame_mode ? 1 : 0;
+	g_sample_phase = mame_mode ? 3 : 0;
 	std::memset(g_ram, 0, sizeof(g_ram));
 	std::memset(g_executed, 0, sizeof(g_executed));
 	g_latch = 0;

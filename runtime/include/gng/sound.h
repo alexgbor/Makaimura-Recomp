@@ -28,7 +28,8 @@ typedef struct gng_sound
 	uint8_t ram[0x800];          /* C000-C7FF */
 	int in_reset;                /* the Z80 held (LS259 Q1 0), the YM2203s too */
 	uint64_t ym_writes;          /* the YM2203 writes so far */
-	uint64_t samples;            /* the chips' samples made so far (sample n from Z80 time 24 n) */
+	uint64_t samples;            /* the chips' samples made so far (sample n from Z80 time 24 n + sample_phase) */
+	uint32_t sample_phase;       /* where the chips' sample grid falls against the Z80's cycles (0-23) */
 	/* the host's hooks (may be NULL): each YM2203 write, at Z80 time 'time' (chip 0 or 1, offset 0 the address
 	   port, 1 the data port); each sample of the mix (MAME's routes, 125 kHz) */
 	void (*on_ym_write)(uint64_t time, int chip, int offset, uint8_t value);

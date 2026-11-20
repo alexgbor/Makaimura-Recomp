@@ -37,6 +37,7 @@ setting of the window port (once board mode differs from MAME's).
 | 4b | **Power-on LS259** (3D00-3D07) | every output 0: the screen flipped and the sound CPU held in reset until the boot writes 3D00/3D01 (MAME's first frame is drawn flipped) | the LS259's state before the first write depends on whether its /CLR is tied to the reset (schematics) | cosmetic (the first frame, during the boot); MAME's kept unless the schematics say otherwise |
 | 5 | **Sound timing** (latch, Z80 interrupts, YM2203) | MAME's scheduler, 4 IRQs a frame by a timer (240 Hz, not the video's 59.64 Hz) | to compare with recordings | MAME's in the reference, checked (below) |
 | 6 | **The time origin** | MAME's time 0 is a VBLANK's start: its 6809 meets each VBLANK 2110 cycles later than at the board's power-on with the beam at line 0 (the reference's 23040 + 25152 n) | the video counter's state at power-on: unknown | a constant: only the boot's first frame sees it (the 6809 waits for the VBLANK with SYNC); the checks compare MAME's times less 2110 (`tools/mame_trace.py`'s MAME_ORIGIN) |
+| 6b | **The YM2203s' sample grid** | on MAME's time: sample k at MAME time 24 k Z80 cycles, a write seeing the samples up to its time included; with #6's origin (4220 Z80 cycles = 24 x 176 - 4), at 24 n + 4 on the board's time | the chips' clock (1.5 MHz, the 6 MHz crystal's) against the CPUs': its phase at power-on unknown | MAME's in MAME mode (gsound.cpp's g_sample_phase, runtime/src/sound.c: 3, as the samples that start before t + 1); board mode 0. Found against MAME's -wavwrite (below) |
 | 7 | **The Z80's start after its reset** | one Z80 cycle after the 6809 releases the line (its scheduler's rounding while the Z80 is suspended: measured, every Z80 write one cycle late against 2 x the release) | at the release (the board's clocks are one crystal) | MAME's in the reference (`kReleaseDelay` in tools/reference/sound/gsound.cpp); none in board mode |
 
 ## #1, the sprite DMA, in board mode
@@ -146,6 +147,19 @@ Z80's RAM and PC at the first YM2203 write after each frame. Over walk_right (70
 1,201,454 YM2203 writes and 6673 RAM states, every one the same, the times on MAME's origin (#6 above). The
 samples are then ymfm's from the same writes at the same cycles; MAME's own WAV goes through its mixer and
 resampler (to 48 kHz), which the reference does not copy.
+
+`tools/compare_mame_sound.py` compares the sound the window plays (the mix through ports/sdl2/resampler.c) with
+MAME's `-wavwrite` at 48 kHz, aligned. With the chips' samples on the board's own grid (sample n at 24 n) the two had
+the same level and spectrum but a correlation of 0.92: the waveforms parted (the coherence fell to 0.2-0.5 above
+2 kHz), as the YM2203 writes landed between other samples than MAME's (the envelopes and the noise a sample apart).
+MAME's grid is its own time's (#6b): on the board's time at 24 n + 4, a write seeing the samples up to its time
+included. A sweep of the 24 phases against MAME's WAV (60 seconds of the attract mode) put the best at 3 under this
+model's convention (the samples that start before the write's time), 4 under MAME's: the same grid. With it (MAME
+mode), over 60 seconds: the level within 0.01 dB, every third-octave band within 0.2 dB up to 10 kHz, a correlation
+of 0.972 (0.93 to 0.998 second by second). What is left is the two resamplers: MAME's filters more above 12 kHz
+(-2 dB at 16 kHz), and it resamples even at the chips' 125 kHz (its output grid is not theirs: a fractional delay,
+the phase growing with the frequency), so its WAV cannot be matched sample for sample; MAME's sound is 1.48 ms later
+(#6's origin, 1.41 ms, and the resamplers' delays).
 
 ## How the board mode will be checked
 

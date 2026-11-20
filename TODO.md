@@ -90,11 +90,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       (Z80 cycle, chip, port, value) and the Z80's RAM at 6673 of them, every one the same. Two MAME effects
       found and documented (docs/accuracy.md #6, #7): its time origin (2110 6809 cycles) and its Z80's start a
       cycle after its reset is released
-- [ ] The board model (runtime/) driven by them: frame timing (384x262 at 6 MHz), VBLANK IRQ, sprite DMA
-      (and its halt of the CPU), the sound latch, the Z80's 4 IRQs a frame
-- [~] Per frame: state hash (`--hashes`), executed addresses with their bank (`--executed`), every transfer
-      of control (`--jumps`), registers at an address (`--registers-at`), input scripts (`--inputs`); to do:
-      picture hash, sound hash
+- [x] The board model (runtime/) driven by them: frame timing (384x262 at 6 MHz), VBLANK IRQ, sprite DMA
+      (and its halt of the CPU), the sound latch, the Z80's 4 IRQs a frame (gref and gng_headless on gng/board.h)
+- [x] Per frame: state hash (`--hashes`), executed addresses with their bank (`--executed`), every transfer
+      of control (`--jumps`), registers at an address (`--registers-at`), input scripts (`--inputs`), the picture's
+      hash (`--picture-hashes`), the sound board's (`--sound`)
 - [x] Ground truth from MAME itself (`tools/mame_trace.py`, `tools/mame/trace.lua`, MAME 0.289): the bus
       0000-2FFF and the PC at every VBLANK identical to gref's, 1200 frames of the attract mode and 7000 frames
       with a game played (`tests/controls/walk_right.txt`)
@@ -106,21 +106,25 @@ Roughly in order; each milestone is checked against the reference before it is t
       LS259 starts at 0 and Q0 drives the flip through an inverter) until the boot writes 3D00
 - [x] DIP switches from power-on in both runs (`--dsw1`, `--dsw2`; trace.lua's MK_DSW1/2). MAME keeps a game's
       DIP switches in its cfg directory across runs, `-noreadconfig` or not: each MAME run starts from an empty one
-- [ ] The reference's mix against MAME's WAV (its mixer, filters and resampler to 48 kHz): by ear and by
-      spectrum, not sample for sample
+- [x] The window's sound against MAME's WAV (`tools/compare_mame_sound.py`: MAME's -wavwrite at 48 kHz, the mix
+      through the window's resampler): the YM2203s' sample grid MAME's in MAME mode (docs/accuracy.md #6b, found
+      so: correlation 0.92 to 0.972); the level within 0.01 dB, every third-octave band within 0.2 dB up to 10 kHz;
+      what is left the resamplers' (MAME's filters more above 12 kHz)
 
 ## M3. The board model (`runtime/`)
 
-- [ ] Bus: RAM, sprite RAM, the two layers' RAM, inputs and DIP switches, palette, latch, scroll, DMA, LS259, bank
+- [x] Bus: RAM, sprite RAM, the two layers' RAM, inputs and DIP switches, palette, latch, scroll, DMA, LS259, bank
+      (`runtime/src/board.c`: the same bus as MAME's at every VBLANK, `tools/mame_trace.py`)
 - [x] Video (`runtime/src/video.c`), checked against MAME's screen: text layer (2 bpp, pen 3 transparent), background (3 bpp, 16x16, column-major, scroll, split
       priority: group 0 all behind, group 1 pens 0 and 6 behind), sprites (4 bpp, buffered, pen 15 transparent,
       drawn from the last to the first), flip screen; 256x224 out of the 256x256 drawn
 - [x] Palette RGBx 444 (3800 RG, 3900 B), its power-on contents as MAME's machine_reset
 - [x] Flip screen (the LS259's Q0 inverted; DSW1 bit 7, and the second player's turn in a cocktail cabinet):
       the picture turned 180 degrees in its 256x256, as MAME 0.289's tilemaps and sprites flip
-- [ ] Sound: the Z80's bus, the latch, two YM2203 (ymfm), the mix (FM 0.40, SSG 0.20 each), YM reset via LS259 bit 1
-- [ ] Timing: cycle-exact 6809 (the CPU's cycles as MAME's core counts them), the DMA's stolen cycles, the
-      palette's bus conflicts (MAME does not emulate them: note, check)
+- [x] Sound: the Z80's bus, the latch, two YM2203 (ymfm), the mix (MAME's routes: SSG 0.40, FM 0.20), YM reset via
+      LS259 bit 1 (`runtime/src/sound.c`, `ym2203.c`: M5)
+- [x] Timing: cycle-exact 6809 (the CPU's cycles as MAME's core counts them), the DMA's stolen cycles, the
+      palette's bus conflicts (board mode: docs/accuracy.md #1, #2)
 
 ## M4. The translation (6809 to C)
 
@@ -187,7 +191,8 @@ Roughly in order; each milestone is checked against the reference before it is t
         output (FM, SSG A, B, C) compared; then the game's mix (MAME's routes) and its samples by frame
       - the headless runner and the check: the samples' hashes against gref's (`--wav` already writes the mix)
 - [x] The game's sound against the reference's: the YM2203 writes to the cycle, the samples, the mix
-- [ ] The mix out to the host: resampled from 125 kHz to the device's rate (the port, M7)
+- [x] The mix out to the host: resampled from 125 kHz to the device's rate (`ports/sdl2/resampler.c`, against
+      scipy's: `tools/check_resampler.py`)
 
 ## M6. Readable C
 

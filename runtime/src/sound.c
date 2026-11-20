@@ -39,7 +39,7 @@ static ym2203 chips[2];
    0.40, its FM at 0.20, one speaker: tools/reference/sound/gsound.cpp's mix) */
 static void make_samples(uint64_t time)
 {
-	while (gng_snd.samples * SAMPLE_PERIOD < time)
+	while (gng_snd.samples * SAMPLE_PERIOD + gng_snd.sample_phase < time)
 	{
 		int32_t a[4], b[4];
 		ym2203_generate(&chips[0], a);
@@ -118,6 +118,8 @@ void gng_sound_power_on(const uint8_t *rom, int mame_mode)
 	gng_snd.in_reset = 1;
 	program = rom;
 	mame = mame_mode;
+	/* MAME's chips' sample grid (docs/accuracy.md #6b, tools/reference/sound/gsound.cpp's g_sample_phase) */
+	gng_snd.sample_phase = mame_mode ? 3u : 0u;
 	latch_count = 0;
 	z80_init(0);
 	z80_set_timer(UINT64_MAX, irq_timer);
