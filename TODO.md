@@ -222,7 +222,33 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] The second player's own controls (3002), as the board's: the program reads them for a cocktail cabinet's
       second player (691C) and for either player's buttons at the continue (76D8); MAME's keys (R F D G, A, S) and
       the second gamepad; in the menu's CONTROLS page (which scrolls)
-- [ ] From DonPachi Recomp's port, as wanted: save states, replays, training, CRT look, high scores kept
+- [x] Side panels beside the picture on a wide window (`ports/sdl2/hud.c`): the player from the game's RAM (score,
+      next life, lives, weapon, area, loop, rank), both players' controls lit, the board (mode, FPS, the frames lost
+      to slowdown), the state slot, the window's keys, the menu's help; `panels_debug` adds the checks' sections
+      (board mode's palette flashes)
+- [x] Save states (`runtime/src/state.c`, `gng/state.h`): the whole board at a 6809 instruction boundary (the CPU,
+      the memories and latches, board mode's raster, the Z80, the latch's history, the YM2203s), loaded from any
+      VBLANK; F5 / F7, F6 the slot (8), SAVE STATE and LOAD STATE on the menu, files in `states/` beside the settings
+      (one per accuracy mode: a state from the other mode, another ROM set or another build is refused);
+      `tools/check_states.py`: from a state, every bus hash, IRQ, sound board hash, YM2203 write, sample and picture
+      the same as the uninterrupted run's (both modes; walk_right, long_play, stage4, loop2_stage6; states at frames
+      333, 1777, 3501); the window's `--save-state` / `--load-state` (and LOAD STATE from the menu at a VBLANK) give
+      the same pictures
+- [x] Practice (the menu's PRACTICE page): a game from the start of any area of the first loop (1-6); reached the
+      first time from the power on, unpaced and silent, as tests/controls/make_stages.py does (a coin, start, the
+      area written into <$72 right after it), saved where <$71 first says playing; kept in `states/` (by mode and
+      DIP switches) and loaded from then on (the same game as reached: checked on the pictures)
+- [x] Replays (`ports/sdl2/replays.c`, the menu's REPLAYS): every game kept as an input script in `replays/` (from
+      the power on, or from a state: a slot's, a practice's, copied beside it; the attract mode's alone let go; the
+      last 50 kept), named by its date, mode and length; played from the menu in its mode, the player's game from
+      its end (`# end FRAME`); `keep_replays` in makaimura.ini; a recorded game played again gives the same picture
+      at its last frame (`makaimura --keep-replays`)
+- [x] High scores kept between sessions (`ports/sdl2/hiscore.c`, makaimura.hi): the ranking 1518-1571 and the top
+      score <$D0 (symbols.txt) written back at the first VBLANK with the program's own in place (as MAME's hiscore
+      plugin), kept a second after the program changes it (a name entered: checked with long_play's game over, its
+      score raised), written back after a state is loaded; logged as RAM writes in a replay; not with --inputs
+      (but with `--high-scores`); `keep_high_scores` in makaimura.ini
+- [ ] CRT look (not for now)
 
 ## Later, maybe
 

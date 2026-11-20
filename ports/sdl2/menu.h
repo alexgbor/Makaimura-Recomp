@@ -16,7 +16,18 @@
 #include <SDL.h>
 #include <stdint.h>
 
-enum { MENU_STAY, MENU_RESUME, MENU_RESET, MENU_QUIT };
+enum { MENU_STAY, MENU_RESUME, MENU_RESET, MENU_QUIT, MENU_SAVE_STATE, MENU_LOAD_STATE, MENU_PRACTICE,
+	MENU_REPLAY };
+
+/* The REPLAYS page's entries (main.c, as the menu opens): each one's label and value, newest first */
+#define MENU_REPLAYS 20
+void menu_replays(int count, const char labels[][16], const char values[][16]);
+
+/* After MENU_REPLAY: the entry chosen (0 the first) */
+int menu_replay_chosen(void);
+
+/* The practice's areas (the first loop's: the stages 0-5, <$72) */
+#define PRACTICE_AREAS 6
 
 /* What a choice changed that the window applies at once (main.c) */
 enum { MENU_CHANGED_NONE = 0, MENU_CHANGED_FULLSCREEN = 1, MENU_CHANGED_VOLUME = 2 };
@@ -32,5 +43,11 @@ void menu_draw(uint32_t *pixels, const settings *s);
 
 /* The selected entry's name and what it does, for the side panel */
 void menu_help(const char **title, const char **text);
+
+/* After MENU_PRACTICE: the area chosen (0 the first) */
+int menu_practice_area(void);
+
+/* A short notice over the picture's bottom row ("STATE 1 SAVED"), in the menu's letters */
+void menu_draw_notice(uint32_t *pixels, const char *text);
 
 #endif

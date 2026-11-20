@@ -20,7 +20,7 @@
 /* a panel's pixels: 14 characters by 63 rows, 2:9 as the room a 4:3 picture leaves on each side of a 16:9 screen */
 #define HUD_W 112
 #define HUD_H 504
-#define HUD_HOTKEYS 5
+#define HUD_HOTKEYS 7
 
 typedef struct hud_info
 {
@@ -32,11 +32,14 @@ typedef struct hud_info
 	uint32_t flash_frames;    /* board mode: frames with palette writes in the active display */
 	bool recording;
 	bool paused;
+	bool replay;              /* a replay plays */
 	bool menu;                /* the menu is open: the right panel shows its help */
 	bool debug;               /* the checks' sections too (makaimura.ini's panels_debug): the palette's flashes */
 	const char *help_title, *help_text;
 	uint8_t p1, p2, system;   /* the controls as the board reads them (active low) */
-	char hot_keys[HUD_HOTKEYS][7];    /* the window's keys' names: menu, pause, reset, record, full screen */
+	char hot_keys[HUD_HOTKEYS][7];    /* the window's keys' names: menu, pause, save and load a state, the slot,
+	                                     reset, record */
+	int state_slot;           /* the save states' slot */
 } hud_info;
 
 /* The panels into two HUD_W x HUD_H buffers (0x00RRGGBB) */

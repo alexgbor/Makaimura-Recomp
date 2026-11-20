@@ -61,9 +61,10 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `tools/mame/trace.lua`, `tools/mame_trace.py` | MAME itself traced and compared with gref or gng_headless (bus, IRQs, pictures, sound) |
 | `tools/check_translation.py` | the translated game (gng_headless) against gref: bus, IRQs, pictures, YM2203 writes, the sound's WAV |
 | `tools/check_resampler.py` | the window's resampler against scipy's |
-| `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `sound.c`, `ym2203.c` (after ymfm), `rom_set.c` and `inflate.c` (the set from its zips) |
+| `tools/check_states.py` | save states: a run from a state against the uninterrupted run (gng_headless `--save-state`, `--load-state`) |
+| `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `sound.c`, `ym2203.c` (after ymfm), `state.c` (save states), `rom_set.c` and `inflate.c` (the set from its zips) |
 | `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks |
-| `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs` |
+| `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings), `hud.c` (the side panels), `hiscore.c` (makaimura.hi), `replays.c`. Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs`, `--save-state`, `--load-state`, `--high-scores`, `--keep-replays` |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
 | `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, loop2_stage0/6: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ |

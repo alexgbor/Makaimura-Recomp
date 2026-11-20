@@ -23,6 +23,11 @@
  *                       starts and stops one at any time, beside the settings
  *      --record-inputs FILE  the controls written as an input script from the power on (the DIP switches too):
  *                       --inputs plays the same game again, in the other accuracy mode for one
+ *      --save-state N FILE   (for checks) the board's state after frame N's VBLANK into FILE (gng/state.h)
+ *      --high-scores    (for checks) the kept ranking (makaimura.hi) with --inputs too
+ *      --keep-replays   (for checks) the game kept as a replay (replays/) with --inputs too
+ *      --load-state FILE     the game from that state instead of the power on (a slot's: states/ beside the
+ *                       settings); [keyboard] save_state (F5), load_state (F7), state_slot (F6) at any time
  *
  *    The board's own pace: a frame every 384 x 262 pixels of its 6 MHz clock (59.637 Hz), kept by the clock of the
  *    host (or a frame a refresh of the display: [video] sync); the picture shown at each VBLANK (the board's picture,
@@ -34,17 +39,25 @@
 #include <SDL.h>
 
 #include "audio_out.h"
+#include "hiscore.h"
 #include "hud.h"
 #include "gng/board.h"
 #include "gng/rom_set.h"
 #include "gng/sound.h"
+#include "gng/state.h"
 #include "gng/video.h"
 #include "m6809/cpu.h"
 #include "menu.h"
 #include "recorder.h"
+#include "replays.h"
 #include "settings.h"
 
 #include <math.h>
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -89,6 +102,19 @@ typedef struct input_change { long frame; int port; uint8_t value; } input_chang
 static input_change *script;
 static int script_count, script_next;
 static uint64_t current_frame;
+
+/* replays (replays.h): the game being kept (its file the controls' input script: inputs_out), the one playing */
+static int user_inputs;                  /* --record-inputs: its file instead */
+static int replays_given;                /* --keep-replays: with --inputs too */
+static char segment_base[1300];          /* the replay being written: its path without .inp ("" none) */
+static int segment_played, segment_sync;
+static uint64_t segment_first;
+static int replay_playing;
+static char replay_pending[1300];        /* a replay to play from the next power on: its path without .inp */
+static char replay_state[1300];          /* its state, "" if it starts at the power on */
+static long replay_end;
+static int replay_saved_accuracy, replay_saved_dsw[2];
+static char replay_names[MENU_REPLAYS][REPLAY_NAME];
 
 /* the side panels (hud.h) */
 static SDL_Texture *panel_textures[2];
@@ -152,11 +178,13 @@ static void draw_panels(SDL_Rect place, int width, int height)
 	else
 		hud.menu = 0;
 	hud.paused = paused;
+	hud.replay = replay_playing;
 	hud.debug = options.panels_debug;
 	hud.recording = recorder_on();
 	/* the window's keys: each one's first key, its name in capitals (as the menu's) cut to fit */
-	static const int hotkeys[HUD_HOTKEYS] = { HOTKEY_MENU, HOTKEY_PAUSE, HOTKEY_RESET, HOTKEY_RECORD,
-		HOTKEY_FULLSCREEN };
+	static const int hotkeys[HUD_HOTKEYS] = { HOTKEY_MENU, HOTKEY_PAUSE, HOTKEY_SAVE_STATE, HOTKEY_LOAD_STATE,
+		HOTKEY_STATE_SLOT, HOTKEY_RESET, HOTKEY_RECORD };
+	hud.state_slot = options.state_slot;
 	for (int i = 0; i < HUD_HOTKEYS; i++)
 	{
 		const SDL_Scancode code = options.hot_keys[hotkeys[i]][0];
@@ -187,6 +215,384 @@ static void draw_panels(SDL_Rect place, int width, int height)
 			(height - h) / 2, w, h };
 		SDL_RenderCopy(renderer, panel_textures[i], NULL, &at);
 	}
+}
+
+/* ---- save states (gng/state.h) ---- */
+
+/* (a path's file name, after its folders) */
+static const char *file_name(const char *path)
+{
+	const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
+	const char *cut = back > slash ? back : slash;
+	return cut ? cut + 1 : path;
+}
+
+/* a notice over the picture's bottom row for a while (the recording and the shots have the picture without it) */
+static char notice[40];
+static Uint64 notice_until;
+static uint32_t notice_pixels[GNG_SCREEN_WIDTH * GNG_SCREEN_HEIGHT];
+
+static void tell(const char *text)
+{
+	snprintf(notice, sizeof(notice), "%s", text);
+	notice_until = SDL_GetPerformanceCounter() + 2 * SDL_GetPerformanceFrequency();
+	fprintf(stderr, "makaimura: %s\n", text);
+}
+
+/* the picture (or the menu's) into the window's texture, the notice over it while it lasts */
+static void update_picture(const uint32_t *source)
+{
+	if (notice[0] && SDL_GetPerformanceCounter() < notice_until)
+	{
+		memcpy(notice_pixels, source, sizeof(notice_pixels));
+		menu_draw_notice(notice_pixels, notice);
+		source = notice_pixels;
+	}
+	SDL_UpdateTexture(picture, NULL, source, GNG_SCREEN_WIDTH * 4);
+}
+
+/* the slot's file: states/makaimura-SLOT-MODE.state beside makaimura.ini (a state is for the mode it was saved
+   in) */
+static void state_path(char *path, size_t size, int slot)
+{
+	const int folder = (int)(file_name(settings_path) - settings_path);
+	snprintf(path, size, "%.*sstates/makaimura-%d-%s.state", folder, settings_path, slot,
+		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame");
+}
+
+static void make_states_folder(void)
+{
+	char path[1300];
+	snprintf(path, sizeof(path), "%.*sstates", (int)(file_name(settings_path) - settings_path), settings_path);
+#ifdef _WIN32
+	_mkdir(path);
+#else
+	mkdir(path, 0777);
+#endif
+}
+
+static void begin_segment(const char *state_file, uint64_t first);
+static int save_requested, load_requested;
+static int hiscore_after_load;           /* a state loaded: the kept ranking into its RAM at the next VBLANK */
+static int high_scores_given;            /* --high-scores */
+static int practice_requested = -1;    /* an area chosen on the menu */
+static int practice_making = -1;       /* the area whose start is being reached, the board unpaced and silent */
+static const char *save_to, *load_from;     /* --save-state, --load-state: a file instead of the slot */
+static long save_frame = -1;
+static int save_quietly;                    /* (the practice's: its own notice) */
+
+/* at the instruction boundary after the request: the state into the slot's file */
+static void save_state(uint16_t pc)
+{
+	char path[1300], text[40];
+	if (save_to)
+		snprintf(path, sizeof(path), "%s", save_to);
+	else
+	{
+		make_states_folder();
+		state_path(path, sizeof(path), options.state_slot);
+	}
+	const size_t size = gng_state_size();
+	uint8_t *state = malloc(size);
+	FILE *file = state ? fopen(path, "wb") : NULL;
+	int written = 0;
+	if (file)
+	{
+		gng_state_save(state, pc);
+		written = fwrite(state, 1, size, file) == size;
+		written &= fclose(file) == 0;
+	}
+	free(state);
+	if (save_to)
+		snprintf(text, sizeof(text), written ? "STATE SAVED" : "STATE NOT SAVED");
+	else
+		snprintf(text, sizeof(text), written ? "STATE %d SAVED" : "STATE %d NOT SAVED", options.state_slot);
+	if (!save_quietly || !written)
+		tell(text);
+	if (save_quietly && written)
+	{
+		/* (the practice's start: the replay from it) */
+		m6809_state now;
+		m6809_state_get(&now);
+		begin_segment(path, now.frame);
+	}
+	save_to = NULL;
+	save_quietly = 0;
+}
+
+static void show_picture(void);
+static void read_controls(void);
+
+/* ---- replays (replays.h) ---- */
+
+static void replays_folder(char *path, size_t size)
+{
+	snprintf(path, size, "%.*sreplays", (int)(file_name(settings_path) - settings_path), settings_path);
+}
+
+static int copy_file(const char *from, const char *to)
+{
+	FILE *in = fopen(from, "rb"), *out = in ? fopen(to, "wb") : NULL;
+	int good = in && out;
+	char buffer[65536];
+	size_t got;
+	while (good && (got = fread(buffer, 1, sizeof(buffer), in)) > 0)
+		good = fwrite(buffer, 1, got, out) == got;
+	if (in)
+		fclose(in);
+	if (out)
+		good &= fclose(out) == 0;
+	return good;
+}
+
+/* the replay being written closed: kept (its length in its name) if a game was played in it, else let go */
+static void end_segment(void)
+{
+	if (!segment_base[0])
+		return;
+	char inp[1400], state[1400], folder[1300];
+	fprintf(inputs_out, "# end %llu\n", (unsigned long long)current_frame);    /* (its last frame: the replay's) */
+	fclose(inputs_out);
+	inputs_out = NULL;
+	snprintf(inp, sizeof(inp), "%s.part", segment_base);
+	snprintf(state, sizeof(state), "%s.state", segment_base);
+	if (!segment_played)
+	{
+		remove(inp);
+		remove(state);
+	}
+	else
+	{
+		char named[1400];
+		const unsigned seconds = (unsigned)((current_frame + 1 - segment_first) / FRAME_RATE);
+		snprintf(named, sizeof(named), "%s-%04u.inp", segment_base, seconds);
+		rename(inp, named);
+		snprintf(named, sizeof(named), "%s-%04u.state", segment_base, seconds);
+		rename(state, named);
+		replays_folder(folder, sizeof(folder));
+		replays_prune(folder);
+	}
+	segment_base[0] = 0;
+}
+
+/* A replay starts being written: from the power on, or from a state ('state_file', copied beside it, the game on
+   from its frame) */
+static void begin_segment(const char *state_file, uint64_t first)
+{
+	end_segment();
+	if (user_inputs || !options.keep_replays || replay_playing || (script && !replays_given))
+		return;
+	char folder[1300], inp[1400];
+	replays_folder(folder, sizeof(folder));
+#ifdef _WIN32
+	_mkdir(folder);
+#else
+	mkdir(folder, 0777);
+#endif
+	const time_t now = time(NULL);
+	char stamp[32];
+	strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", localtime(&now));
+	snprintf(segment_base, sizeof(segment_base), "%s/%s-%s", folder, stamp,
+		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame");
+	snprintf(inp, sizeof(inp), "%s.part", segment_base);    /* (.inp once closed) */
+	if (!(inputs_out = fopen(inp, "w")))
+	{
+		segment_base[0] = 0;
+		return;
+	}
+	fprintf(inputs_out, "# makaimura replay (%s mode)\n", gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "MAME");
+	if (state_file)
+	{
+		char state[1400];
+		snprintf(state, sizeof(state), "%s.state", segment_base);
+		copy_file(state_file, state);
+		fprintf(inputs_out, "# from the state beside it (frame %llu)\n", (unsigned long long)first);
+		segment_sync = 1;    /* (the controls as the state has them: the changes from there) */
+	}
+	else
+		fprintf(inputs_out, "0 dsw1 %02x\n0 dsw2 %02x\n", gng.inputs.dsw1, gng.inputs.dsw2);
+	segment_first = first;
+	segment_played = 0;
+}
+
+/* the replays for the menu: their names, labels and values */
+static void refresh_replays(void)
+{
+	char folder[1300], labels[MENU_REPLAYS][16], values[MENU_REPLAYS][16];
+	replays_folder(folder, sizeof(folder));
+	const int count = replays_list(folder, replay_names, MENU_REPLAYS);
+	for (int i = 0; i < count; i++)
+		replays_describe(folder, replay_names[i], labels[i], sizeof(labels[i]), values[i], sizeof(values[i]));
+	menu_replays(count, labels, values);
+}
+
+static int read_script(const char *path);
+
+/* A replay chosen: from the next power on, its mode, its DIP switches and its controls (its state first if it
+   has one) */
+static void prepare_replay(void)
+{
+	char inp[1400], line[256];
+	snprintf(inp, sizeof(inp), "%s.inp", replay_pending);
+	snprintf(replay_state, sizeof(replay_state), "%s.state", replay_pending);
+	replay_pending[0] = 0;
+	FILE *file = fopen(inp, "r");
+	if (!file)
+	{
+		tell("NO SUCH REPLAY");
+		return;
+	}
+	int board = 0;
+	long end = -1;
+	while (fgets(line, sizeof(line), file))
+		if (line[0] == '#')
+		{
+			board |= strstr(line, "(board mode)") != NULL;
+			sscanf(line, "# end %ld", &end);
+		}
+	fclose(file);
+	FILE *state = fopen(replay_state, "rb");
+	if (state)
+		fclose(state);
+	else
+		replay_state[0] = 0;
+	end_segment();
+	if (!replay_playing)
+	{
+		replay_saved_accuracy = accuracy_given;
+		replay_saved_dsw[0] = dsw_given[0];
+		replay_saved_dsw[1] = dsw_given[1];
+	}
+	free(script);
+	script = NULL;
+	script_count = 0;
+	if (!read_script(inp))
+		return;
+	accuracy_given = board;
+	replay_end = end >= 0 ? end : script_count ? script[script_count - 1].frame : 0;
+	replay_playing = 1;
+	tell("REPLAY");
+}
+
+/* the replay over (or ended by a reset, a state, the practice): the controls the player's again */
+static void stop_replay(void)
+{
+	if (!replay_playing)
+		return;
+	replay_playing = 0;
+	free(script);
+	script = NULL;
+	script_count = script_next = 0;
+	accuracy_given = replay_saved_accuracy;
+	dsw_given[0] = replay_saved_dsw[0];
+	dsw_given[1] = replay_saved_dsw[1];
+	logged[0] = gng.inputs.system;
+	logged[1] = gng.inputs.p1;
+	logged[2] = gng.inputs.p2;
+}
+
+/* the practice's area starts: states/practice-AREA-MODE-DSW1DSW2.state (the DIP switches' lives, difficulty...
+   are in it) */
+static void practice_path(char *path, size_t size, int area)
+{
+	const int folder = (int)(file_name(settings_path) - settings_path);
+	snprintf(path, size, "%.*sstates/practice-%d-%s-%02x%02x.state", folder, settings_path, area + 1,
+		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame", gng.inputs.dsw1, gng.inputs.dsw2);
+}
+
+/* An area's start reached from the power on, at each VBLANK: a coin, 1 player's start, the area written into the
+   stage (<$72, right after the start: tests/controls/make_stages.py's), the controls left alone; the start is the
+   first VBLANK where the stage's own state (<$71: 0 its start, 1 playing, 7AA0) says playing. There the state is
+   saved (kept for the next time) and the game is the player's */
+static void make_practice(uint64_t frame)
+{
+	static const struct { uint64_t frame; uint8_t system; } presses[] = {
+		{ 1300, 0xBF }, { 1306, 0xFF }, { 1400, 0xFE }, { 1406, 0xFF } };
+	gng.inputs.system = 0xFF;
+	gng.inputs.p1 = gng.inputs.p2 = 0xFF;
+	for (size_t i = 0; i < sizeof(presses) / sizeof(presses[0]); i++)
+		if (frame >= presses[i].frame)
+			gng.inputs.system = presses[i].system;
+	if (frame == 1410)
+		gng.ram[0x72] = (uint8_t)practice_making;
+	/* (the window kept alive: its events now and then, a picture with the notice) */
+	if (frame % 30 == 0)
+	{
+		SDL_Event event;
+		while (SDL_PollEvent(&event))
+			if (event.type == SDL_QUIT)
+				quit_requested = 1;
+		gng_video_render(pixels);
+		update_picture(pixels);
+		show_picture();
+	}
+	if (quit_requested)
+	{
+		practice_making = -1;
+		m6809_request_stop();
+		return;
+	}
+	if (frame > 1410 && gng.ram[0x71] == 1 && gng.ram[0x72] == (uint8_t)practice_making)
+	{
+		static char path[1300];
+		char text[32];
+		make_states_folder();
+		practice_path(path, sizeof(path), practice_making);
+		save_to = path;
+		save_quietly = 1;
+		m6809_at_boundary(save_state);
+		snprintf(text, sizeof(text), "PRACTICE: AREA %d", practice_making + 1);
+		practice_making = -1;
+		next_frame = 0;
+		read_controls();
+		tell(text);
+	}
+}
+
+/* the state back from 'path', the program on from it (from the end of on_vblank: this does not return if it
+   loads), 'done' (or "STATE n LOADED") told; 0 and a notice if it cannot */
+static int load_state(const char *path, int slot, const char *done)
+{
+	char text[64];
+	FILE *file = fopen(path, "rb");
+	if (!file)
+	{
+		snprintf(text, sizeof(text), "NO STATE IN SLOT %d", slot);
+		tell(slot ? text : "NO STATE FILE");
+		return 0;
+	}
+	const size_t size = gng_state_size();
+	uint8_t *state = malloc(size + 1);
+	const size_t got = state ? fread(state, 1, size + 1, file) : 0;
+	fclose(file);
+	const char *problem = state ? gng_state_check(state, got) : "no memory";
+	if (problem)
+	{
+		snprintf(text, sizeof(text), "%s", problem);
+		for (char *c = text; *c; c++)
+			*c = (char)toupper((unsigned char)*c);
+		tell(text);
+		free(state);
+		return 0;
+	}
+	/* the port's own count of the frames, the panels' slowdown, an input script's place: from the state's frame */
+	const uint64_t frame = gng_state_frame(state);
+	current_frame = frame - 1;
+	last_irq_frame = frame - 1;
+	memset(lost_history, 0, sizeof(lost_history));
+	script_next = 0;
+	while (script && script_next < script_count && script[script_next].frame < (int64_t)frame)
+		script_next++;
+	snprintf(text, sizeof(text), "STATE %d LOADED", slot);
+	tell(done ? done : slot ? text : "STATE LOADED");
+	hiscore_after_load = 1;
+	irq_seen = 1;
+	begin_segment(path, frame);
+	static uint8_t *loaded;
+	free(loaded);
+	loaded = state;
+	gng_state_load(loaded);
+	return 1;
 }
 
 static void show_picture(void)
@@ -260,13 +666,6 @@ static void update_title(void)
 
 /* ---- the recordings ---- */
 
-static const char *file_name(const char *path)
-{
-	const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
-	const char *cut = back > slash ? back : slash;
-	return cut ? cut + 1 : path;
-}
-
 static void start_recording(const char *path)
 {
 	if (recorder_open(path))
@@ -310,6 +709,14 @@ static void log_input(uint64_t frame, const char *port, unsigned value)
 {
 	if (inputs_out)
 		fprintf(inputs_out, "%llu %s %02x\n", (unsigned long long)frame, port, value);
+}
+
+/* a byte the port wrote into the work RAM (the kept ranking): as an input script's "mADDR" */
+static void log_ram_write(uint64_t frame, uint16_t address, uint8_t value)
+{
+	char name[8];
+	snprintf(name, sizeof(name), "m%04x", address);
+	log_input(frame, name, value);
 }
 
 /* the controls as the board reads them from this VBLANK on: their changes written */
@@ -473,6 +880,7 @@ static void play_script(uint64_t frame)
 
 static void open_menu(void)
 {
+	refresh_replays();
 	menu_open();
 	menu_shown = 1;
 	audio_out_pause(1);
@@ -500,7 +908,21 @@ static void menu_input(const SDL_Event *event)
 	if (result == MENU_STAY)
 		return;
 	close_menu();
-	if (result == MENU_RESET)
+	if (result == MENU_REPLAY)
+	{
+		char folder[1300];
+		replays_folder(folder, sizeof(folder));
+		snprintf(replay_pending, sizeof(replay_pending), "%s/%s", folder, replay_names[menu_replay_chosen()]);
+		reset_requested = 1;
+		menu_frame = -1;    /* (--menu's, once) */
+	}
+	else if (result == MENU_PRACTICE)
+		practice_requested = menu_practice_area();
+	else if (result == MENU_SAVE_STATE)
+		save_requested = 1;
+	else if (result == MENU_LOAD_STATE)
+		load_requested = 1;
+	else if (result == MENU_RESET)
 		reset_requested = 1;
 	else if (result == MENU_QUIT)
 		quit_requested = 1;
@@ -542,6 +964,17 @@ static void handle_event(const SDL_Event *event)
 			toggle_fullscreen();
 		else if (is_hotkey(code, HOTKEY_RECORD))
 			toggle_recording();
+		else if (is_hotkey(code, HOTKEY_SAVE_STATE))
+			save_requested = 1;
+		else if (is_hotkey(code, HOTKEY_LOAD_STATE))
+			load_requested = 1;
+		else if (is_hotkey(code, HOTKEY_STATE_SLOT))
+		{
+			char text[32];
+			options.state_slot = options.state_slot % STATE_SLOTS + 1;
+			snprintf(text, sizeof(text), "STATE SLOT %d", options.state_slot);
+			tell(text);
+		}
 		else if (is_hotkey(code, HOTKEY_PAUSE))
 		{
 			paused = !paused;
@@ -566,6 +999,8 @@ static void handle_event(const SDL_Event *event)
 
 static void on_sample(int16_t sample)
 {
+	if (practice_making >= 0)
+		return;
 	audio_out_sample(sample);
 	recorder_sample(sample);
 }
@@ -657,12 +1092,18 @@ static void on_vblank(uint64_t frame)
 	if (frames_to_run >= 0 && (long)frame >= frames_to_run)
 		quit_requested = 1;
 	gng_sound_run_until(2 * (GNG_VBLANK_CYCLE + frame * GNG_CPU_CYCLES_PER_FRAME));
+	if (practice_making >= 0)
+	{
+		make_practice(frame);
+		return;
+	}
 	if (sound_on)
 		audio_out_frame(speed);
 	gng_video_render(pixels);
 	recorder_frame(pixels);
 	if ((long)frame == menu_frame)
 	{
+		refresh_replays();
 		menu_open();
 		if (menu_keys)
 		{
@@ -674,22 +1115,22 @@ static void on_vblank(uint64_t frame)
 				SDL_zero(key);
 				key.type = SDL_KEYDOWN;
 				key.key.keysym.scancode = SDL_GetScancodeFromName(name);
-				int changed;
-				menu_event(&key, &options, &changed);
+				/* (as on the open menu: a choice that closes it is made, a state's load at this VBLANK's end) */
+				menu_input(&key);
 			}
 			settings_save(&options, settings_path);
 		}
 		memcpy(menu_pixels, pixels, sizeof(pixels));
 		menu_draw(menu_pixels, &options);
-		SDL_UpdateTexture(picture, NULL, menu_pixels, GNG_SCREEN_WIDTH * 4);
+		update_picture(menu_pixels);
 	}
 	else
-		SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
+		update_picture(pixels);
 	show_picture();
 
 	while (SDL_PollEvent(&event))
 		handle_event(&event);
-	while ((paused || menu_shown) && !quit_requested && !reset_requested)
+	while ((paused || menu_shown) && !quit_requested && !reset_requested && !load_requested)
 	{
 		if (SDL_WaitEventTimeout(&event, 50))
 			handle_event(&event);
@@ -697,10 +1138,10 @@ static void on_vblank(uint64_t frame)
 		{
 			memcpy(menu_pixels, pixels, sizeof(pixels));
 			menu_draw(menu_pixels, &options);
-			SDL_UpdateTexture(picture, NULL, menu_pixels, GNG_SCREEN_WIDTH * 4);
+			update_picture(menu_pixels);
 		}
 		else
-			SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
+			update_picture(pixels);
 		show_picture();
 		next_frame = 0;
 	}
@@ -712,12 +1153,81 @@ static void on_vblank(uint64_t frame)
 		update_title();
 		m6809_request_stop();
 	}
+	if (segment_sync)
+	{
+		/* (a replay from a state: its controls as the state has them, the changes from there) */
+		logged[0] = gng.inputs.system;
+		logged[1] = gng.inputs.p1;
+		logged[2] = gng.inputs.p2;
+		segment_sync = 0;
+	}
+	if (replay_playing && script_next >= script_count && (long)frame > replay_end)
+	{
+		stop_replay();
+		tell("REPLAY OVER: YOUR GAME");
+	}
 	if (script)
 		play_script(frame);
 	else
 		read_controls();
+	if (gng.ram[0x28] && irq_seen)
+		segment_played = 1;    /* (<$28: a game is played; the boot's RAM checks are before the first IRQ) */
+	/* the ranking kept between sessions (not with an input script but with --high-scores: the checks' runs are
+	   the board's own) */
+	if (options.keep_high_scores && (!script || high_scores_given))
+	{
+		if (hiscore_after_load)
+			hiscore_state_loaded(gng.ram);
+		hiscore_vblank(gng.ram, frame, log_ram_write);
+	}
+	hiscore_after_load = 0;
 	log_controls(frame);
 	wait_for_next_frame();
+	/* a state: saved at the next instruction boundary; loaded now, the program going on from it (leaving this
+	   VBLANK's instruction) */
+	if ((long)frame == save_frame)
+	{
+		save_requested = 1;
+		save_frame = -1;
+	}
+	if (save_requested)
+	{
+		save_requested = 0;
+		m6809_at_boundary(save_state);
+	}
+	if ((practice_requested >= 0 || load_requested) && replay_playing)
+		stop_replay();
+	if (practice_requested >= 0)
+	{
+		/* the area's start kept: from it; else reached from the power on (make_practice) */
+		char path[1300], text[32];
+		const int area = practice_requested;
+		practice_requested = -1;
+		menu_frame = -1;    /* (--menu's, once) */
+		practice_path(path, sizeof(path), area);
+		FILE *kept = fopen(path, "rb");
+		if (kept)
+		{
+			fclose(kept);
+			snprintf(text, sizeof(text), "PRACTICE: AREA %d", area + 1);
+			if (load_state(path, 0, text))
+				return;
+		}
+		snprintf(text, sizeof(text), "PREPARING AREA %d", area + 1);
+		tell(text);
+		practice_making = area;
+		reset_requested = 1;
+		m6809_request_stop();
+		return;
+	}
+	if (load_requested)
+	{
+		char path[1300];
+		load_requested = 0;
+		menu_frame = -1;    /* (--menu's, once: the state may go back before its frame) */
+		state_path(path, sizeof(path), options.state_slot);
+		load_state(path, options.state_slot, NULL);
+	}
 }
 
 static void on_fault(const char *what, uint16_t pc)
@@ -738,10 +1248,11 @@ static void power_on(void)
 	gng.inputs.dsw2 = dsw_given[1] >= 0 ? (uint8_t)dsw_given[1] : options.dsw2;
 	/* the controls at the power on: none pressed (an input script's changes are from there) */
 	logged[0] = logged[1] = logged[2] = 0xFF;
-	if (inputs_out)
+	if (inputs_out && user_inputs)
 		fprintf(inputs_out, "# makaimura --record-inputs (%s mode)\n0 dsw1 %02x\n0 dsw2 %02x\n",
 			gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "MAME", gng.inputs.dsw1, gng.inputs.dsw2);
 	gng_video_decode();
+	hiscore_power_on();
 	gng_snd.on_sample = on_sample;
 	gng_sound_power_on(roms.audiocpu, gng.accuracy == GNG_ACCURACY_MAME);
 	gng.on_sound_latch = on_latch;
@@ -822,8 +1333,20 @@ int main(int argc, char *argv[])
 			hidden = 1;
 		else if (!strcmp(argv[i], "--record") && i + 1 < argc)
 			record_path = argv[++i];
+		else if (!strcmp(argv[i], "--save-state") && i + 2 < argc)
+		{
+			save_frame = atol(argv[++i]);
+			save_to = argv[++i];
+		}
+		else if (!strcmp(argv[i], "--keep-replays"))
+			replays_given = 1;
+		else if (!strcmp(argv[i], "--high-scores"))
+			high_scores_given = 1;
+		else if (!strcmp(argv[i], "--load-state") && i + 1 < argc)
+			load_from = argv[++i];
 		else if (!strcmp(argv[i], "--record-inputs") && i + 1 < argc)
 		{
+			user_inputs = 1;
 			if (!(inputs_out = fopen(argv[++i], "w")))
 			{
 				fprintf(stderr, "makaimura: %s could not be made\n", argv[i]);
@@ -876,6 +1399,13 @@ int main(int argc, char *argv[])
 	}
 	SDL_free(base);
 
+	/* the kept ranking: makaimura.hi beside the settings */
+	{
+		char path[1300];
+		snprintf(path, sizeof(path), "%.*smakaimura.hi", (int)(file_name(settings_path) - settings_path), settings_path);
+		hiscore_open(path);
+	}
+
 	const int height = GNG_SCREEN_HEIGHT * options.scale;
 	window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		(int)lround(height * (options.panels ? 16.0 / 9.0 : picture_aspect())), height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
@@ -909,7 +1439,22 @@ int main(int argc, char *argv[])
 	{
 		reset_requested = 0;
 		script_next = 0;
+		/* a replay: from its power on (or state); a reset ends one */
+		if (replay_pending[0])
+			prepare_replay();
+		else
+			stop_replay();
 		power_on();
+		if (replay_playing && replay_state[0])
+			load_state(replay_state, 0, "REPLAY");
+		else
+			begin_segment(NULL, 0);
+		/* (--load-state: the first run from it) */
+		if (load_from)
+		{
+			load_state(load_from, 0, NULL);
+			load_from = NULL;
+		}
 		m6809_run(UINT64_MAX);
 	} while (reset_requested && !quit_requested);
 	if (frames_to_run >= 0 || shot_path)
@@ -919,6 +1464,8 @@ int main(int argc, char *argv[])
 	if (frames_to_run >= 0 || shot_path)
 		audio_out_report();
 	stop_recording();
+	end_segment();
+	hiscore_close();
 	if (inputs_out)
 		fclose(inputs_out);
 	audio_out_close();

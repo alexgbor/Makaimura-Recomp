@@ -42,6 +42,9 @@ enum
 	HOTKEY_QUIT,
 	HOTKEY_MENU,           /* the menu (menu.h): the game's options, the picture, the sound */
 	HOTKEY_RECORD,         /* a recording (recorder.h) started or stopped */
+	HOTKEY_SAVE_STATE,     /* the board's state into the slot (gng/state.h) */
+	HOTKEY_LOAD_STATE,     /* the slot's state back */
+	HOTKEY_STATE_SLOT,     /* the next slot */
 	HOTKEYS
 };
 
@@ -63,6 +66,8 @@ typedef struct settings
 	/* [game]: the DIP switches as the board reads them (3003, 3004) */
 	uint8_t dsw1, dsw2;
 	int accuracy;         /* gng/board.h's gng_accuracy_mode: 0 MAME 1:1, 1 the board's (docs/accuracy.md) */
+	bool keep_high_scores;    /* the ranking kept between sessions (hiscore.h) */
+	bool keep_replays;        /* every game kept as a replay (replays.h) */
 	/* [window] */
 	int scale;            /* the window's height, in the picture's lines (224 each) */
 	bool fullscreen;
@@ -87,7 +92,11 @@ typedef struct settings
 	pad_input menu_buttons[BINDINGS_MAX];
 	bool left_stick;      /* the left stick moves too */
 	int stick_dead;       /* how far it goes before it counts, in % */
+	/* (not kept in the file) */
+	int state_slot;       /* the save states' slot, 1-STATE_SLOTS */
 } settings;
+
+#define STATE_SLOTS 8
 
 extern const char *const settings_action_names[ACTIONS];
 extern const char *const settings_aspect_names[ASPECTS];

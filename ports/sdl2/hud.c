@@ -266,7 +266,7 @@ static void right_panel(uint32_t *p, const hud_info *info)
 		TITLE_ROOM + 30 + 8 + PAD,
 		TITLE_ROOM + 2 * LINE + 15 + PAD,
 		info->debug ? TITLE_ROOM + LINE + 8 + PAD : 0,
-		TITLE_ROOM + LINE + 8 + PAD,
+		TITLE_ROOM + 2 * LINE + 8 + PAD,
 		TITLE_ROOM + (HUD_HOTKEYS - 1) * 12 + 8 + PAD,
 	};
 	layout at[COUNT];
@@ -321,12 +321,16 @@ static void right_panel(uint32_t *p, const hud_info *info)
 
 	section(p, at[STATUS].top, at[STATUS].height, "STATUS", yellow);
 	y = at[STATUS].content;
-	text(p, y, info->paused ? "PAUSED" : "RUNNING", info->paused ? yellow : green);
+	text(p, y, info->paused ? "PAUSED" : info->replay ? "REPLAY" : "RUNNING",
+		info->paused ? yellow : info->replay ? cyan : green);
+	text(p, y + LINE, "STATE SLOT", grey);
+	snprintf(line, sizeof(line), "%d", info->state_slot);
+	right_text(p, y + LINE, line, white);
 	if (info->recording)
-		text(p, y + LINE, "RECORDING", red);
+		text(p, y + 2 * LINE, "RECORDING", red);
 
 	/* the window's keys, as makaimura.ini has them */
-	static const char *const names[HUD_HOTKEYS] = { "MENU", "PAUSE", "RESET", "REC", "FULL" };
+	static const char *const names[HUD_HOTKEYS] = { "MENU", "PAUSE", "SAVE", "LOAD", "SLOT", "RESET", "REC" };
 	section(p, at[KEYS].top, at[KEYS].height, "KEYS", yellow);
 	y = at[KEYS].content;
 	for (int i = 0; i < HUD_HOTKEYS; i++, y += 12)

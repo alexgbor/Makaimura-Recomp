@@ -25,7 +25,8 @@ static const char *const action_help[ACTIONS] = {
 	"the coin slots", NULL, "the service switch",
 	"the second player's controls (a cocktail cabinet's second player; on the gamepad, the second gamepad)",
 	NULL, NULL, NULL, NULL, NULL };
-static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit", "menu", "record" };
+static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen", "quit", "menu", "record",
+	"save_state", "load_state", "state_slot" };
 const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
 const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
 #define aspect_names settings_aspect_names
@@ -145,6 +146,8 @@ void settings_defaults(settings *s)
 	s->smooth = false;
 	s->vsync = true;
 	s->panels = true;
+	s->keep_high_scores = true;
+	s->keep_replays = true;
 	s->panels_debug = false;
 	s->sync = SYNC_BOARD;
 	s->sound = true;
@@ -174,6 +177,10 @@ void settings_defaults(settings *s)
 	keys(s->hot_keys[HOTKEY_QUIT], 0, 0);
 	keys(s->hot_keys[HOTKEY_MENU], SDL_SCANCODE_ESCAPE, SDL_SCANCODE_F1);
 	keys(s->hot_keys[HOTKEY_RECORD], SDL_SCANCODE_F12, 0);
+	keys(s->hot_keys[HOTKEY_SAVE_STATE], SDL_SCANCODE_F5, 0);
+	keys(s->hot_keys[HOTKEY_LOAD_STATE], SDL_SCANCODE_F7, 0);
+	keys(s->hot_keys[HOTKEY_STATE_SLOT], SDL_SCANCODE_F6, 0);
+	s->state_slot = 1;
 	buttons(s->buttons[ACTION_UP], SDL_CONTROLLER_BUTTON_DPAD_UP, -1);
 	buttons(s->buttons[ACTION_DOWN], SDL_CONTROLLER_BUTTON_DPAD_DOWN, -1);
 	buttons(s->buttons[ACTION_LEFT], SDL_CONTROLLER_BUTTON_DPAD_LEFT, -1);
@@ -303,6 +310,10 @@ static int set(settings *s, const char *section, const char *name, char *value)
 				return s->accuracy = 1, 1;
 			return 0;
 		}
+		if (!SDL_strcasecmp(name, "keep_high_scores") && (n = boolean(value)) >= 0)
+			return s->keep_high_scores = n, 1;
+		if (!SDL_strcasecmp(name, "keep_replays") && (n = boolean(value)) >= 0)
+			return s->keep_replays = n, 1;
 		for (i = 0; i < DIPS; i++)
 			if (!SDL_strcasecmp(name, dips[i].name))
 			{
@@ -472,6 +483,10 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "; mame: the board exactly as MAME 0.289 models it (checked against MAME frame by frame); board: what\n"
 		"; the real board does and MAME leaves out (docs/accuracy.md: the sprite DMA halting the CPU, the palette flashes). From the\n"
 		"; board's start (F3)\naccuracy = %s\n", s->accuracy ? "board" : "mame");
+	fprintf(file, "; the ranking kept between sessions in makaimura.hi beside this file (written back as the board "
+		"starts)\nkeep_high_scores = %s\n", s->keep_high_scores ? "true" : "false");
+	fprintf(file, "; every game kept as a replay in replays/ beside this file (the last 50; the menu's REPLAYS plays "
+		"them)\nkeep_replays = %s\n", s->keep_replays ? "true" : "false");
 	for (int i = 0; i < DIPS; i++)
 	{
 		const uint8_t port = dips[i].port == 1 ? s->dsw1 : s->dsw2;

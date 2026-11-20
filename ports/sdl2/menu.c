@@ -19,12 +19,17 @@
 #include <string.h>
 
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
-	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS };
+	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
+	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
-static item main_items[40], control_items[40], game_items[40], video_items[40];
-static int main_count, control_count, game_count, video_count;
+static item main_items[40], control_items[40], game_items[40], video_items[40], practice_items[16];
+static int main_count, control_count, game_count, video_count, practice_count;
+static int practice_chosen;
+static item replay_items[MENU_REPLAYS + 4];
+static int replay_count, replay_chosen;
+static char replay_labels[MENU_REPLAYS][16], replay_values[MENU_REPLAYS][16];
 static item *items = main_items;
 static int item_count;
 static int selected, main_selected;
@@ -47,7 +52,8 @@ static void add(int kind, int dip, const char *label)
 static const char *const action_labels[ACTIONS] = {
 	"UP", "DOWN", "LEFT", "RIGHT", "ATTACK", "JUMP", "START 1P", "START 2P", "COIN 1", "COIN 2", "SERVICE",
 	"UP", "DOWN", "LEFT", "RIGHT", "ATTACK", "JUMP" };
-static const char *const hotkey_labels[HOTKEYS] = { "RESET", "PAUSE", "FULL SCREEN", "QUIT", "MENU", "RECORD" };
+static const char *const hotkey_labels[HOTKEYS] = { "RESET", "PAUSE", "FULL SCREEN", "QUIT", "MENU", "RECORD",
+	"SAVE STATE", "LOAD STATE", "STATE SLOT" };
 
 static void build_controls(void)
 {
@@ -88,12 +94,60 @@ static void build_video(void)
 	video_count = item_count;
 }
 
+static void build_practice(void)
+{
+	static const char *const labels[PRACTICE_AREAS] = { "AREA 1", "AREA 2", "AREA 3", "AREA 4", "AREA 5", "AREA 6" };
+	items = practice_items;
+	item_count = 0;
+	add(HEADER, 0, "PRACTICE: THE 1ST LOOP");
+	for (int a = 0; a < PRACTICE_AREAS; a++)
+		add(PRACTICE, a, labels[a]);
+	add(BLANK, 0, "");
+	add(BACK, 0, "BACK");
+	practice_count = item_count;
+}
+
+int menu_practice_area(void)
+{
+	return practice_chosen;
+}
+
+void menu_replays(int count, const char labels[][16], const char values[][16])
+{
+	item *const kept = items;
+	const int kept_count = item_count;
+	count = count < MENU_REPLAYS ? count : MENU_REPLAYS;
+	items = replay_items;
+	item_count = 0;
+	add(HEADER, 0, count ? "REPLAYS: THE NEWEST FIRST" : "NO REPLAYS YET");
+	for (int i = 0; i < count; i++)
+	{
+		memcpy(replay_labels[i], labels[i], sizeof(replay_labels[i]));
+		memcpy(replay_values[i], values[i], sizeof(replay_values[i]));
+		add(REPLAY, i, replay_labels[i]);
+	}
+	add(BLANK, 0, "");
+	add(BACK, 0, "BACK");
+	replay_count = item_count;
+	items = kept;
+	item_count = kept_count;
+}
+
+int menu_replay_chosen(void)
+{
+	return replay_chosen;
+}
+
 static void build_main(void)
 {
 	items = main_items;
 	item_count = 0;
 	add(HEADER, 0, "PAUSED");
 	add(RESUME, 0, "RESUME");
+	add(SAVE_STATE, 0, "SAVE STATE");
+	add(LOAD_STATE, 0, "LOAD STATE");
+	add(PRACTICE_PAGE, 0, "PRACTICE");
+	add(REPLAYS_PAGE, 0, "REPLAYS");
 	add(BLANK, 0, "");
 	add(GAME_PAGE, 0, "GAME OPTIONS");
 	add(VIDEO_PAGE, 0, "PICTURE AND SOUND");
@@ -143,6 +197,7 @@ void menu_open(void)
 	{
 		build_controls();
 		build_video();
+		build_practice();
 		build();
 		build_main();
 	}
@@ -284,6 +339,9 @@ static void step(settings *s, int direction, int *changed)
 	case PANELS:
 		s->panels = !s->panels;
 		break;
+	case SAVE_STATE: case LOAD_STATE:
+		s->state_slot = (s->state_slot - 1 + direction + STATE_SLOTS) % STATE_SLOTS + 1;
+		break;
 	case FULLSCREEN:
 		*changed |= MENU_CHANGED_FULLSCREEN;
 		break;
@@ -372,6 +430,24 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 		case RESUME: return MENU_RESUME;
 		case RESET: return MENU_RESET;
 		case QUIT: return MENU_QUIT;
+		case SAVE_STATE: return MENU_SAVE_STATE;
+		case LOAD_STATE: return MENU_LOAD_STATE;
+		case PRACTICE:
+			practice_chosen = items[selected].dip;
+			show_page(main_items, main_count, main_selected);
+			return MENU_PRACTICE;
+		case PRACTICE_PAGE:
+			main_selected = selected;
+			show_page(practice_items, practice_count, 0);
+			break;
+		case REPLAYS_PAGE:
+			main_selected = selected;
+			show_page(replay_items, replay_count, 0);
+			break;
+		case REPLAY:
+			replay_chosen = items[selected].dip;
+			show_page(main_items, main_count, main_selected);
+			return MENU_REPLAY;
 		case CONTROLS:
 			main_selected = selected;
 			show_page(control_items, control_count, 0);
@@ -490,8 +566,10 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case SMOOTH: return s->smooth ? "SMOOTH" : "SHARP";
 	case FULLSCREEN: return s->fullscreen ? "ON" : "OFF";
 	case VOLUME: snprintf(buffer, size, "%d", s->volume); return buffer;
-	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: return ">";
+	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: case PRACTICE_PAGE: case REPLAYS_PAGE: return ">";
+	case REPLAY: return replay_values[it->dip];
 	case PANELS: return s->panels ? "ON" : "OFF";
+	case SAVE_STATE: case LOAD_STATE: snprintf(buffer, size, "SLOT %d", s->state_slot); return buffer;
 	default: return "";
 	}
 }
@@ -504,6 +582,7 @@ static const char *hint_of(const item *it)
 	case ACCURACY: return "FROM THE BOARD'S START: F3";
 	case ASPECT: return "AS THE ARCADE'S MONITOR, OR 1:1";
 	case RESET: return "THE BOARD'S POWER CYCLED";
+	case SAVE_STATE: case LOAD_STATE: return "LEFT, RIGHT: THE SLOT";
 	case ACTION: case HOTKEY: return "ENTER: CHANGE  DELETE: DEFAULT";
 	default: return "";
 	}
@@ -515,6 +594,17 @@ static const char *help_of(const item *it)
 	switch (it->kind)
 	{
 	case RESUME: return "BACK TO THE GAME, FROM THE SAME FRAME.";
+	case SAVE_STATE: return "THE WHOLE BOARD INTO THE SLOT (LEFT, RIGHT: WHICH ONE), TO GO ON FROM LATER EXACTLY AS IT "
+		"WOULD HAVE. KEYS: F5 SAVES, F6 THE NEXT SLOT, F7 LOADS.";
+	case PRACTICE_PAGE: return "A GAME FROM THE START OF ANY AREA OF THE FIRST LOOP.";
+	case REPLAYS_PAGE: return "THE GAMES PLAYED, AS THEY WERE: EVERY GAME IS KEPT (THE LAST 50) IN REPLAYS/.";
+	case REPLAY: return "THIS GAME AGAIN, FRAME FOR FRAME, IN THE MODE IT WAS PLAYED IN (+: FROM A STATE). THE KEYS "
+		"WAIT; AT ITS END THE GAME IS YOURS. RESET (F3) ENDS IT.";
+	case PRACTICE: return "A NEW GAME FROM THIS AREA'S START: THE BOARD'S OWN GAME WITH ITS STAGE SET AS THE PLAYER "
+		"STARTS, THE LANCE, THE LIVES OF THE GAME OPTIONS. THE FIRST TIME IT IS PREPARED (A FEW SECONDS), THEN KEPT "
+		"IN STATES/.";
+	case LOAD_STATE: return "THE GAME BACK AS THE SLOT KEPT IT (LEFT, RIGHT: WHICH ONE). A STATE IS FOR THE ACCURACY MODE "
+		"IT WAS SAVED IN.";
 	case GAME_PAGE: return "THE BOARD'S DIP SWITCHES: LIVES, DIFFICULTY, BONUS LIFE, COINAGE... READ AS THE BOARD STARTS (F3).";
 	case VIDEO_PAGE: return "THE PICTURE'S SHAPE AND SIZE, SHARP OR SMOOTH PIXELS, FULL SCREEN, THESE PANELS, THE VOLUME.";
 	case CONTROLS: return "EVERY KEY AND BUTTON, PLAYER 2'S TOO, AND THE WINDOW'S OWN KEYS.";
@@ -537,6 +627,17 @@ void menu_help(const char **title, const char **text)
 {
 	*title = items[selected].label;
 	*text = capturing ? "PRESS THE KEY OR THE PAD'S BUTTON FOR IT. ESC: AS IT WAS" : help_of(&items[selected]);
+}
+
+void menu_draw_notice(uint32_t *pixels, const char *text)
+{
+	const int length = (int)strlen(text) < COLUMNS ? (int)strlen(text) : COLUMNS;
+	const int column = (COLUMNS - length) / 2;
+	for (int y = 27 * 8 - 2; y < 28 * 8; y++)
+		for (int x = (column - 1) * 8; x < (column + length + 1) * 8; x++)
+			if (x >= 0 && x < GNG_SCREEN_WIDTH)
+				pixels[y * GNG_SCREEN_WIDTH + x] = bar;
+	put_text(pixels, column, 27, text, yellow);
 }
 
 void menu_draw(uint32_t *pixels, const settings *s)
