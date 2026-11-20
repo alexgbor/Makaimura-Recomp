@@ -51,7 +51,8 @@ def run_mame(mame, frames, inputs, out, dumps, pictures=None, every=0, dsw=(None
     command = [mame, "makaimurg", "-rompath", os.path.join(ROOT, "rom"), "-autoboot_script",
                os.path.join(TOOLS, "mame", "trace.lua"), "-video", "none", "-sound", "none", "-nothrottle", "-seconds_to_run", str(frames // 50 + 30),
                "-skip_gameinfo", "-nonvram_save", "-noreadconfig", "-cfg_directory",
-               os.path.join(ROOT, "build", "mame_cfg"), "-nvram_directory", os.path.join(ROOT, "build", "mame_nvram")]
+               os.path.join(ROOT, "build", "mame_cfg"), "-nvram_directory", os.path.join(ROOT, "build", "mame_nvram"),
+               "-snapshot_directory", os.path.join(ROOT, "build", "mame_snap")]    # (its picture at the end: never in the repository)
     # MAME writes the game's settings (the DIP switches among them) to its cfg directory when it exits and reads
     # them at the next start, -noreadconfig or not: every run starts from an empty one, MAME's defaults
     shutil.rmtree(os.path.join(ROOT, "build", "mame_cfg"), ignore_errors=True)

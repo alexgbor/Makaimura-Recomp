@@ -43,7 +43,7 @@ def mame_wav(mame, seconds, folder):
     subprocess.run([mame, "makaimurg", "-rompath", os.path.join(ROOT, "rom"), "-video", "none", "-sound", "none",
                     "-nothrottle", "-seconds_to_run", str(seconds), "-skip_gameinfo", "-nonvram_save",
                     "-noreadconfig", "-cfg_directory", os.path.join(folder, "cfg"), "-nvram_directory",
-                    os.path.join(folder, "nvram"), "-wavwrite", out, "-samplerate", str(RATE)],
+                    os.path.join(folder, "nvram"), "-snapshot_directory", os.path.join(folder, "snap"), "-wavwrite", out, "-samplerate", str(RATE)],
                    check=True, capture_output=True)
     return read_wav(out)
 
