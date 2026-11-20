@@ -80,19 +80,13 @@ int replays_list(const char *folder, char names[][REPLAY_NAME], int max)
 	return shown;
 }
 
-void replays_prune(const char *folder)
+void replays_delete(const char *folder, const char *name)
 {
-	char (*all)[REPLAY_NAME];
-	const int count = every(folder, &all);
-	for (int i = REPLAYS_KEPT; i < count; i++)
-	{
-		char path[1400];
-		snprintf(path, sizeof(path), "%s/%s.inp", folder, all[i]);
-		remove(path);
-		snprintf(path, sizeof(path), "%s/%s.state", folder, all[i]);
-		remove(path);
-	}
-	free(all);
+	char path[1400];
+	snprintf(path, sizeof(path), "%s/%s.inp", folder, name);
+	remove(path);
+	snprintf(path, sizeof(path), "%s/%s.state", folder, name);
+	remove(path);
 }
 
 void replays_describe(const char *folder, const char *name, char *label, int label_size, char *value, int value_size)
@@ -101,11 +95,15 @@ void replays_describe(const char *folder, const char *name, char *label, int lab
 	char mode[16] = "";
 	sscanf(name, "%*4d%2d%2d-%2d%2d%*2d-%15[a-z]-%d", &month, &day, &hour, &minute, mode, &seconds);
 	snprintf(label, (size_t)label_size, "%02d-%02d %02d:%02d", month, day, hour, minute);
-	char path[1400];
-	snprintf(path, sizeof(path), "%s/%s.state", folder, name);
-	FILE *state = fopen(path, "rb");
-	if (state)
-		fclose(state);
-	snprintf(value, (size_t)value_size, "%s%s %d:%02d", !strcmp(mode, "board") ? "BOARD" : "MAME", state ? "+" : "",
-		seconds / 60, seconds % 60);
+	/* (its script's first lines say where it starts) */
+	char path[1400], line[128];
+	int from_state = 0;
+	snprintf(path, sizeof(path), "%s/%s.inp", folder, name);
+	FILE *script = fopen(path, "r");
+	for (int i = 0; script && i < 4 && fgets(line, sizeof(line), script); i++)
+		from_state |= strstr(line, "# from a loaded state") != NULL;
+	if (script)
+		fclose(script);
+	snprintf(value, (size_t)value_size, "%s%s %d:%02d", !strcmp(mode, "board") ? "BOARD" : "MAME",
+		from_state ? "+" : "", seconds / 60, seconds % 60);
 }

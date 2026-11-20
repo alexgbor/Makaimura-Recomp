@@ -17,14 +17,20 @@
 #include <stdint.h>
 
 enum { MENU_STAY, MENU_RESUME, MENU_RESET, MENU_QUIT, MENU_SAVE_STATE, MENU_LOAD_STATE, MENU_PRACTICE,
-	MENU_REPLAY };
+	MENU_REPLAY, MENU_DELETE_REPLAY, MENU_KEEP_REPLAY, MENU_DROP_REPLAY };
 
 /* The REPLAYS page's entries (main.c, as the menu opens): each one's label and value, newest first */
 #define MENU_REPLAYS 20
 void menu_replays(int count, const char labels[][16], const char values[][16]);
 
-/* After MENU_REPLAY: the entry chosen (0 the first) */
+/* After MENU_REPLAY or MENU_DELETE_REPLAY: the entry chosen (0 the first) */
 int menu_replay_chosen(void);
+
+/* The REPLAYS page again (after menu_replays: an entry deleted), the selection near 'entry' */
+void menu_show_replays(int entry);
+
+/* A game over: the menu opened on the question whether to keep its replay (MENU_KEEP_REPLAY, MENU_DROP_REPLAY) */
+void menu_ask_keep_replay(void);
 
 /* The practice's areas (the first loop's: the stages 0-5, <$72) */
 #define PRACTICE_AREAS 6

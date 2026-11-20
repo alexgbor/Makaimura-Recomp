@@ -485,8 +485,8 @@ const char *settings_save(const settings *s, const char *path)
 		"; board's start (F3)\naccuracy = %s\n", s->accuracy ? "board" : "mame");
 	fprintf(file, "; the ranking kept between sessions in makaimura.hi beside this file (written back as the board "
 		"starts)\nkeep_high_scores = %s\n", s->keep_high_scores ? "true" : "false");
-	fprintf(file, "; every game kept as a replay in replays/ beside this file (the last 50; the menu's REPLAYS plays "
-		"them)\nkeep_replays = %s\n", s->keep_replays ? "true" : "false");
+	fprintf(file, "; each game recorded, and kept as a replay in replays/ beside this file if you say so at its game "
+		"over\n; (the menu's REPLAYS plays them)\nkeep_replays = %s\n", s->keep_replays ? "true" : "false");
 	for (int i = 0; i < DIPS; i++)
 	{
 		const uint8_t port = dips[i].port == 1 ? s->dsw1 : s->dsw2;

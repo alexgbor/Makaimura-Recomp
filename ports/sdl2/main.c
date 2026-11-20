@@ -25,7 +25,7 @@
  *                       --inputs plays the same game again, in the other accuracy mode for one
  *      --save-state N FILE   (for checks) the board's state after frame N's VBLANK into FILE (gng/state.h)
  *      --high-scores    (for checks) the kept ranking (makaimura.hi) with --inputs too
- *      --keep-replays   (for checks) the game kept as a replay (replays/) with --inputs too
+ *      --keep-replays   (for checks) each game kept as a replay (replays/) with --inputs too, without asking
  *      --load-state FILE     the game from that state instead of the power on (a slot's: states/ beside the
  *                       settings); [keyboard] save_state (F5), load_state (F7), state_slot (F6) at any time
  *
@@ -105,9 +105,11 @@ static uint64_t current_frame;
 
 /* replays (replays.h): the game being kept (its file the controls' input script: inputs_out), the one playing */
 static int user_inputs;                  /* --record-inputs: its file instead */
-static int replays_given;                /* --keep-replays: with --inputs too */
 static char segment_base[1300];          /* the replay being written: its path without .inp ("" none) */
 static int segment_played, segment_sync;
+static int segment_asking;               /* its game is over: kept or not, as the player answers */
+static int keep_replays_given;           /* --keep-replays: with --inputs too, kept without asking */
+static uint8_t last_system = 0xFF;       /* the coins and starts at the last VBLANK */
 static uint64_t segment_first;
 static int replay_playing;
 static char replay_pending[1300];        /* a replay to play from the next power on: its path without .inp */
@@ -271,7 +273,9 @@ static void make_states_folder(void)
 #endif
 }
 
-static void begin_segment(const char *state_file, uint64_t first);
+static void begin_segment(const char *state_file, uint64_t first, int pc);
+static void segment_here(uint16_t pc);
+static void keep_segment(void);
 static int save_requested, load_requested;
 static int hiscore_after_load;           /* a state loaded: the kept ranking into its RAM at the next VBLANK */
 static int high_scores_given;            /* --high-scores */
@@ -280,6 +284,7 @@ static int practice_making = -1;       /* the area whose start is being reached,
 static const char *save_to, *load_from;     /* --save-state, --load-state: a file instead of the slot */
 static long save_frame = -1;
 static int save_quietly;                    /* (the practice's: its own notice) */
+static int boundary_save, boundary_segment;    /* what the next instruction boundary does */
 
 /* at the instruction boundary after the request: the state into the slot's file */
 static void save_state(uint16_t pc)
@@ -314,10 +319,31 @@ static void save_state(uint16_t pc)
 		/* (the practice's start: the replay from it) */
 		m6809_state now;
 		m6809_state_get(&now);
-		begin_segment(path, now.frame);
+		begin_segment(path, now.frame, -1);
 	}
 	save_to = NULL;
 	save_quietly = 0;
+}
+
+/* the next instruction boundary's jobs: a state saved, a replay begun */
+static void at_boundary(uint16_t pc)
+{
+	if (boundary_save)
+	{
+		boundary_save = 0;
+		save_state(pc);
+	}
+	if (boundary_segment)
+	{
+		boundary_segment = 0;
+		segment_here(pc);
+	}
+}
+
+static void request_boundary(int *job)
+{
+	*job = 1;
+	m6809_at_boundary(at_boundary);
 }
 
 static void show_picture(void);
@@ -345,44 +371,65 @@ static int copy_file(const char *from, const char *to)
 	return good;
 }
 
-/* the replay being written closed: kept (its length in its name) if a game was played in it, else let go */
-static void end_segment(void)
+/* the replay being written given up (a reset, a state loaded, quitting before its game over): its files removed */
+static void drop_segment(void)
 {
 	if (!segment_base[0])
 		return;
-	char inp[1400], state[1400], folder[1300];
+	char path[1400];
+	if (inputs_out)
+		fclose(inputs_out);    /* (closed already if its question was open) */
+	inputs_out = NULL;
+	snprintf(path, sizeof(path), "%s.part", segment_base);
+	remove(path);
+	snprintf(path, sizeof(path), "%s.state", segment_base);
+	remove(path);
+	segment_base[0] = 0;
+	segment_asking = 0;
+}
+
+/* Its game over: the replay closed, the player asked whether to keep it (menu_ask_keep_replay) */
+static void finish_segment(void)
+{
 	fprintf(inputs_out, "# end %llu\n", (unsigned long long)current_frame);    /* (its last frame: the replay's) */
 	fclose(inputs_out);
 	inputs_out = NULL;
-	snprintf(inp, sizeof(inp), "%s.part", segment_base);
-	snprintf(state, sizeof(state), "%s.state", segment_base);
-	if (!segment_played)
+	segment_asking = 1;
+	if (keep_replays_given)
 	{
-		remove(inp);
-		remove(state);
+		/* (--keep-replays: kept without asking) */
+		keep_segment();
+		return;
 	}
-	else
-	{
-		char named[1400];
-		const unsigned seconds = (unsigned)((current_frame + 1 - segment_first) / FRAME_RATE);
-		snprintf(named, sizeof(named), "%s-%04u.inp", segment_base, seconds);
-		rename(inp, named);
-		snprintf(named, sizeof(named), "%s-%04u.state", segment_base, seconds);
-		rename(state, named);
-		replays_folder(folder, sizeof(folder));
-		replays_prune(folder);
-	}
-	segment_base[0] = 0;
+	menu_ask_keep_replay();
+	menu_shown = 1;
+	audio_out_pause(1);
 }
 
-/* A replay starts being written: from the power on, or from a state ('state_file', copied beside it, the game on
-   from its frame) */
-static void begin_segment(const char *state_file, uint64_t first)
+/* the answer: kept (its length in its name: .inp, .state) or let go */
+static void keep_segment(void)
 {
-	end_segment();
-	if (user_inputs || !options.keep_replays || replay_playing || (script && !replays_given))
+	char from[1400], to[1400];
+	const unsigned seconds = (unsigned)((current_frame + 1 - segment_first) / FRAME_RATE);
+	snprintf(from, sizeof(from), "%s.part", segment_base);
+	snprintf(to, sizeof(to), "%s-%04u.inp", segment_base, seconds);
+	rename(from, to);
+	snprintf(from, sizeof(from), "%s.state", segment_base);
+	snprintf(to, sizeof(to), "%s-%04u.state", segment_base, seconds);
+	rename(from, to);
+	segment_base[0] = 0;
+	segment_asking = 0;
+	tell("REPLAY KEPT");
+}
+
+/* A replay starts being written, from a state: the board's now at this instruction boundary ('pc': a game just
+   begun) or a file's ('state_file': a slot's or a practice's, copied beside it); the game on from frame 'first' */
+static void begin_segment(const char *state_file, uint64_t first, int pc)
+{
+	drop_segment();
+	if (user_inputs || !options.keep_replays || replay_playing || (script && !keep_replays_given))
 		return;
-	char folder[1300], inp[1400];
+	char folder[1300], inp[1400], state[1400];
 	replays_folder(folder, sizeof(folder));
 #ifdef _WIN32
 	_mkdir(folder);
@@ -394,25 +441,45 @@ static void begin_segment(const char *state_file, uint64_t first)
 	strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", localtime(&now));
 	snprintf(segment_base, sizeof(segment_base), "%s/%s-%s", folder, stamp,
 		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame");
-	snprintf(inp, sizeof(inp), "%s.part", segment_base);    /* (.inp once closed) */
-	if (!(inputs_out = fopen(inp, "w")))
+	snprintf(state, sizeof(state), "%s.state", segment_base);
+	int written = 0;
+	if (state_file)
+		written = copy_file(state_file, state);
+	else
 	{
+		const size_t size = gng_state_size();
+		uint8_t *bytes = malloc(size);
+		FILE *file = bytes ? fopen(state, "wb") : NULL;
+		if (file)
+		{
+			gng_state_save(bytes, (uint16_t)pc);
+			written = fwrite(bytes, 1, size, file) == size;
+			written &= fclose(file) == 0;
+		}
+		free(bytes);
+	}
+	snprintf(inp, sizeof(inp), "%s.part", segment_base);    /* (.inp once kept) */
+	if (!written || !(inputs_out = fopen(inp, "w")))
+	{
+		remove(state);
 		segment_base[0] = 0;
 		return;
 	}
-	fprintf(inputs_out, "# makaimura replay (%s mode)\n", gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "MAME");
-	if (state_file)
-	{
-		char state[1400];
-		snprintf(state, sizeof(state), "%s.state", segment_base);
-		copy_file(state_file, state);
-		fprintf(inputs_out, "# from the state beside it (frame %llu)\n", (unsigned long long)first);
-		segment_sync = 1;    /* (the controls as the state has them: the changes from there) */
-	}
-	else
-		fprintf(inputs_out, "0 dsw1 %02x\n0 dsw2 %02x\n", gng.inputs.dsw1, gng.inputs.dsw2);
+	fprintf(inputs_out, "# makaimura replay (%s mode)\n# %s (frame %llu)\n",
+		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "MAME",
+		state_file ? "from a loaded state beside it" : "from the state beside it, as the game began",
+		(unsigned long long)first);
+	segment_sync = 1;    /* (the controls as the state has them: the changes from there) */
 	segment_first = first;
 	segment_played = 0;
+}
+
+/* at the boundary after a coin or a start with no game on: the replay from here */
+static void segment_here(uint16_t pc)
+{
+	m6809_state now;
+	m6809_state_get(&now);
+	begin_segment(NULL, now.frame, pc);
 }
 
 /* the replays for the menu: their names, labels and values */
@@ -456,7 +523,7 @@ static void prepare_replay(void)
 		fclose(state);
 	else
 		replay_state[0] = 0;
-	end_segment();
+	drop_segment();
 	if (!replay_playing)
 	{
 		replay_saved_accuracy = accuracy_given;
@@ -471,7 +538,6 @@ static void prepare_replay(void)
 	accuracy_given = board;
 	replay_end = end >= 0 ? end : script_count ? script[script_count - 1].frame : 0;
 	replay_playing = 1;
-	tell("REPLAY");
 }
 
 /* the replay over (or ended by a reset, a state, the practice): the controls the player's again */
@@ -540,7 +606,7 @@ static void make_practice(uint64_t frame)
 		practice_path(path, sizeof(path), practice_making);
 		save_to = path;
 		save_quietly = 1;
-		m6809_at_boundary(save_state);
+		request_boundary(&boundary_save);
 		snprintf(text, sizeof(text), "PRACTICE: AREA %d", practice_making + 1);
 		practice_making = -1;
 		next_frame = 0;
@@ -587,7 +653,7 @@ static int load_state(const char *path, int slot, const char *done)
 	tell(done ? done : slot ? text : "STATE LOADED");
 	hiscore_after_load = 1;
 	irq_seen = 1;
-	begin_segment(path, frame);
+	begin_segment(path, frame, -1);
 	static uint8_t *loaded;
 	free(loaded);
 	loaded = state;
@@ -907,8 +973,22 @@ static void menu_input(const SDL_Event *event)
 		audio_out_volume(options.volume);
 	if (result == MENU_STAY)
 		return;
+	if (result == MENU_DELETE_REPLAY)
+	{
+		char folder[1300];
+		replays_folder(folder, sizeof(folder));
+		replays_delete(folder, replay_names[menu_replay_chosen()]);
+		refresh_replays();
+		menu_show_replays(menu_replay_chosen());
+		tell("REPLAY DELETED");
+		return;
+	}
 	close_menu();
-	if (result == MENU_REPLAY)
+	if (result == MENU_KEEP_REPLAY)
+		keep_segment();
+	else if (result == MENU_DROP_REPLAY)
+		drop_segment();
+	else if (result == MENU_REPLAY)
 	{
 		char folder[1300];
 		replays_folder(folder, sizeof(folder));
@@ -1124,6 +1204,13 @@ static void on_vblank(uint64_t frame)
 		menu_draw(menu_pixels, &options);
 		update_picture(menu_pixels);
 	}
+	else if (menu_shown)
+	{
+		/* (opened by the program's game over: its replay's question) */
+		memcpy(menu_pixels, pixels, sizeof(pixels));
+		menu_draw(menu_pixels, &options);
+		update_picture(menu_pixels);
+	}
 	else
 		update_picture(pixels);
 	show_picture();
@@ -1170,8 +1257,21 @@ static void on_vblank(uint64_t frame)
 		play_script(frame);
 	else
 		read_controls();
-	if (gng.ram[0x28] && irq_seen)
-		segment_played = 1;    /* (<$28: a game is played; the boot's RAM checks are before the first IRQ) */
+	/* the replays: with no game on (<$28; the boot's RAM checks are before the first IRQ), a coin begins one at the
+	   next instruction boundary (again if no game came of the last coin), a start too if none is being written
+	   (free play); its game over (<$28 cleared) ends it */
+	const uint8_t pressed = (uint8_t)(last_system & ~gng.inputs.system);
+	last_system = gng.inputs.system;
+	if (irq_seen && !gng.ram[0x28] && !replay_playing && !segment_asking &&
+		(((pressed & 0xC0) && (!segment_base[0] || !segment_played)) || ((pressed & 0x03) && !segment_base[0])))
+		request_boundary(&boundary_segment);
+	if (segment_base[0] && !segment_asking && irq_seen)
+	{
+		if (gng.ram[0x28])
+			segment_played = 1;
+		else if (segment_played)
+			finish_segment();
+	}
 	/* the ranking kept between sessions (not with an input script but with --high-scores: the checks' runs are
 	   the board's own) */
 	if (options.keep_high_scores && (!script || high_scores_given))
@@ -1193,7 +1293,7 @@ static void on_vblank(uint64_t frame)
 	if (save_requested)
 	{
 		save_requested = 0;
-		m6809_at_boundary(save_state);
+		request_boundary(&boundary_save);
 	}
 	if ((practice_requested >= 0 || load_requested) && replay_playing)
 		stop_replay();
@@ -1339,7 +1439,7 @@ int main(int argc, char *argv[])
 			save_to = argv[++i];
 		}
 		else if (!strcmp(argv[i], "--keep-replays"))
-			replays_given = 1;
+			keep_replays_given = 1;
 		else if (!strcmp(argv[i], "--high-scores"))
 			high_scores_given = 1;
 		else if (!strcmp(argv[i], "--load-state") && i + 1 < argc)
@@ -1445,10 +1545,10 @@ int main(int argc, char *argv[])
 		else
 			stop_replay();
 		power_on();
+		drop_segment();
+		last_system = 0xFF;
 		if (replay_playing && replay_state[0])
 			load_state(replay_state, 0, "REPLAY");
-		else
-			begin_segment(NULL, 0);
 		/* (--load-state: the first run from it) */
 		if (load_from)
 		{
@@ -1464,7 +1564,7 @@ int main(int argc, char *argv[])
 	if (frames_to_run >= 0 || shot_path)
 		audio_out_report();
 	stop_recording();
-	end_segment();
+	drop_segment();
 	hiscore_close();
 	if (inputs_out)
 		fclose(inputs_out);

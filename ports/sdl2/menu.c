@@ -20,7 +20,7 @@
 
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
 	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
-	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY };
+	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
@@ -30,6 +30,9 @@ static int practice_chosen;
 static item replay_items[MENU_REPLAYS + 4];
 static int replay_count, replay_chosen;
 static char replay_labels[MENU_REPLAYS][16], replay_values[MENU_REPLAYS][16];
+static int confirming = -1;           /* the replay entry whose deletion waits for Enter */
+static item question_items[6];
+static int question_count;
 static item *items = main_items;
 static int item_count;
 static int selected, main_selected;
@@ -136,6 +139,31 @@ void menu_replays(int count, const char labels[][16], const char values[][16])
 int menu_replay_chosen(void)
 {
 	return replay_chosen;
+}
+
+static void show_page(item *page, int count, int first);
+
+void menu_show_replays(int entry)
+{
+	show_page(replay_items, replay_count, 0);
+	/* (the entry where the deleted one was, or the last) */
+	for (int i = 0; i < item_count; i++)
+		if (items[i].kind == REPLAY && items[i].dip <= entry)
+			selected = i;
+}
+
+void menu_ask_keep_replay(void)
+{
+	if (!main_count)
+		menu_open();
+	items = question_items;
+	item_count = 0;
+	add(HEADER, 0, "GAME OVER");
+	add(BLANK, 0, "");
+	add(KEEP_REPLAY, 0, "KEEP REPLAY");
+	add(DROP_REPLAY, 0, "LET IT GO");
+	question_count = item_count;
+	show_page(question_items, question_count, 0);
 }
 
 static void build_main(void)
@@ -371,6 +399,8 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 		return MENU_STAY;
 	}
 	int up = 0, down = 0, left = 0, right = 0, accept = 0, back = 0, erase = 0;
+	const int was_confirming = confirming;
+	confirming = -1;
 	if (event->type == SDL_KEYDOWN)
 	{
 		switch (event->key.keysym.scancode)
@@ -405,6 +435,19 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 					back = 1;
 			break;
 		}
+	}
+	if (items == question_items)
+		back = erase = 0;    /* (the question waits for its answer) */
+	if (erase && items[selected].kind == REPLAY)
+	{
+		/* a replay deleted: Delete, then Enter */
+		confirming = selected;
+		return MENU_STAY;
+	}
+	if (accept && was_confirming == selected && items[selected].kind == REPLAY)
+	{
+		replay_chosen = items[selected].dip;
+		return MENU_DELETE_REPLAY;
 	}
 	if (back && items != main_items)
 	{
@@ -448,6 +491,12 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 			replay_chosen = items[selected].dip;
 			show_page(main_items, main_count, main_selected);
 			return MENU_REPLAY;
+		case KEEP_REPLAY:
+			show_page(main_items, main_count, 1);
+			return MENU_KEEP_REPLAY;
+		case DROP_REPLAY:
+			show_page(main_items, main_count, 1);
+			return MENU_DROP_REPLAY;
 		case CONTROLS:
 			main_selected = selected;
 			show_page(control_items, control_count, 0);
@@ -567,7 +616,7 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case FULLSCREEN: return s->fullscreen ? "ON" : "OFF";
 	case VOLUME: snprintf(buffer, size, "%d", s->volume); return buffer;
 	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: case PRACTICE_PAGE: case REPLAYS_PAGE: return ">";
-	case REPLAY: return replay_values[it->dip];
+	case REPLAY: return confirming >= 0 && it == &items[confirming] ? "DELETE? ENTER" : replay_values[it->dip];
 	case PANELS: return s->panels ? "ON" : "OFF";
 	case SAVE_STATE: case LOAD_STATE: snprintf(buffer, size, "SLOT %d", s->state_slot); return buffer;
 	default: return "";
@@ -583,6 +632,7 @@ static const char *hint_of(const item *it)
 	case ASPECT: return "AS THE ARCADE'S MONITOR, OR 1:1";
 	case RESET: return "THE BOARD'S POWER CYCLED";
 	case SAVE_STATE: case LOAD_STATE: return "LEFT, RIGHT: THE SLOT";
+	case REPLAY: return "ENTER: PLAY  DELETE: DELETE IT";
 	case ACTION: case HOTKEY: return "ENTER: CHANGE  DELETE: DEFAULT";
 	default: return "";
 	}
@@ -597,9 +647,14 @@ static const char *help_of(const item *it)
 	case SAVE_STATE: return "THE WHOLE BOARD INTO THE SLOT (LEFT, RIGHT: WHICH ONE), TO GO ON FROM LATER EXACTLY AS IT "
 		"WOULD HAVE. KEYS: F5 SAVES, F6 THE NEXT SLOT, F7 LOADS.";
 	case PRACTICE_PAGE: return "A GAME FROM THE START OF ANY AREA OF THE FIRST LOOP.";
-	case REPLAYS_PAGE: return "THE GAMES PLAYED, AS THEY WERE: EVERY GAME IS KEPT (THE LAST 50) IN REPLAYS/.";
-	case REPLAY: return "THIS GAME AGAIN, FRAME FOR FRAME, IN THE MODE IT WAS PLAYED IN (+: FROM A STATE). THE KEYS "
-		"WAIT; AT ITS END THE GAME IS YOURS. RESET (F3) ENDS IT.";
+	case REPLAYS_PAGE: return "THE GAMES KEPT, AS THEY WERE PLAYED: AT EACH GAME OVER, KEEP ITS REPLAY OR LET IT GO. "
+		"THEY ARE IN REPLAYS/.";
+	case REPLAY: return "THIS GAME AGAIN, FRAME FOR FRAME, FROM ITS COIN (OR THE STATE IT STARTED FROM: +) TO ITS GAME "
+		"OVER, IN THE MODE IT WAS PLAYED IN. THE KEYS WAIT; AT ITS END THE GAME IS YOURS. RESET (F3) ENDS IT. "
+		"DELETE, THEN ENTER: GONE.";
+	case KEEP_REPLAY: return "THE GAME JUST PLAYED KEPT IN REPLAYS/, FROM ITS COIN TO ITS GAME OVER: THE MENU'S "
+		"REPLAYS PLAYS IT.";
+	case DROP_REPLAY: return "THE GAME JUST PLAYED NOT KEPT.";
 	case PRACTICE: return "A NEW GAME FROM THIS AREA'S START: THE BOARD'S OWN GAME WITH ITS STAGE SET AS THE PLAYER "
 		"STARTS, THE LANCE, THE LIVES OF THE GAME OPTIONS. THE FIRST TIME IT IS PREPARED (A FEW SECONDS), THEN KEPT "
 		"IN STATES/.";
