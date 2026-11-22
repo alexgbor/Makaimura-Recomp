@@ -7,6 +7,15 @@ What changes from one version to the next, for players. The version is set in `C
 
 Nothing yet.
 
+## v0.2.1 (2026-11-22)
+
+- **PRACTICE, set up:** choose the area (now 1-7: the last room too), the loop, Arthur's weapon (lance, dagger,
+  torch, axe, cross) and his lives, then START. The first time an area is chosen it is prepared unseen, with how
+  far it is on the screen (no more the whole opening flashing past at full speed); from then on it starts at once.
+  The areas' starts kept by earlier versions (`states/practice-N-...`) are no longer used and can be deleted.
+- **The cross is called the cross** (in the side panel too), as in this Japanese game: the western releases made it
+  a shield.
+
 ## v0.2.0 (2026-11-22)
 
 - **The game is now its program decompiled into readable C:** the same 6809 program, now as C functions with
