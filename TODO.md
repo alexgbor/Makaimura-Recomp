@@ -236,8 +236,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       IRQ's jobs, the game states and steps (by the scripts that reach them and the messages they draw), the
       controls, the DIPs, the task and sound queues, the random numbers, the animations, the texts' screens; the
       var lines reach the C (type=, count=); the continue; the objects as a structure (`struct object`: 0x40
-      bytes, X 0x10 into each: `object+10`), their 16-bit fields as read16/write16. To do: the objects' other
-      fields, the player's record (0500), the enemies' types, the score, the stages' maps. (The core's BELOW path
+      bytes, X 0x10 into each: `object+10`), their 16-bit fields as read16/write16. The player's record (PLAYER, 0500), the objects at 0880 (objects_handlers, 40 of
+      0x30 bytes), the shared routines' X (param lines: 4473 accesses as fields), the 18 types' handlers by number
+      (object_type_NN, where each runs). To do: what each type is (zombie, crow...: by its behaviour; a picture's
+      position did not map to the object's, x - camera_x), the objects' other fields (by type: scoped lines), the
+      score, the stages' maps. (The core's BELOW path
       fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
       instead)
 

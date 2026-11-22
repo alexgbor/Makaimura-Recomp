@@ -218,3 +218,23 @@ param animate x object object+10
 param animation_start x object object+10
 param object_off_screen x object object+10
 local objects_handlers 9F11 x object object+10
+
+# ======== the objects' types: object_handlers (4:4712) by the type, +5,X; where each runs (gref, the scripts; stageN is
+# <$72 = N) ========
+9F41  func  object_type_00     # stages 4, 5; the attract mode's demo
+A2C4  func  object_type_01     # every stage, the attract mode
+A716  func  object_type_02     # stages 1, 4
+AE76  func  object_type_03     # no script reaches it
+AFC0  func  object_type_04     # no script reaches it
+B4C8  func  object_type_05     # every stage, the attract mode
+BD4F  func  object_type_06     # stages 4, 5
+C256  func  object_type_07     # no script reaches it
+C39D  func  object_type_08     # stage 5
+CB2F  func  object_type_09     # stages 4, 5
+CE20  func  object_type_10     # stages 1, 4
+D221  func  object_type_11     # every stage, the attract mode (the title's)
+D45C  func  object_type_12     # stage 5
+DA21  func  object_type_13     # stage 6, the ending
+DD60  func  object_type_14     # stage 3
+DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode
+DF0F  func  object_type_18     # stage 2
