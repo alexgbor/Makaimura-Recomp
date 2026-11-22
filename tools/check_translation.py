@@ -19,6 +19,7 @@ PC), not the bus at the VBLANKs (whose stack it cannot have); the pictures and t
 """
 import argparse
 import glob
+import itertools
 import os
 import subprocess
 import sys
@@ -29,10 +30,18 @@ EXE = ".exe" if os.name == "nt" else ""
 BIN = os.path.join(ROOT, "build", "bin")
 
 
-def lines(path, columns=None):
+def rows(path, columns=None):
+    """The file's rows, one at a time (their first 'columns' words): the files run to tens of MB, read as they are
+    compared rather than whole"""
     with open(path) as handle:
-        rows = [line.split() for line in handle if line.strip()]
-    return [tuple(row[:columns] if columns else row) for row in rows]
+        for line in handle:
+            row = line.split()
+            if row:
+                yield tuple(row[:columns] if columns else row)
+
+
+def lines(path, columns=None):
+    return list(rows(path, columns))
 
 
 def first_difference(a, b):
@@ -42,6 +51,22 @@ def first_difference(a, b):
     if len(a) != len(b):
         return min(len(a), len(b)), None, None
     return None
+
+
+def compare(a, b):
+    """(rows in a, rows in b, the first difference or None: (index, a's row, b's row), None for a run out) of two
+    iterables of rows, read side by side"""
+    count_a = count_b = 0
+    difference = None
+    a, b = iter(a), iter(b)
+    while True:
+        x, y = next(a, None), next(b, None)
+        count_a += x is not None
+        count_b += y is not None
+        if x is None and y is None:
+            return count_a, count_b, difference
+        if difference is None and x != y:
+            difference = (min(count_a, count_b) if x is None or y is None else count_a - 1, x, y)
 
 
 def run(name, frames, inputs, dsw, pictures, accuracy, decompiled=False):
@@ -88,16 +113,16 @@ def run(name, frames, inputs, dsw, pictures, accuracy, decompiled=False):
     # there, the translation at its end: a write that instruction makes after the end is in one run only, so the
     # sound is compared up to the end
     end = 2 * (23040 + (frames - 1) * 25152)
-    ym_a = [row for row in lines(reference + "_ym.txt") if int(row[0]) < end]
-    ym_b = [row for row in lines(translation + "_ym.txt") if int(row[0]) < end]
-    difference = first_difference(ym_a, ym_b)
+    def before_end(path):
+        return (row for row in rows(path) if int(row[0]) < end)
+    ym_a, ym_b, difference = compare(before_end(reference + "_ym.txt"), before_end(translation + "_ym.txt"))
     if difference:
         ok = False
         index, x, y = difference
-        print(f"  YM2203 writes: {len(ym_a)} in gref, {len(ym_b)} in the translation; the first different, {index}: "
+        print(f"  YM2203 writes: {ym_a} in gref, {ym_b} in the translation; the first different, {index}: "
               f"gref {x}, translation {y}")
-    difference = first_difference(lines(reference + "_marks.txt", 2)[:len(ym_a)],
-                                  lines(translation + "_marks.txt", 2)[:len(ym_b)])
+    _, _, difference = compare(itertools.islice(rows(reference + "_marks.txt", 2), ym_a),
+                               itertools.islice(rows(translation + "_marks.txt", 2), ym_b))
     if difference:
         ok = False
         index, x, y = difference
@@ -119,7 +144,7 @@ def run(name, frames, inputs, dsw, pictures, accuracy, decompiled=False):
             ok = False
             index, x, y = difference
             print(f"  pictures: the first different, frame {index}: gref {x}, translation {y}")
-    print(f"{name} ({accuracy} mode): {len(bus_a)} frames, {len(irq_a)} IRQs, {len(ym_a)} YM2203 writes" +
+    print(f"{name} ({accuracy} mode): {len(bus_a)} frames, {len(irq_a)} IRQs, {ym_a} YM2203 writes" +
           ", the sound" + (", the pictures" if pictures else "") +
           (": the same as gref's" if ok else ": DIFFERENT"))
     return ok
