@@ -21,14 +21,14 @@
 
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
 	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
-	PRACTICE_PAGE, PRACTICE, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY, UPDATE, UPDATE_YES, UPDATE_NO,
+	PRACTICE_PAGE, PRACTICE, PRACTICE_AREA, PRACTICE_LOOP, PRACTICE_WEAPON, PRACTICE_LIVES, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY, UPDATE, UPDATE_YES, UPDATE_NO,
 	CHECK_UPDATES, CRT };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
 static item main_items[40], control_items[40], game_items[40], video_items[40], practice_items[16];
 static int main_count, control_count, game_count, video_count, practice_count;
-static int practice_chosen;
+static practice_setup practice = { 0, 0, 1, 0 };    /* (kept while the window is open) */
 static item replay_items[MENU_REPLAYS + 4];
 static int replay_count, replay_chosen;
 static char replay_labels[MENU_REPLAYS][16], replay_values[MENU_REPLAYS][16];
@@ -109,20 +109,31 @@ static void build_video(void)
 
 static void build_practice(void)
 {
-	static const char *const labels[PRACTICE_AREAS] = { "AREA 1", "AREA 2", "AREA 3", "AREA 4", "AREA 5", "AREA 6" };
 	items = practice_items;
 	item_count = 0;
-	add(HEADER, 0, "PRACTICE: THE 1ST LOOP");
-	for (int a = 0; a < PRACTICE_AREAS; a++)
-		add(PRACTICE, a, labels[a]);
+	add(HEADER, 0, "PRACTICE");
+	add(PRACTICE_AREA, 0, "AREA");
+	add(PRACTICE_LOOP, 0, "LOOP");
+	add(PRACTICE_WEAPON, 0, "WEAPON");
+	add(PRACTICE_LIVES, 0, "LIVES");
 	add(BLANK, 0, "");
+	add(PRACTICE, 0, "START");
 	add(BACK, 0, "BACK");
 	practice_count = item_count;
 }
 
-int menu_practice_area(void)
+practice_setup menu_practice_setup(void)
 {
-	return practice_chosen;
+	return practice;
+}
+
+/* the weapons in the menu's order: the lance first (the game's own start), then as the items come in stage 1 */
+static const int weapon_order[PRACTICE_WEAPONS] = { 1, 4, 0, 2, 3 };
+
+const char *menu_weapon_name(int weapon)
+{
+	static const char *const names[PRACTICE_WEAPONS] = { "TORCH", "LANCE", "AXE", "CROSS", "DAGGER" };
+	return weapon >= 0 && weapon < PRACTICE_WEAPONS ? names[weapon] : "?";
 }
 
 void menu_replays(int count, const char labels[][16], const char values[][16])
@@ -409,6 +420,23 @@ static void step(settings *s, int direction, int *changed)
 	case CRT:
 		s->crt = (s->crt + direction + 4) % 4;
 		break;
+	case PRACTICE_AREA:
+		practice.area = (practice.area + direction + PRACTICE_AREAS) % PRACTICE_AREAS;
+		break;
+	case PRACTICE_LOOP:
+		practice.loop = !practice.loop;
+		break;
+	case PRACTICE_WEAPON:
+	{
+		int at = 0;
+		while (at < PRACTICE_WEAPONS - 1 && weapon_order[at] != practice.weapon)
+			at++;
+		practice.weapon = weapon_order[(at + direction + PRACTICE_WEAPONS) % PRACTICE_WEAPONS];
+		break;
+	}
+	case PRACTICE_LIVES:
+		practice.lives = (practice.lives + direction + PRACTICE_MOST_LIVES + 1) % (PRACTICE_MOST_LIVES + 1);
+		break;
 	case SAVE_STATE: case LOAD_STATE:
 		s->state_slot = (s->state_slot - 1 + direction + STATE_SLOTS) % STATE_SLOTS + 1;
 		break;
@@ -518,7 +546,6 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 		case SAVE_STATE: return MENU_SAVE_STATE;
 		case LOAD_STATE: return MENU_LOAD_STATE;
 		case PRACTICE:
-			practice_chosen = items[selected].dip;
 			show_page(main_items, main_count, main_selected);
 			return MENU_PRACTICE;
 		case PRACTICE_PAGE:
@@ -683,6 +710,14 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 		}
 	case PANELS: return s->panels ? "ON" : "OFF";
 	case SAVE_STATE: case LOAD_STATE: snprintf(buffer, size, "SLOT %d", s->state_slot); return buffer;
+	case PRACTICE_AREA: snprintf(buffer, size, "%d", practice.area + 1); return buffer;
+	case PRACTICE_LOOP: return practice.loop ? "2ND" : "1ST";
+	case PRACTICE_WEAPON: return menu_weapon_name(practice.weapon);
+	case PRACTICE_LIVES:
+		if (!practice.lives)
+			return "GAME OPTIONS";
+		snprintf(buffer, size, "%d", practice.lives);
+		return buffer;
 	default: return "";
 	}
 }
@@ -696,6 +731,7 @@ static const char *hint_of(const item *it)
 	case ASPECT: return "AS THE ARCADE'S MONITOR, OR 1:1";
 	case RESET: return "THE BOARD'S POWER CYCLED";
 	case SAVE_STATE: case LOAD_STATE: return "LEFT, RIGHT: THE SLOT";
+	case PRACTICE_AREA: case PRACTICE_LOOP: case PRACTICE_WEAPON: case PRACTICE_LIVES: return "LEFT, RIGHT: CHANGE";
 	case REPLAY: return "ENTER: PLAY  DELETE: DELETE IT";
 	case ACTION: case HOTKEY: return "ENTER: CHANGE  DELETE: DEFAULT";
 	default: return "";
@@ -710,7 +746,11 @@ static const char *help_of(const item *it)
 	case RESUME: return "BACK TO THE GAME, FROM THE SAME FRAME.";
 	case SAVE_STATE: return "THE WHOLE BOARD INTO THE SLOT (LEFT, RIGHT: WHICH ONE), TO GO ON FROM LATER EXACTLY AS IT "
 		"WOULD HAVE. KEYS: F5 SAVES, F6 THE NEXT SLOT, F7 LOADS.";
-	case PRACTICE_PAGE: return "A GAME FROM THE START OF ANY AREA OF THE FIRST LOOP.";
+	case PRACTICE_PAGE: return "A GAME FROM THE START OF ANY AREA, IN EITHER LOOP, WITH THE WEAPON AND THE LIVES CHOSEN.";
+	case PRACTICE_AREA: return "WHERE THE GAME STARTS. AREA 7 IS THE LAST ROOM: ONLY THE CROSS GETS THROUGH IT.";
+	case PRACTICE_LOOP: return "THE FIRST TIME THROUGH THE GAME, OR THE SECOND (WHERE THE LAST ROOM LEADS TO THE ENDING).";
+	case PRACTICE_WEAPON: return "WHAT ARTHUR CARRIES AS THE AREA STARTS. THE ITEMS ON THE WAY CHANGE IT AS IN THE GAME.";
+	case PRACTICE_LIVES: return "ARTHUR'S LIVES, OR AS MANY AS THE GAME OPTIONS GIVE.";
 	case REPLAYS_PAGE: return "THE GAMES KEPT, AS THEY WERE PLAYED: AT EACH GAME OVER, KEEP ITS REPLAY OR LET IT GO. "
 		"THEY ARE IN REPLAYS/.";
 	case REPLAY: return "THIS GAME AGAIN, FRAME FOR FRAME, FROM ITS COIN (OR THE STATE IT STARTED FROM: +) TO ITS GAME "
@@ -726,9 +766,9 @@ static const char *help_of(const item *it)
 	case UPDATE_NO: return "LATER: IT STAYS ON THE MENU.";
 	case CHECK_UPDATES: return "THE NEWEST VERSION LOOKED UP ON GITHUB AS THE GAME STARTS (NOTHING IS SENT BUT THE "
 		"REQUEST): OFFERED ON THE MENU, INSTALLED ONLY IF YOU CHOOSE IT. FROM THE NEXT START.";
-	case PRACTICE: return "A NEW GAME FROM THIS AREA'S START: THE BOARD'S OWN GAME WITH ITS STAGE SET AS THE PLAYER "
-		"STARTS, THE LANCE, THE LIVES OF THE GAME OPTIONS. THE FIRST TIME IT IS PREPARED (A FEW SECONDS), THEN KEPT "
-		"IN STATES/.";
+	case PRACTICE: return "A NEW GAME FROM THE AREA'S START: THE BOARD'S OWN GAME WITH ITS STAGE, LOOP, WEAPON AND "
+		"LIVES SET AS THE PLAYER STARTS. THE FIRST TIME AN AREA IS PREPARED (A FEW SECONDS, UNSEEN), THEN KEPT IN "
+		"STATES/.";
 	case LOAD_STATE: return "THE GAME BACK AS THE SLOT KEPT IT (LEFT, RIGHT: WHICH ONE). A STATE IS FOR THE ACCURACY MODE "
 		"IT WAS SAVED IN.";
 	case GAME_PAGE: return "THE BOARD'S DIP SWITCHES: LIVES, DIFFICULTY, BONUS LIFE, COINAGE... READ AS THE BOARD STARTS (F3).";

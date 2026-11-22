@@ -119,6 +119,11 @@ uint64_t gng_state_frame(const uint8_t *in)
 	return h.frame;
 }
 
+uint8_t *gng_state_ram(uint8_t *in)
+{
+	return in + sizeof(header) + sizeof(m6809_state) + offsetof(gng_board, ram);
+}
+
 void gng_state_load(const uint8_t *in)
 {
 	header h;

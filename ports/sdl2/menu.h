@@ -32,8 +32,23 @@ void menu_show_replays(int entry);
 /* A game over: the menu opened on the question whether to keep its replay (MENU_KEEP_REPLAY, MENU_DROP_REPLAY) */
 void menu_ask_keep_replay(void);
 
-/* The practice's areas (the first loop's: the stages 0-5, <$72) */
-#define PRACTICE_AREAS 6
+/* The practice's areas (the stages 0-6, <$72: area 7 the last one's room, which asks for the cross) */
+#define PRACTICE_AREAS 7
+
+/* The practice's weapons (<$73's values: 0 the torch, 1 the lance, 2 the axe, 3 the cross, 4 the dagger) */
+#define PRACTICE_WEAPONS 5
+
+/* The practice's lives: 0 the game options', or 1-PRACTICE_MOST_LIVES (<$60: Arthur's, the reserve's one fewer) */
+#define PRACTICE_MOST_LIVES 9
+
+/* A practice game: where it starts and what the player has there */
+typedef struct practice_setup
+{
+	int area;       /* 0 to PRACTICE_AREAS - 1 (the stage, <$72) */
+	int loop;       /* 0 the first, 1 the second (<$7F) */
+	int weapon;     /* <$73 */
+	int lives;      /* 0 the game options', else <$60 */
+} practice_setup;
 
 /* What a choice changed that the window applies at once (main.c) */
 enum { MENU_CHANGED_NONE = 0, MENU_CHANGED_FULLSCREEN = 1, MENU_CHANGED_VOLUME = 2 };
@@ -50,8 +65,11 @@ void menu_draw(uint32_t *pixels, const settings *s);
 /* The selected entry's name and what it does, for the side panel */
 void menu_help(const char **title, const char **text);
 
-/* After MENU_PRACTICE: the area chosen (0 the first) */
-int menu_practice_area(void);
+/* After MENU_PRACTICE: the practice chosen */
+practice_setup menu_practice_setup(void);
+
+/* A weapon's name ("LANCE"), by its value in <$73 */
+const char *menu_weapon_name(int weapon);
 
 /* A short notice over the picture's bottom row ("STATE 1 SAVED"), in the menu's letters */
 void menu_draw_notice(uint32_t *pixels, const char *text);

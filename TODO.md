@@ -302,6 +302,12 @@ Roughly in order; each milestone is checked against the reference before it is t
       first time from the power on, unpaced and silent, as tests/controls/make_stages.py does (a coin, start, the
       area written into <$72 right after it), saved where <$71 first says playing; kept in `states/` (by mode and
       DIP switches) and loaded from then on (the same game as reached: checked on the pictures)
+- [x] Practice set up: the area (1-7, the last room too), the loop (<$7F), the weapon (<$73), the lives (<$60);
+      the area's start kept one frame before it is played (<$71 0, <$0E 2: the next frame draws the weapon and the
+      lives from those bytes), the choices written into that state's RAM (gng_state_ram) and loaded from it (the
+      replay's start). Prepared unseen (a dark picture with how far it is), no longer the boot and the opening
+      shown at full speed. The loop written there or with the stage, the same game (states at frame 2500, stages 0
+      and 5); the weapon and the lives written at frames 1916-1919 drawn the same (gng_headless_c's pictures)
 - [x] Replays (`ports/sdl2/replays.c`, the menu's REPLAYS): a game at a time, from the coin that began it (the
       board's state at the instruction boundary after it; a start's in free play; a slot's or a practice's state if
       it was played from one: "+") to its game over (<$28 cleared), as that state and an input script from it in

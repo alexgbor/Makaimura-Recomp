@@ -318,11 +318,13 @@ static void keep_segment(void);
 static int save_requested, load_requested;
 static int hiscore_after_load;           /* a state loaded: the kept ranking into its RAM at the next VBLANK */
 static int high_scores_given;            /* --high-scores */
-static int practice_requested = -1;    /* an area chosen on the menu */
-static int practice_making = -1;       /* the area whose start is being reached, the board unpaced and silent */
+static int practice_requested;          /* a practice chosen on the menu (practice_chosen) */
+static practice_setup practice_chosen;
+static int practice_making = -1;       /* the area whose start is being reached, the board unpaced, unseen and silent */
+static int practice_made;              /* its start saved: the practice from it at the next VBLANK */
 static const char *save_to, *load_from;     /* --save-state, --load-state: a file instead of the slot */
 static long save_frame = -1;
-static int save_quietly;                    /* (the practice's: its own notice) */
+static int save_quietly;                    /* (the practice's start: no notice) */
 static int boundary_save, boundary_segment;    /* what the next instruction boundary does */
 
 /* at the instruction boundary after the request: the state into the slot's file */
@@ -353,12 +355,12 @@ static void save_state(uint16_t pc)
 		snprintf(text, sizeof(text), written ? "STATE %d SAVED" : "STATE %d NOT SAVED", options.state_slot);
 	if (!save_quietly || !written)
 		tell(text);
-	if (save_quietly && written)
+	if (save_quietly)
 	{
-		/* (the practice's start: the replay from it) */
-		m6809_state now;
-		m6809_state_get(&now);
-		begin_segment(path, now.frame, -1);
+		/* (the practice's start: from it at the next VBLANK; not saved, the board the player's as it is) */
+		practice_made = written;
+		if (!written)
+			practice_making = -1;
 	}
 	save_to = NULL;
 	save_quietly = 0;
@@ -596,23 +598,89 @@ static void stop_replay(void)
 	logged[2] = gng.inputs.p2;
 }
 
-/* the practice's area starts: states/practice-AREA-MODE-DSW1DSW2.state (the DIP switches' lives, difficulty...
-   are in it) */
+/* The practice's area starts: states/practice-start-AREA-MODE-DSW1DSW2.state (the DIP switches' lives, difficulty...
+   are in it), each the board one frame before the area is played, the weapon and the lives not drawn yet; and the
+   practice itself, the start with the player's choices: states/practice-MODE.state (the replay's start) */
 static void practice_path(char *path, size_t size, int area)
 {
 	const int folder = (int)(file_name(settings_path) - settings_path);
-	snprintf(path, size, "%.*sstates/practice-%d-%s-%02x%02x.state", folder, settings_path, area + 1,
+	snprintf(path, size, "%.*sstates/practice-start-%d-%s-%02x%02x.state", folder, settings_path, area + 1,
 		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame", gng.inputs.dsw1, gng.inputs.dsw2);
 }
 
-/* An area's start reached from the power on, at each VBLANK: a coin, 1 player's start, the area written into the
-   stage (<$72, right after the start: tests/controls/make_stages.py's), the controls left alone; the start is the
-   first VBLANK where the stage's own state (<$71: 0 its start, 1 playing, 7AA0) says playing. There the state is
-   saved (kept for the next time) and the game is the player's */
+static void practice_game_path(char *path, size_t size)
+{
+	const int folder = (int)(file_name(settings_path) - settings_path);
+	snprintf(path, size, "%.*sstates/practice-%s.state", folder, settings_path,
+		gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame");
+}
+
+static int load_state(const char *path, int slot, const char *done);
+
+/* The practice from its area's kept start: the loop, the weapon and the lives written into the state's RAM as the
+   game is about to draw them (the area's first frame draws the weapon's frame and the lives at the screen's bottom
+   from <$73 and <$60; the loop <$7F, written there or with the stage, makes the same game: the states at frame
+   2500 the same, stages 0 and 5), saved as the practice's state and loaded: the replay is from it. 0 if the start
+   is not kept (or is not this build's) */
+static int start_practice(const practice_setup *setup)
+{
+	char path[1300], text[64];
+	practice_path(path, sizeof(path), setup->area);
+	FILE *file = fopen(path, "rb");
+	if (!file)
+		return 0;
+	const size_t size = gng_state_size();
+	uint8_t *state = malloc(size + 1);
+	const size_t got = state ? fread(state, 1, size + 1, file) : 0;
+	fclose(file);
+	if (!state || gng_state_check(state, got))
+	{
+		free(state);
+		return 0;
+	}
+	uint8_t *ram = gng_state_ram(state);
+	ram[0x7F] = (uint8_t)setup->loop;
+	ram[0x73] = (uint8_t)setup->weapon;
+	if (setup->lives)
+		ram[0x60] = (uint8_t)setup->lives;
+	make_states_folder();
+	practice_game_path(path, sizeof(path));
+	file = fopen(path, "wb");
+	int written = file && fwrite(state, 1, size, file) == size;
+	if (file)
+		written &= fclose(file) == 0;
+	free(state);
+	if (!written)
+	{
+		tell("PRACTICE NOT SAVED");
+		return 0;
+	}
+	snprintf(text, sizeof(text), "PRACTICE: AREA %d%s, %s", setup->area + 1, setup->loop ? " (2ND LOOP)" : "",
+		menu_weapon_name(setup->weapon));
+	return load_state(path, 0, text);
+}
+
+/* An area's start reached from the power on, at each VBLANK, unseen and unheard (the window shows how far it is):
+   a coin, 1 player's start, the area written into the stage (<$72, right after the start:
+   tests/controls/make_stages.py's), the controls left alone; through the game's opening to the VBLANK where the
+   stage's start (<$71 0) is at its last step (<$0E 2: the next frame draws the weapon, the lives, the time and the
+   area, and <$71 is 1, playing). There the state is saved (kept for the next time) and, at the next VBLANK, the
+   practice starts from it (start_practice) */
 static void make_practice(uint64_t frame)
 {
 	static const struct { uint64_t frame; uint8_t system; } presses[] = {
 		{ 1300, 0xBF }, { 1306, 0xFF }, { 1400, 0xFE }, { 1406, 0xFF } };
+	enum { THERE = 1918 };    /* (about: the frame it is reached at, for the progress shown) */
+	if (practice_made)
+	{
+		practice_made = 0;
+		practice_making = -1;
+		next_frame = 0;
+		read_controls();
+		if (!start_practice(&practice_chosen))
+			tell("PRACTICE NOT STARTED");
+		return;
+	}
 	gng.inputs.system = 0xFF;
 	gng.inputs.p1 = gng.inputs.p2 = 0xFF;
 	for (size_t i = 0; i < sizeof(presses) / sizeof(presses[0]); i++)
@@ -620,15 +688,21 @@ static void make_practice(uint64_t frame)
 			gng.inputs.system = presses[i].system;
 	if (frame == 1410)
 		gng.ram[0x72] = (uint8_t)practice_making;
-	/* (the window kept alive: its events now and then, a picture with the notice) */
+	/* (the window kept alive: its events now and then, a dark picture with how far it is; the game itself not
+	   shown, its boot and opening run far faster than they play) */
 	if (frame % 30 == 0)
 	{
 		SDL_Event event;
+		char text[40];
 		while (SDL_PollEvent(&event))
 			if (event.type == SDL_QUIT)
 				quit_requested = 1;
-		gng_video_render(pixels);
-		update_picture(pixels);
+		snprintf(text, sizeof(text), "PREPARING AREA %d: %d%%", practice_making + 1,
+			(int)(frame < THERE ? frame * 100 / THERE : 99));
+		memset(pixels, 0, sizeof(pixels));
+		menu_draw_notice(pixels, text);
+		SDL_UpdateTexture(picture, NULL, pixels, GNG_SCREEN_WIDTH * 4);
+		memcpy(crt_source, pixels, sizeof(crt_source));
 		show_picture();
 	}
 	if (quit_requested)
@@ -637,20 +711,15 @@ static void make_practice(uint64_t frame)
 		m6809_request_stop();
 		return;
 	}
-	if (frame > 1410 && gng.ram[0x71] == 1 && gng.ram[0x72] == (uint8_t)practice_making)
+	if (frame > 1410 && gng.ram[0x71] == 0 && gng.ram[0x0E] == 2 && gng.ram[0x72] == (uint8_t)practice_making
+		&& !save_to)
 	{
 		static char path[1300];
-		char text[32];
 		make_states_folder();
 		practice_path(path, sizeof(path), practice_making);
 		save_to = path;
 		save_quietly = 1;
 		request_boundary(&boundary_save);
-		snprintf(text, sizeof(text), "PRACTICE: AREA %d", practice_making + 1);
-		practice_making = -1;
-		next_frame = 0;
-		read_controls();
-		tell(text);
 	}
 }
 
@@ -1063,7 +1132,10 @@ static void menu_input(const SDL_Event *event)
 		menu_frame = -1;    /* (--menu's, once) */
 	}
 	else if (result == MENU_PRACTICE)
-		practice_requested = menu_practice_area();
+	{
+		practice_requested = 1;
+		practice_chosen = menu_practice_setup();
+	}
 	else if (result == MENU_SAVE_STATE)
 		save_requested = 1;
 	else if (result == MENU_LOAD_STATE)
@@ -1363,27 +1435,16 @@ static void on_vblank(uint64_t frame)
 		save_requested = 0;
 		request_boundary(&boundary_save);
 	}
-	if ((practice_requested >= 0 || load_requested) && replay_playing)
+	if ((practice_requested || load_requested) && replay_playing)
 		stop_replay();
-	if (practice_requested >= 0)
+	if (practice_requested)
 	{
-		/* the area's start kept: from it; else reached from the power on (make_practice) */
-		char path[1300], text[32];
-		const int area = practice_requested;
-		practice_requested = -1;
+		/* the area's start kept: the practice from it; else reached from the power on first (make_practice) */
+		practice_requested = 0;
 		menu_frame = -1;    /* (--menu's, once) */
-		practice_path(path, sizeof(path), area);
-		FILE *kept = fopen(path, "rb");
-		if (kept)
-		{
-			fclose(kept);
-			snprintf(text, sizeof(text), "PRACTICE: AREA %d", area + 1);
-			if (load_state(path, 0, text))
-				return;
-		}
-		snprintf(text, sizeof(text), "PREPARING AREA %d", area + 1);
-		tell(text);
-		practice_making = area;
+		if (start_practice(&practice_chosen))
+			return;
+		practice_making = practice_chosen.area;
 		reset_requested = 1;
 		m6809_request_stop();
 		return;

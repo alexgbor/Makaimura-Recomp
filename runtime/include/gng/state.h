@@ -40,6 +40,10 @@ const char *gng_state_check(const uint8_t *in, size_t size);
 /* The frame (the VBLANKs counted from power-on) a state was saved in */
 uint64_t gng_state_frame(const uint8_t *in);
 
+/* The work RAM (0000-1DFF: gng.ram) inside a state's bytes ('in', checked), to change before it is loaded (the port's
+   practice: a stage's start with the weapon, the lives chosen) */
+uint8_t *gng_state_ram(uint8_t *in);
+
 /* Puts the state back (checked first) and the program on from it: from the host's vblank during a run, the run
    leaves the instruction it was in (m6809_resume) and this does not return; before a run, the run starts there */
 void gng_state_load(const uint8_t *in);

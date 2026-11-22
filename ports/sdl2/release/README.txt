@@ -51,7 +51,8 @@ THE MENU
 Esc pauses the game and opens the menu:
 
   SAVE STATE, LOAD STATE   the whole board in one of 8 slots (left, right: the slot)
-  PRACTICE                 a game from the start of any area of the first loop
+  PRACTICE                 a game from the start of any area (1-7), in either loop, with the weapon and the
+                           lives you choose
   REPLAYS                  the games you kept, played again frame for frame (Delete, then Enter: delete one)
   GAME OPTIONS             the board's DIP switches: lives, difficulty, bonus life, coinage, free play...
   PICTURE AND SOUND        4:3 or square pixels, scaling, sharp or smooth, a CRT look (SCANLINES, ARCADE, PVM),
