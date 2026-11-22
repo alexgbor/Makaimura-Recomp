@@ -206,3 +206,4 @@ field object 13 frame u8
 field object 14 frame_low u8
 field object 15 type u8            # the state routine's table (object_state_tables) and the handler (object_handlers)
 local objects_states 9ACE x object object+10
+instance 0500 object PLAYER       # the player's record (Arthur): the code's X 0510

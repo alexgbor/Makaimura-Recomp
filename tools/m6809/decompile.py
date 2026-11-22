@@ -62,6 +62,7 @@ from m6809 import lift  # noqa: E402
 from m6809 import translate  # noqa: E402
 
 REPORTS = os.path.join(ROOT, "build", "decompile")
+INSTANCE_NAMES = {}    # (STRUCT macro, address) -> the name of a structure at a fixed address (instance lines)
 SYMBOLS = SimpleNamespace(entries=[])    # symbols.txt (tools/symbols.py), for core_symbols
 CORE_SYMBOLS = Path(REPORTS) / "symbols_core.txt"
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
@@ -185,7 +186,7 @@ def core_symbols():
         name = symbol.name + (f"[{int(count, 0)}]" if count else "")
         lines.append(f"{symbol.address:04X} var {name} {symbol.keys.get('type', 'u8')}")
     # (the structures, their fields, where a register points at one: as they are; "below" lines are the driver's)
-    lines += [line for line in SYMBOLS.core_lines if not line.startswith("below ")]
+    lines += [line for line in SYMBOLS.core_lines if not line.startswith(("below ", "instance "))]
     with open(CORE_SYMBOLS, "w", encoding="utf-8", newline="\n") as out:
         out.write("\n".join(lines) + "\n")
     return CORE_SYMBOLS
@@ -290,6 +291,12 @@ def write_c(program, out_dir):
         words = line.split()
         if words[0] == "below":
             pointers.BELOW[words[1]] = (int(words[2], 16), words[3])
+        if words[0] == "instance":
+            # "instance ADDRESS STRUCT NAME": a structure at a fixed address (the player's record), its fields by
+            # name where the code reaches them by their own address, the address by NAME
+            address = int(words[1], 16)
+            pointers.INSTANCES[address] = (words[2], known.structs[words[2]])
+            INSTANCE_NAMES[(words[2].upper(), address)] = words[3]
     # what symbols.txt's param and local lines say a register points at (as the 68000's driver takes them)
     entries_by_name = {name: entry for entry, name in names.items()}
     hints, site_hints = {}, {}
@@ -371,6 +378,11 @@ def write_c(program, out_dir):
     place = word_places(variables, {(struct.upper(), name): offset
                                     for (struct, offset), (name, _) in known.fields.items()})
     texts = {entry: join_words(text, place) for entry, text in texts.items()}
+    # (a structure at its fixed address by the name symbols.txt's instance line gives it: OBJECT(PLAYER)->x; only
+    # there, a number of that value elsewhere being no address: queue_task(0x500) is task 5)
+    for (macro, address), name in INSTANCE_NAMES.items():
+        pattern = re.compile(rf"\b{macro}\(0x0*{address:X}u\)")
+        texts = {entry: pattern.sub(f"{macro}({name})", text) for entry, text in texts.items()}
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     entries = sorted(built)
@@ -384,6 +396,8 @@ def write_c(program, out_dir):
         HEADER + "#ifndef MAKAIMURA_RAM_H\n#define MAKAIMURA_RAM_H\n\n" + "\n".join(named.declarations())
         + "\n\n/* data in the program ROM symbols.txt names */\n"
         + "\n".join(f"#define {name}_ADDRESS 0x{address:04X}u" for address, name in sorted(emitter.data_labels.items()))
+        + "\n\n/* the structures at fixed addresses (symbols.txt's instance lines) */\n"
+        + "\n".join(f"#define {name} 0x{address:04X}u" for (_, address), name in sorted(INSTANCE_NAMES.items()))
         + "\n\n/* the game's structures in work RAM */\n"
         + "\n".join(emitter.layouts.declarations())
         + "\n\n#endif\n", encoding="ascii")
