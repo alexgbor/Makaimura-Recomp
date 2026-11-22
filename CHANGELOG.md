@@ -5,6 +5,10 @@ What changes from one version to the next, for players. The version is set in `C
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.2.0 (2026-11-22)
+
 - **The game is now its program decompiled into readable C:** the same 6809 program, now as C functions with
   their own variables rather than an instruction at a time. It plays exactly as before: checked against the
   reference at every frame of every test (both modes, both loops, every stage, the ending, the test mode),
