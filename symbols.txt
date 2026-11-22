@@ -176,3 +176,13 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 004B  var  demo_input
 004D  var  demo_input_frames
 004E  var  demo_inputs_pointer  count=2
+
+# ======== the continue (play_continue) ========
+76C2  func  start_with_credit    # carry set when a start button is pressed (<$42) with a credit (<$22) or free play (<$51)
+76D8  func  continue_accept      # a start with a credit: one credit less, the lives back (player_start_lives), the stage on
+76FC  func  continue_countdown   # continue_timer one down (BCD) every 64 frames, drawn at 21EF; at 0 the game ends
+6C35  func  player_start_lives   # the lives from the DIP's (<$50), the bonus lives' scores from the DIP's table (<$55)
+3:5051 func draw_bcd_byte        # the byte at Y as two digits on the text layer at X, colour B
+000A  var  continue_timer       # BCD seconds
+0022  var  credits  count=2
+0051  var  free_play            # 1 when DSW1's coinage is free play (dip1_settings)
