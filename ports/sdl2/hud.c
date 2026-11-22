@@ -157,7 +157,7 @@ static void controls(uint32_t *pixels, int y, uint8_t port, const char *label)
 
 static void left_panel(uint32_t *p, const hud_info *info)
 {
-	static const char *const weapons[] = { "TORCH", "LANCE", "AXE", "SHIELD", "DAGGER" };
+	static const char *const weapons[] = { "TORCH", "LANCE", "AXE", "CROSS", "DAGGER" };
 	const uint8_t *ram = gng.ram;
 	char line[32];
 	enum { PLAYER, STAGE, CONTROLS, COUNT };

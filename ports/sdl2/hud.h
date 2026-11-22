@@ -8,8 +8,9 @@
  *
  *    license:BSD-3-Clause
  *    The game's work RAM, read only (symbols.txt): <$68-$6B the score (BCD), <$64-$67 the next extra life's score,
- *    <$60 the lives, <$73 the weapon (0 torch, 1 lance, 2 axe, 3 shield, 4 dagger), <$72 the stage (0-6), <$7F the
- *    loop (0, 1; 2 the ending), <$61 the rank (0-3F). Drawn in the game's font, at half the picture's pixel size.
+ *    <$60 the lives, <$73 the weapon (0 torch, 1 lance, 2 axe, 3 cross: the western releases' shield, 4 dagger),
+ *    <$72 the stage (0-6), <$7F the loop (0, 1; 2 the ending), <$61 the rank (0-3F). Drawn in the game's font, at
+ *    half the picture's pixel size.
  */
 #ifndef MAKAIMURA_HUD_H
 #define MAKAIMURA_HUD_H

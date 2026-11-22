@@ -2,7 +2,7 @@
 
 service_mode.txt: the board's test mode (DSW1 bit 6 on: the game state 3, irq_states[3]) and its screens, the
     controls pressed one after another.
-weapons.txt: stage 1 with each weapon in turn (<$73: 0 the torch, 2 the axe, 3 the shield, 4 the dagger; the lance,
+weapons.txt: stage 1 with each weapon in turn (<$73: 0 the torch, 2 the axe, 3 the cross, 4 the dagger; the lance,
     1, is everyone's), thrown in bursts, the lives kept (a test's cheat).
 cocktail.txt: a cocktail cabinet with the picture flipped (DSW2 bit 2, DSW1 bit 7), 7 lives, two players taking
     turns (the picture turned for the second), a game over each and a continue (a coin, then a button, 76D8).
@@ -18,9 +18,9 @@ RIGHT, LEFT, DOWN, UP, FIRE, JUMP = 0x01, 0x02, 0x04, 0x08, 0x10, 0x20
 START1, START2, SERVICE, COIN1, COIN2 = 0x01, 0x02, 0x20, 0x40, 0x80
 DSW1, DSW2 = 0xDF, 0xFB       # the factory settings (gng/board.h)
 # clears.txt: the frames each stage is cleared at (while it is played: tools/coverage.py's runs show it), and which
-# of them has the shield given first
+# of them has the cross given first
 CLEARS = [2100 + 1500 * i for i in range(15)]
-SHIELD_AT = 6
+CROSS_AT = 6
 
 
 class Script:
@@ -113,7 +113,7 @@ def cocktail():
 
 
 def clears(times):
-    s = Script("every stage cleared in turn as the program clears one (E799: <$08 = 2), the shield given before the "
+    s = Script("every stage cleared in turn as the program clears one (E799: <$08 = 2), the cross given before the "
                "first loop's last stage is cleared the second time; the lives kept", 0xC1EA)
     s.tap(1300, "system", COIN1)
     s.tap(1400, "system", START1)
@@ -121,7 +121,7 @@ def clears(times):
         s.press(frame, "m0060", 0x05)
     s.moves(1500, times[-1] + 3000)
     for i, frame in enumerate(times):
-        if i == SHIELD_AT:
+        if i == CROSS_AT:
             s.press(frame - 200, "m0073", 0x03)
         for address, value in (("m0008", 0x02), ("m000b", 0x00), ("m000e", 0x00)):
             s.press(frame, address, value)

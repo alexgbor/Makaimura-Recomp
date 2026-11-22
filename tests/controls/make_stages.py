@@ -7,7 +7,7 @@ ending.txt: loop2_stage6's, its stage cleared at frame 2100 (while it is played)
 ending plays (7D3F, 7E18, 71D7) and the game goes back to the first loop.
 
 loop2_stage0.txt and loop2_stage6.txt: the second loop (<$7F = 1, as 7298 leaves it after the first loop's last
-stage; <$71 is the stage's own state: 0 its start, 1 playing, 7AA0), stage 6 with the shield (<$73 = 3, the weapon
+stage; <$71 is the stage's own state: 0 its start, 1 playing, 7AA0), stage 6 with the cross (<$73 = 3, the weapon
 the last stage asks for: 7129).
 
 The lines are "FRAME PORT VALUE" (the byte as the board reads it, active low) and "FRAME mADDR VALUE" (the work

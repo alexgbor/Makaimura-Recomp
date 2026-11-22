@@ -52,7 +52,7 @@
 0008  var  stage_phase          # the stage's dispatch (6F54, JMP [B,X] by it through 6F5C): 0 its start, 1 played,
                                 # 2 cleared (711F: E799 sets it as a stage ends), 3 after a death; <$0B its step
 711F  code  stage_cleared        # stages 0-4: the walk to the next (73AD, 72A5) until <$90; stage 5 without the
-                                # shield (7129) back into it; stage 6 (71C3): the first loop's illusion (7254, <$7F
+                                # cross (7129) back into it; stage 6 (71C3): the first loop's illusion (7254, <$7F
                                 # = 1) or, in the second, the ending (7D3F, then 71D7 once 7E18 sets <$7F = 2)
 E78C  code  stage_end_countdown  # <$B6 counted down, then <$08 = 2 (E799; 78C9's sound first but in stage 6)
 0072  var  stage                # 0-6: cleared at the start (6C17); the stage's map (6D32), the player's dispatch (6F6B)
@@ -63,8 +63,8 @@ E78C  code  stage_end_countdown  # <$B6 counted down, then <$08 = 2 (E799; 78C9'
                                 # entry moves them); 53E5 draws the ranking by them
 152C  var  ranking_entries  count=70  # 10 entries of 7 bytes: the score (4 BCD bytes), 3 letters; 60FD at the power on
                                 # (10000, the names of a table at 61AA). Kept between sessions: ports/sdl2/hiscore.c
-0073  var  weapon               # 1 at the start (6C0C, the lance); an item's (E702); 3 the shield, which the last
-                                # stage asks for (7129: stage 5 cleared without it, back into it)
+0073  var  weapon               # 1 at the start (6C0C, the lance); an item's (E702); 3 the cross (a shield in the
+                                # western releases), which the last stage asks for (7129: stage 5 cleared without it, back into it)
 007F  var  loop                 # 0 the first loop; 1 the second (7298, after the last stage's illusion); 2 the end (7E18)
 AA41  table object_states_AA36  count=4 jump=AA36   # JSR [B,U] at AA36, U = AA41 from AA96 and AAB7 (sub_AA49 follows)
 # The two-level dispatch at 6F64-6F76: X = 6F86 while <$71 is 0, else LDX #$6F78 / LDX B,X by <$72 (the stage:
@@ -150,7 +150,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 75D2  func  player_died          # stage_phase 3: after a death, by <$0B (75DA)
 6A08  func  attract_title_coin   # the title: "PLEASE DEPOSIT COIN", the copyright, the title's logo
 6B90  func  attract_title_start  # the title with credits: "PRESS START BUTTON"
-7177  func  weapon_no_effect     # stage 5 cleared without the shield: "THIS WEAPON HAS NOT EFFECT..."
+7177  func  weapon_no_effect     # stage 5 cleared without the cross: "THIS WEAPON HAS NOT EFFECT..."
 7272  func  illusion_message     # the first loop's last stage: "THIS ROOM IS AN ILLUSION..."
 72BB  func  key_message          # "TAKE A KEY FOR COMING IN !"
 7D1A  func  final_battle_message # "RESOLVE YOUR BATTLE !"

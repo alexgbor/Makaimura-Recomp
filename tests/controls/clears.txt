@@ -1,4 +1,4 @@
-# every stage cleared in turn as the program clears one (E799: <$08 = 2), the shield given before the first loop's last stage is cleared the second time; the lives kept (tests/controls/make_features.py)
+# every stage cleared in turn as the program clears one (E799: <$08 = 2), the cross given before the first loop's last stage is cleared the second time; the lives kept (tests/controls/make_features.py)
 0 dsw1 df
 0 dsw2 fb
 1300 system bf
