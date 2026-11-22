@@ -87,7 +87,7 @@ def use_memory_map(names):
     pointers.OWN_REGISTERS = ()
     pointers.STRUCT_FUNCTION = "ram_at"
     pointers.ROM_STRUCTS = set(names.rom_structs)
-    pointers.RUNS = set(names.rom_structs)
+    pointers.RUNS = set(names.structs)    # (records one after another, the work RAM's too: past one, the next)
     pointers.ELEMENTS = dict(names.arrays)
     pointers.RECORD_TABLES = dict(names.record_tables)
     pointers.FIELD_ARRAYS = {key: (int(names.fields[key][1][1:]), count) for key, count in names.field_arrays.items()}

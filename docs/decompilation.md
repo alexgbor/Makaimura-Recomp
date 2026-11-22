@@ -91,6 +91,11 @@ See TODO.md, M6: the names (symbols.txt: the routines, the RAM's variables and t
 
 - The work RAM's 16-bit values (high byte first, the 6809's order) are `read16(&x)` and `write16(&x, v)` where the
   C reads or writes both bytes of one (`decompile.join_words`: the same bytes in the same order).
+- A structure symbols.txt describes (`struct`, `field` lines, the core's format) is read through its macro,
+  `OBJECT(p)->state`, where a `local` or `param` line says a register points at one (`object+10`: the objects'
+  handlers keep X 0x10 bytes into each record, so their C reads `OBJECT(object - 0x10u)->type`); the pointer
+  analysis carries it on to the functions the pointer is handed to. Its fields are the work RAM's (no bus, no
+  time), as the objects are.
 - A dispatch through a table whose address the code loads right before it (`LDX #table; ... JMP [B,X]`) is a
   switch on the offset into the table (`case 0x2u:` the second entry); the others switch on the address read.
 - `m6809_block(n)`, `m6809_at(c)`: the board's time (above); `mem_read8/mem_write8`: the board's bus, where the

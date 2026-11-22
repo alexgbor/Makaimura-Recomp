@@ -235,8 +235,11 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
       IRQ's jobs, the game states and steps (by the scripts that reach them and the messages they draw), the
       controls, the DIPs, the task and sound queues, the random numbers, the animations, the texts' screens; the
-      var lines reach the C (type=, count=). To do: the player, the enemies' types, the objects as a structure
-      (struct/field lines for the core), the score, the stages' maps
+      var lines reach the C (type=, count=); the continue; the objects as a structure (`struct object`: 0x40
+      bytes, X 0x10 into each: `object+10`), their 16-bit fields as read16/write16. To do: the objects' other
+      fields, the player's record (0500), the enemies' types, the score, the stages' maps. (The core's BELOW path
+      fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
+      instead)
 
 ## M7. The game in a window (`ports/sdl2`)
 

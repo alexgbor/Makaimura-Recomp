@@ -186,3 +186,23 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 000A  var  continue_timer       # BCD seconds
 0022  var  credits  count=2
 0051  var  free_play            # 1 when DSW1's coinage is free play (dip1_settings)
+
+# ======== the objects' records (0x40 bytes from 0530: 4 at 0540 + 0x40 n - 0x10), the code's pointer X 0x10 bytes
+# into each (symbols.txt: object+10) ========
+struct object 40
+field object 0 active u8
+field object 3 state u8           # 3: removed (object_off_screen)
+field object 4 step u8
+field object 6 x u8               # the position: x (16 bits, 6-7), y (16 bits, 9-A)
+field object 7 x_low u8
+field object 9 y u8
+field object A y_low u8
+field object E animation u8        # the animation's number in its table (animation_start)
+field object F animation_kind u8   # its kind: animate's table 8EC3
+field object 10 frames u8          # the animation's frames: a pointer (10-11), the frame's timer, the frame's address
+field object 11 frames_low u8
+field object 12 frame_timer u8
+field object 13 frame u8
+field object 14 frame_low u8
+field object 15 type u8            # the state routine's table (object_state_tables) and the handler (object_handlers)
+local objects_states 9ACE x object object+10

@@ -16,6 +16,9 @@ A line is   ADDRESS  KIND  NAME  [key=value ...]   [# comment]
              return=Y (a func entered by a jump with its return address in Y, which it pushes and returns
              through: a call in the C); idle (a code label where the main loop waits for work, with nothing of
              the C's on its stack but itself: where the readable C saves a state, runtime/src/m6809_program.c)
+    struct, field, local, param lines are the shared core's (tools/core/disassemble.py: load_names), for the readable
+    C: "struct NAME SIZE", "field STRUCT OFFSET NAME TYPE" (OFFSET hex, from where the code's pointer points), "local FUNCTION ADDRESS rN NAME STRUCT" (the register the instruction at ADDRESS writes points at one);
+    "below STRUCT SIZE UNDER" (the SIZE bytes right before where a pointer to STRUCT points are an UNDER: the driver's)
 Addresses and names only: no game data lives in symbols.txt.
 """
 from dataclasses import dataclass, field
@@ -31,9 +34,15 @@ class Symbol:
     comment: str = ""
 
 
+# lines for the shared core's decompiler as they are (tools/core/disassemble.py's load_names): the structures the
+# readable C reads through pointers, their fields, which register holds one where (tools/m6809/decompile.py)
+CORE_KINDS = ("struct", "field", "local", "param", "below")
+
+
 class Symbols:
-    def __init__(self, entries):
+    def __init__(self, entries, core_lines=()):
         self.entries = entries
+        self.core_lines = list(core_lines)
 
     def code(self):
         return [s for s in self.entries if s.kind in ("func", "code")]
@@ -81,6 +90,7 @@ def parse_address(text):
 
 def load(path):
     entries = []
+    core_lines = []
     try:
         handle = open(path, encoding="utf-8")
     except FileNotFoundError:
@@ -91,6 +101,9 @@ def load(path):
             words = text.split()
             if not words:
                 continue
+            if words[0] in CORE_KINDS:
+                core_lines.append(" ".join(words))
+                continue
             if len(words) < 3:
                 raise ValueError(f"{path}:{number}: ADDRESS KIND NAME expected")
             address, bank = parse_address(words[0])
@@ -99,4 +112,4 @@ def load(path):
                 k, _, v = word.partition("=")
                 keys[k] = v
             entries.append(Symbol(address, bank, words[1], words[2], keys, comment.strip()))
-    return Symbols(entries)
+    return Symbols(entries, core_lines)

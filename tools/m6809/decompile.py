@@ -93,6 +93,8 @@ M6809 = cpu.Profile(
     byte_order="big",
 )
 # the timing's effects write no register (decompiler/expressions.py)
+# the 6809's registers by the names symbols.txt's param and local lines may give them
+REGISTERS = {"a": lift.A, "b": lift.B, "x": lift.X, "y": lift.Y, "u": lift.U, "d": functions.D}
 TIMING_EFFECTS = ("m6809_block", "m6809_cycles", "m6809_at", "m6809_mask", "m6809_sync", "m6809_idle")
 
 
@@ -182,6 +184,8 @@ def core_symbols():
         count = symbol.keys.get("count")
         name = symbol.name + (f"[{int(count, 0)}]" if count else "")
         lines.append(f"{symbol.address:04X} var {name} {symbol.keys.get('type', 'u8')}")
+    # (the structures, their fields, where a register points at one: as they are; "below" lines are the driver's)
+    lines += [line for line in SYMBOLS.core_lines if not line.startswith("below ")]
     with open(CORE_SYMBOLS, "w", encoding="utf-8", newline="\n") as out:
         out.write("\n".join(lines) + "\n")
     return CORE_SYMBOLS
@@ -276,12 +280,32 @@ def write_c(program, out_dir):
         live_at_start[entry] = start
 
     SYMBOLS.entries = program.syms.entries
+    SYMBOLS.core_lines = program.syms.core_lines
     symbols_path = core_symbols()
-    known = core_disassemble.load_names(symbols_path, {})
+    known = core_disassemble.load_names(symbols_path, REGISTERS)
     emit.use_memory_map(known)
+    # a structure right below where the code's pointer to another points ("below STRUCT SIZE UNDER": the objects' first
+    # 0x10 bytes, which their handlers reach at negative offsets from X)
+    for line in program.syms.core_lines:
+        words = line.split()
+        if words[0] == "below":
+            pointers.BELOW[words[1]] = (int(words[2], 16), words[3])
+    # what symbols.txt's param and local lines say a register points at (as the 68000's driver takes them)
+    entries_by_name = {name: entry for entry, name in names.items()}
+    hints, site_hints = {}, {}
+    for (function_name, register), struct in known.param_structs.items():
+        if function_name in entries_by_name:
+            hints.setdefault(entries_by_name[function_name], {})[register] = pointers.link_kind(struct)
+    for (function_name, spot, value), struct in known.local_structs.items():
+        if not value.startswith("r"):
+            continue
+        if spot == "entry" and function_name in entries_by_name:
+            hints.setdefault(entries_by_name[function_name], {})[int(value[1:])] = pointers.link_kind(struct)
+        elif spot != "entry":
+            site_hints[(spot, int(value[1:]))] = pointers.link_kind(struct)
     typing = pointers.Program(built, flow, found,
                               {entry: call_results(function, found, flow) for entry, function in built.items()},
-                              signatures.CONTEXT, known.targets, {}, {})
+                              signatures.CONTEXT, known.targets, hints, site_hints)
     fields, accesses = typing.run()
     through = [(hit[1], hit[2]) for found_fields in fields.values() for hit in found_fields.values()
                if hit[0] == "global"]
@@ -295,6 +319,8 @@ def write_c(program, out_dir):
     emitter.flow = flow
     emitter.data_labels = {address: name for address, name in data_names.items() if address not in named.tables}
     emitter.code_labels = {s.address: s.name for s in program.syms.entries if s.kind == "code" and s.bank is None}
+    emitter.param_pointers = {entry: set(kinds) for entry, kinds in hints.items()}
+    emitter.local_sites = {(spot, value): name for (_, spot, value), name in known.locals.items() if spot != "entry"}
     joined = {}
     for entry, function in built.items():
         notes = (live_after[entry], fields[entry])
@@ -342,7 +368,8 @@ def write_c(program, out_dir):
         raise SystemExit(f"{len(problems)} functions could not be written")
 
     variables = {s.name: s.address for s in program.syms.entries if s.kind == "var"}
-    place = word_places(variables)
+    place = word_places(variables, {(struct.upper(), name): offset
+                                    for (struct, offset), (name, _) in known.fields.items()})
     texts = {entry: join_words(text, place) for entry, text in texts.items()}
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -357,7 +384,8 @@ def write_c(program, out_dir):
         HEADER + "#ifndef MAKAIMURA_RAM_H\n#define MAKAIMURA_RAM_H\n\n" + "\n".join(named.declarations())
         + "\n\n/* data in the program ROM symbols.txt names */\n"
         + "\n".join(f"#define {name}_ADDRESS 0x{address:04X}u" for address, name in sorted(emitter.data_labels.items()))
-        + "\n\n/* the game's structures in work RAM */\n" + "\n".join(emitter.layouts.declarations())
+        + "\n\n/* the game's structures in work RAM */\n"
+        + "\n".join(emitter.layouts.declarations())
         + "\n\n#endif\n", encoding="ascii")
     write_sources(out, files, texts, "game.h", header=lambda name, description: HEADER + f"/* {description} */\n")
     reset, irq = program.reset, program.irq
@@ -387,14 +415,21 @@ def write_c(program, out_dir):
 
 # ---- the work RAM's 16-bit values ----
 
-LVALUE = r"(?:unk_[0-9A-F]{4}|[A-Za-z_]\w*\[\d+\]|[A-Za-z_]\w*)"
+# (a byte the C names: unk_XXXX, a variable, an element of one, a field of a structure, NAME(pointer)->field)
+LVALUE = r"(?:[A-Z_]+\((?:[^()]|\([^()]*\))*\)->\w+|unk_[0-9A-F]{4}|[A-Za-z_]\w*\[\d+\]|[A-Za-z_]\w*)"
 READ = re.compile(r"\(\(uint32_t\)(" + LVALUE + r") << 8\) \| (" + LVALUE + r")")
 WRITE = re.compile(r"^(\s*)(" + LVALUE + r") = (\w+) >> 8;\n\1(" + LVALUE + r") = (?:\(uint8_t\))?\3;$", re.M)
 
 
-def word_places(variables):
-    """{C text of a work RAM byte: its address}: unk_XXXX, and symbols.txt's variables (NAME, NAME[i])"""
+def word_places(variables, fields=None):
+    """The place of a work RAM byte by its C text: unk_XXXX and symbols.txt's variables (NAME, NAME[i]) their
+    address; a structure's field (NAME(pointer)->field) its pointer's text and the field's offset ('fields': {(struct
+    macro, field): offset})"""
     def place(text):
+        if "->" in text:
+            base, _, field = text.rpartition("->")
+            offset = (fields or {}).get((base.split("(", 1)[0], field))
+            return None if offset is None else (base, offset)
         if text.startswith("unk_"):
             return int(text[4:], 16)
         name, _, index = text.partition("[")
@@ -410,6 +445,9 @@ def join_words(text, place):
     The same bytes read and written, in the same order: the work RAM has no time to keep (m6809/program.h)"""
     def consecutive(high, low):
         a, b = place(high), place(low)
+        if isinstance(a, tuple) or isinstance(b, tuple):
+            # (two fields of one structure, through the same pointer, one after the other)
+            return isinstance(a, tuple) and isinstance(b, tuple) and a[0] == b[0] and b[1] == a[1] + 1
         return a is not None and b == a + 1 and b < 0x1E00
 
     def read(match):
