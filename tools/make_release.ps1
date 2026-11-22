@@ -71,7 +71,7 @@ if ($changes -match "(?ms)^## Unreleased\s*(.*?)^## v") {
 
 # the .exe newer than the sources: a build made after the last change
 $exe = Get-Item "build\bin\makaimura.exe"
-$newest = Get-ChildItem "ports\sdl2", "runtime" -Recurse -Include *.c, *.h | Sort-Object LastWriteTime | Select-Object -Last 1
+$newest = Get-ChildItem "ports\sdl2", "runtime", "src" -Recurse -Include *.c, *.h | Sort-Object LastWriteTime | Select-Object -Last 1
 if ($newest.LastWriteTime -gt $exe.LastWriteTime) {
     throw "build\bin\makaimura.exe is older than $($newest.FullName): build the Release again first"
 }
@@ -109,6 +109,12 @@ $bytes = [System.IO.File]::ReadAllBytes((Join-Path $out "makaimura.exe"))
 $pe = [BitConverter]::ToInt32($bytes, 0x3C)
 if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { $problems += "makaimura.exe is not a 64-bit build" }
 if ($bytes.Length -gt 16MB) { $problems += "makaimura.exe is $([int]($bytes.Length / 1MB)) MB: more than the program should be" }
+# (the game is the readable C, src/: a message only its runtime has, runtime/src/m6809_program.c; one only the
+# translation's has, runtime/src/m6809.c, not there)
+$text = [System.Text.Encoding]::ASCII.GetString($bytes)
+if (-not $text.Contains("the main loop returned") -or $text.Contains("an address the static analysis did not find")) {
+    $problems += "makaimura.exe is not the readable C (python tools/m6809/decompile.py, then build again)"
+}
 $text = [System.Text.Encoding]::ASCII.GetString($bytes)
 if ($text -match "(?i)vcruntime\d+d?\.dll|msvcp\d+d?\.dll|ucrtbased\.dll") {
     $problems += "makaimura.exe needs the Visual C++ runtime ($($Matches[0])): build with the static runtime"

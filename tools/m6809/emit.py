@@ -131,6 +131,17 @@ class Writer(emit.FunctionWriter):
                     f"{self.stored(statement.value, statement.bits)});"]
         return super().statement(statement)
 
+    def call(self, statement):
+        offsets = getattr(statement, "offsets", None)
+        if not offsets:
+            return super().call(statement)
+        # a call through a table by the offset into it (function.Builder.table_index)
+        lines = [f"switch ({self.exact(statement.address)})", "{"]
+        for choice in sorted(statement.choices, key=lambda choice: min(offsets[choice])):
+            lines += [f"case 0x{offset:X}u:" for offset in offsets[choice]]
+            lines += ["\t" + self.call_text(choice, statement.return_address), "\tbreak;"]
+        return lines + ["}"]
+
     def effect(self, statement):
         name = statement.name
         args = statement.args

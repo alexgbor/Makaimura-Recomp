@@ -505,7 +505,7 @@ class Builder:
         if kind in ("call",):
             statements = self.without_pushes(statements, 2)
             block.statements += statements + [cycles]
-            block.statements.append(self.call(number, ins, control))
+            block.statements.append(self.call(number, ins, control, block))
             block.end = self.transfer(number, following)
             return
         if kind == "return":
@@ -550,9 +550,47 @@ class Builder:
             targets = program.table_targets.get(number)
             if not targets:
                 raise lift.Unsupported(f"{label(number)}: {ins.text} with no table")
+            indexed = self.table_index(block, number, ins)
+            if indexed is not None:
+                register, cases = indexed
+                block.end = ir.Switch(register, {offset: ("tail", target) for offset, target in cases.items()})
+                return
             block.end = ir.Switch(control.address, {split_key(target)[1]: ("tail", target) for target in targets})
             return
         raise lift.Unsupported(f"{label(number)}: control {kind}")
+
+    def table_index(self, block, number, ins):
+        """JMP or JSR [A,r] or [B,r] through a table whose address this block loads into r (LDr #table, r untouched
+        since): (the accumulator, {its value: the code that entry leads to}), the switch on the offset into the table
+        (the index twice) rather than on the address read from it. None where the table's address is not that sure"""
+        operand = ins.operand
+        if not (operand.mode == "indexed" and operand.indirect and operand.kind == "acc" and
+                operand.base in lift.INDEX and operand.acc in ("A", "B")):
+            return None
+        base = lift.INDEX[operand.base]
+        table = None
+        for statement in reversed(block.statements):
+            if isinstance(statement, ir.SetReg) and statement.index == base:
+                table = statement.value.value if isinstance(statement.value, ir.Const) else None
+                break
+            if isinstance(statement, (ir.Call, ir.Effect)) and not (isinstance(statement, ir.Effect) and
+                                                                     statement.name.startswith("m6809_")):
+                return None
+        if table is None:
+            return None
+        bank, _ = split_key(number)
+        read = self.program.rom.reader(bank if in_window(table) else None)
+        cases = {}
+        for target in self.program.table_targets.get(number, ()):
+            for offset in range(0, 0x80, 2):
+                word = read(table + offset) << 8 | read(table + offset + 1)
+                if target in self.program.window_targets(number, word):
+                    cases[offset] = ("tail", target)
+        found = set(target for _, target in cases.values())
+        if found != set(self.program.table_targets.get(number, ())):
+            return None
+        accumulator = lift.A if operand.acc == "A" else lift.B
+        return ir.Reg(accumulator, 8), {offset: target for offset, (_, target) in cases.items()}
 
     def loaded_y(self, number):
         """The constant the instruction before 'number' loads into Y (LDY #back), where a return=Y function is
@@ -576,7 +614,7 @@ class Builder:
         self.extra.append(extra)
         return label_
 
-    def call(self, number, ins, control):
+    def call(self, number, ins, control, block=None):
         if control.target is not None:
             targets = self.program.window_targets(number, control.target)
             if len(targets) == 1:
@@ -586,6 +624,15 @@ class Builder:
         targets = self.program.table_targets.get(number)
         if not targets:
             raise lift.Unsupported(f"{label(number)}: {ins.text} with no table")
+        indexed = self.table_index(block, number, ins) if block is not None else None
+        if indexed is not None:
+            # (a switch on the offset into the table: emit.Writer.call reads the cases from 'offsets')
+            register, cases = indexed
+            call = ir.Call(address=register, choices=tuple(targets), return_address=ins.next & 0xFFFF)
+            call.offsets = {}
+            for offset, target in sorted(cases.items()):
+                call.offsets.setdefault(target, []).append(offset)
+            return call
         return ir.Call(address=control.address, choices=tuple(targets), return_address=ins.next & 0xFFFF)
 
     @staticmethod

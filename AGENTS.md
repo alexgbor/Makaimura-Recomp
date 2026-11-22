@@ -66,7 +66,7 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `runtime/` | the board model in C: `board.c` (bus, banks, DMA, LS259, inputs), `video.c`, `m6809.c` and `z80.c` (the CPUs the translated programs run on), `m6809_program.c` (the 6809 the readable C runs on: `m6809/program.h`), `sound.c`, `ym2203.c` (after ymfm), `state.c` (save states), `rom_set.c` and `inflate.c` (the set from its zips) |
 | `ports/headless/` | `gng_headless`: the translated game with no window, gref's outputs, for the checks; `gng_headless_c`: the same on the readable C |
 | `tools/game_profile.py` | what the core's modules ask of the game as they are imported (the 6809's frontend sets the rest itself) |
-| `ports/sdl2/` | `makaimura`: the game in a window; `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings), `hud.c` (the side panels), `hiscore.c` (makaimura.hi), `replays.c`, `rom_drop.c` (the ROM set's window), `updater.c` (updates from GitHub's releases), `crt.c` (the CRT look), `release/` (the package's README.txt, NOTICES.txt). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs`, `--save-state`, `--load-state`, `--high-scores`, `--keep-replays`, `--drop`, `--drop-shot`, `--update-test` |
+| `ports/sdl2/` | `makaimura`: the game in a window (on the readable C; `makaimura_translated` on the translation); `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings), `hud.c` (the side panels), `hiscore.c` (makaimura.hi), `replays.c`, `rom_drop.c` (the ROM set's window), `updater.c` (updates from GitHub's releases), `crt.c` (the CRT look), `release/` (the package's README.txt, NOTICES.txt). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs`, `--save-state`, `--load-state`, `--high-scores`, `--keep-replays`, `--drop`, `--drop-shot`, `--update-test` |
 | `tools/make_release.ps1`, `CHANGELOG.md` | the player's package (`release/`, never committed): the version is CMakeLists.txt's `project(makaimura VERSION)`, its section in CHANGELOG.md |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
 | `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
@@ -74,10 +74,13 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 
 ## Working
 
-- Build and check: `python tools/m6809/translate.py`, `python tools/z80cpu/translate.py`, `cmake -S . -B build/msvc
-  && cmake --build build/msvc --config Release`, then `python tools/check_translation.py` (the attract mode and every
-  script, in one mode: `--accuracy mame` or `board`; about 15 minutes each) after any change to the runtime or the
-  translators.
+- Build and check: `python tools/m6809/translate.py`, `python tools/z80cpu/translate.py`, `python
+  tools/m6809/decompile.py` (the readable C, `src/`: the game's 6809 program), `cmake -S . -B build/msvc && cmake
+  --build build/msvc --config Release`, then `python tools/check_translation.py --decompiled` and `python
+  tools/check_translation.py` (the attract mode and every script, in one mode: `--accuracy mame` or `board`; about
+  15-20 minutes each) after any change to the runtime, the translators or the decompiler's frontend; `python
+  tools/check_states.py --program build/bin/gng_headless_c.exe` for the states. `makaimura` is the game on the
+  readable C; `makaimura_translated` the same window on the translation, to compare.
 - Check the window without disturbing whoever uses the computer: `makaimura --hidden` or `--shot N FILE`, sound
   through `SDL_AUDIODRIVER=disk` (or `volume = 0` in a `--settings` file); never show windows or capture the
   desktop.

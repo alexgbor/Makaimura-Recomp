@@ -137,19 +137,23 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 	file(GLOB MAKAIMURA_SDL2_HINT ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
 	find_package(SDL2 CONFIG QUIET HINTS ${MAKAIMURA_SDL2_HINT})
 	if(SDL2_FOUND)
-		# makaimura on the translation (the game); makaimura_c, the same window on the readable C (M6, to try it)
+		# makaimura, the game: the window on the readable C (M6, src/), checked 1:1 against the reference as the
+		# translation is; makaimura_translated, the same window on the translation, kept to compare them. Without
+		# src/ (tools/m6809/decompile.py not run), makaimura is the translation's
 		set(MAKAIMURA_WINDOWS makaimura)
 		if(TARGET gng_decompiled)
-			list(APPEND MAKAIMURA_WINDOWS makaimura_c)
+			list(APPEND MAKAIMURA_WINDOWS makaimura_translated)
+		else()
+			message(STATUS "No readable C (python tools/m6809/decompile.py): makaimura runs the translation")
 		endif()
 		foreach(window IN LISTS MAKAIMURA_WINDOWS)
 			add_executable(${window} ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
 				ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c
 				ports/sdl2/replays.c ports/sdl2/rom_drop.c ports/sdl2/updater.c ports/sdl2/crt.c)
-			if(window STREQUAL "makaimura")
-				target_link_libraries(${window} PRIVATE gng_program SDL2::SDL2)
-			else()
+			if(window STREQUAL "makaimura" AND TARGET gng_decompiled)
 				target_link_libraries(${window} PRIVATE gng_decompiled SDL2::SDL2)
+			else()
+				target_link_libraries(${window} PRIVATE gng_program SDL2::SDL2)
 			endif()
 			target_compile_definitions(${window} PRIVATE MAKAIMURA_VERSION="${PROJECT_VERSION}")
 			if(WIN32)

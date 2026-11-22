@@ -62,6 +62,7 @@ from m6809 import lift  # noqa: E402
 from m6809 import translate  # noqa: E402
 
 REPORTS = os.path.join(ROOT, "build", "decompile")
+SYMBOLS = SimpleNamespace(entries=[])    # symbols.txt (tools/symbols.py), for core_symbols
 CORE_SYMBOLS = Path(REPORTS) / "symbols_core.txt"
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 HEADER = """/*
@@ -171,11 +172,18 @@ def check(program):
 
 
 def core_symbols():
-    """symbols.txt's names in the core's format (disassemble.load_names), for the passes that name things: none
-    yet"""
+    """symbols.txt's names in the core's format (disassemble.load_names), for the passes that name things: the work
+    RAM's variables ("var" lines: type=u8 by default, count=N an array of N)"""
     os.makedirs(REPORTS, exist_ok=True)
+    lines = ["# made by tools/m6809/decompile.py from symbols.txt: the names the core's passes read"]
+    for symbol in sorted(SYMBOLS.entries, key=lambda s: s.address):
+        if symbol.kind != "var":
+            continue
+        count = symbol.keys.get("count")
+        name = symbol.name + (f"[{int(count, 0)}]" if count else "")
+        lines.append(f"{symbol.address:04X} var {name} {symbol.keys.get('type', 'u8')}")
     with open(CORE_SYMBOLS, "w", encoding="utf-8", newline="\n") as out:
-        out.write("# made by tools/m6809/decompile.py from symbols.txt: the names the core's passes read\n")
+        out.write("\n".join(lines) + "\n")
     return CORE_SYMBOLS
 
 
@@ -267,6 +275,7 @@ def write_c(program, out_dir):
         live_after[entry] = after
         live_at_start[entry] = start
 
+    SYMBOLS.entries = program.syms.entries
     symbols_path = core_symbols()
     known = core_disassemble.load_names(symbols_path, {})
     emit.use_memory_map(known)
@@ -332,6 +341,9 @@ def write_c(program, out_dir):
             print(f"  {functions.label(entry)}  {problem}")
         raise SystemExit(f"{len(problems)} functions could not be written")
 
+    variables = {s.name: s.address for s in program.syms.entries if s.kind == "var"}
+    place = word_places(variables)
+    texts = {entry: join_words(text, place) for entry, text in texts.items()}
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     entries = sorted(built)
@@ -372,6 +384,60 @@ def write_c(program, out_dir):
     return 0
 
 
+
+# ---- the work RAM's 16-bit values ----
+
+LVALUE = r"(?:unk_[0-9A-F]{4}|[A-Za-z_]\w*\[\d+\]|[A-Za-z_]\w*)"
+READ = re.compile(r"\(\(uint32_t\)(" + LVALUE + r") << 8\) \| (" + LVALUE + r")")
+WRITE = re.compile(r"^(\s*)(" + LVALUE + r") = (\w+) >> 8;\n\1(" + LVALUE + r") = (?:\(uint8_t\))?\3;$", re.M)
+
+
+def word_places(variables):
+    """{C text of a work RAM byte: its address}: unk_XXXX, and symbols.txt's variables (NAME, NAME[i])"""
+    def place(text):
+        if text.startswith("unk_"):
+            return int(text[4:], 16)
+        name, _, index = text.partition("[")
+        if name not in variables:
+            return None
+        return variables[name] + (int(index[:-1]) if index else 0)
+    return place
+
+
+def join_words(text, place):
+    """The 6809's 16-bit values in the work RAM (its high byte first) as read16(&high) and write16(&high, value)
+    where the C reads or writes the two bytes of one: ((uint32_t)high << 8) | low, and high = v >> 8 then low = v.
+    The same bytes read and written, in the same order: the work RAM has no time to keep (m6809/program.h)"""
+    def consecutive(high, low):
+        a, b = place(high), place(low)
+        return a is not None and b == a + 1 and b < 0x1E00
+
+    def read(match):
+        start, end = match.span()
+        before = text[:start].rstrip()
+        after = text[end:].lstrip()
+        if not (before.endswith(("(", "=", ",", "return", "|")) and not before.endswith(("||", "==", "!=", "<=", ">="))
+                and after[:1] in (")", ";", ",", "|") and not after.startswith("||")):
+            return match.group(0)
+        if not consecutive(match.group(1), match.group(2)):
+            return match.group(0)
+        return f"read16(&{match.group(1)})"
+
+    def write(match):
+        indent, high, value, low = match.groups()
+        if not consecutive(high, low):
+            return match.group(0)
+        return f"{indent}write16(&{high}, {value});"
+    previous = None
+    while previous != text:
+        previous = text
+        text = READ.sub(read, text)
+    text = WRITE.sub(write, text)
+    # (read16(&x)) as an operand: the parentheses the pair needed; &name[0]: name
+    text = re.sub(r"(?<![\w)\]])\((read16\(&" + LVALUE + r"\))\)", r"\1", text)
+    return re.sub(r"&([A-Za-z_]\w*)\[0\]", r"\1", text)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[2])
     parser.add_argument("--check", action="store_true", help="build every function and report what does not lift")
@@ -392,3 +458,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

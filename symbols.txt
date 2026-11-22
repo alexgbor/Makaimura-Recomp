@@ -57,11 +57,11 @@
 E78C  code  stage_end_countdown  # <$B6 counted down, then <$08 = 2 (E799; 78C9's sound first but in stage 6)
 0072  var  stage                # 0-6: cleared at the start (6C17); the stage's map (6D32), the player's dispatch (6F6B)
 0071  var  stage_state          # 0: the stage's start ("PLAYER ONE READY": 6F64 by 6F86), 1 playing (7AA0), 2 (7CF9)
-00D0  var  top_score            # 4 BCD bytes: 10000 at main_loop_start (6134, once after the power on), raised as
+00D0  var  top_score  count=4  # 4 BCD bytes: 10000 at main_loop_start (6134, once after the power on), raised as
                                 # the score passes it (545B); the TOP SCORE at the screen's top
-1518  var  ranking_order        # 10 addresses of the ranking's entries, best first (6126 at the power on; the name
+1518  var  ranking_order  count=20  # 10 addresses of the ranking's entries, best first (6126 at the power on; the name
                                 # entry moves them); 53E5 draws the ranking by them
-152C  var  ranking_entries      # 10 entries of 7 bytes: the score (4 BCD bytes), 3 letters; 60FD at the power on
+152C  var  ranking_entries  count=70  # 10 entries of 7 bytes: the score (4 BCD bytes), 3 letters; 60FD at the power on
                                 # (10000, the names of a table at 61AA). Kept between sessions: ports/sdl2/hiscore.c
 0073  var  weapon               # 1 at the start (6C0C, the lance); an item's (E702); 3 the shield, which the last
                                 # stage asks for (7129: stage 5 cleared without it, back into it)
@@ -84,3 +84,95 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 4:4942 table table_A0BE          count=8   # JMP [B,U] at A0BE with U = 4942 in the window: bank 4's (A0C0-A167)
 4:5C20 table table_E6E3          count=20  # JMP [B,U] at E6E3 with U = 5C20 in the window (by -$E,X); the analysis read a 21st
                                            # word (E864: data, CWAI and RTI as code) past its end
+
+# ======== the IRQ's jobs (65D1-65E5) and the game states (by <$02, irq_states) ========
+6755  func  video_registers      # the flip (LS259 3D00 from <$D8 ^ <$DA), the scroll from <$D4 (x) and <$D6 (y, inverted)
+6772  func  read_controls        # the last inputs moved along (<$42-<$49), then the system, player 1 and player 2
+                                 # ports read, inverted (pressed = 1): <$42, <$46, <$48
+622C  func  read_dips            # DSW1 and DSW2 read, inverted: <$40, <$41
+6239  func  dip1_settings        # from DSW1: the coinage, the flip (<$DA), the demo sounds (<$52)...
+6274  func  dip2_settings        # from DSW2: the lives (<$50, a table at 61C8), the bonus life, the difficulty (<$57)
+67B3  func  coin_counters        # the coin counters (LS259 3D02, 3D03) and the coins' timing
+7788  func  sound_latch_send     # a byte of the sound queue (0140-017F, read at <$16) to the sound latch, if any
+684F  func  game_state_start     # state 0 (<$02): after the power on, every script; its step by <$05 (6857)
+694D  func  game_state_attract   # state 1: the attract mode, the title, coins and starts; its step by <$05 (695A)
+6F22  func  game_state_play      # state 2: a game; its step by <$05 (6F30): 6F54 the stage's
+3:5671 func game_state_service   # state 3: the test mode (only the service_mode script reaches it)
+
+# ======== helpers the whole program calls ========
+6909  func  queue_task           # D (A the task's number, B its argument) into the main loop's queue (0100-013F, written
+                                 # at <$10): main_loop runs it in bank 3 (main_tasks)
+7775  func  sound_queue_put      # B into the sound queue (0140-017F, written at <$14)
+776D  func  sound_request        # B to the sound queue if the demo sounds are on (<$52) or a game is on (<$28)
+68F9  func  random               # the random numbers: a shift register at <$6E-<$6F, its low byte in <$70 and B
+68DF  func  clear_sprites        # the sprite RAM's 1E00-1F7F set to F8 (off the screen), 24 PSHU of 16 bytes
+3:489B func draw_message         # message B of the table at 3:48DD on the text layer (its colour <$F2; '/' a new line)
+8ECE  func  animation_start      # the animation number -2,X of the table at U: its frames from the start
+8ED7  func  animate              # an object's animation: its frame's timer (+2,X) counted down, then the next frame
+                                 # (the pointer at +0,X, its kind -1,X: the table at 8EC3); the frame's address in Y
+8DC5  func  object_off_screen    # an object far from the scroll (<$9C, <$9E) goes to state 3 (-$D,X: removed)
+
+# ======== the game's variables ========
+0002  var  game_state           # 0 the start, 1 the attract mode, 2 a game, 3 the test mode (irq_states)
+0005  var  game_step            # the state's step (each state's own table)
+0010  var  task_queue_in  count=2    # where queue_task writes next (0100-013F)
+0012  var  task_queue_out  count=2   # where main_loop reads next
+0014  var  sound_queue_in  count=2   # where sound_queue_put writes next (0140-017F)
+0016  var  sound_queue_out  count=2  # where sound_latch_send reads next
+0020  var  frame_counter  count=2    # 16 bits, +1 at each IRQ (<$21 its low byte: the round robin's job)
+0040  var  dsw1                 # inverted (on = 1)
+0041  var  dsw2
+0042  var  inputs_system        # inverted (pressed = 1); <$43-<$45 the frames before
+0046  var  inputs_p1
+0048  var  inputs_p2
+0050  var  dip_lives
+0052  var  demo_sounds
+0057  var  dip_difficulty
+006E  var  random_seed  count=2
+0070  var  random_value
+00D4  var  scroll_x  count=2
+00D6  var  scroll_y  count=2
+00D8  var  flip
+00D9  var  bank                 # the bank the main loop's code selected (the IRQ puts it back)
+00DA  var  flip_dip
+
+# ======== the game's steps (game_step, <$05: game_state_play's table 6F30) and their screens ========
+# (what each one shows: draw_message's numbers its queue_task(0x02NN) asks for)
+6C05  func  game_init            # a game's variables (the attract mode's demo too)
+6F3A  func  play_begin           # step 0: the screen cleared (tasks 04 and 00), game_init
+6F54  func  play_stage           # step 1: the stage, by stage_phase (6F5C)
+3:5AC5 func play_game_over       # step 2: a player's game over (the scripts that lose every life reach it)
+3:5B75 func play_step3           # step 3: task 01 with 1A (no script reaches it)
+7669  func  play_continue        # step 4: "CONTINUE PLAY ?" (76B3), by stage_phase (7671)
+76B3  func  continue_prompt
+6F64  func  stage_start          # stage_phase 0: "PLAYER ONE READY", the stage's start (player_states_6F86...)
+7097  func  stage_play           # stage_phase 1: a stage played
+75D2  func  player_died          # stage_phase 3: after a death, by <$0B (75DA)
+6A08  func  attract_title_coin   # the title: "PLEASE DEPOSIT COIN", the copyright, the title's logo
+6B90  func  attract_title_start  # the title with credits: "PRESS START BUTTON"
+7177  func  weapon_no_effect     # stage 5 cleared without the shield: "THIS WEAPON HAS NOT EFFECT..."
+7272  func  illusion_message     # the first loop's last stage: "THIS ROOM IS AN ILLUSION..."
+72BB  func  key_message          # "TAKE A KEY FOR COMING IN !"
+7D1A  func  final_battle_message # "RESOLVE YOUR BATTLE !"
+71EF  func  ending_congratulation
+7202  func  ending_knight_message
+721D  func  ending_return_to_start
+3:56EE func service_screen       # the test mode's first screen: the top's texts erased, its own drawn
+3:5711 func service_settings     # the DIP settings, the inputs, the coin counters, the sound code
+3:5927 func service_scroll_test  # "CROSS DOT & SCROLL TEST"
+3:5A11 func service_obj_ram_test # "OBJ RAM TEST"
+
+# ======== the objects ========
+9ACE  func  objects_states       # 4 objects of 0x40 bytes from 0540: each one's state routine by its type and state
+9F0C  func  objects_handlers     # each object's handler by its type (4:4712), and one of two by the frame's parity
+691C  func  demo_controls        # with no game on (<$28 = 0): the attract demo's controls, from a list in bank 2 (<$4E:
+                                 # a byte of inputs, then how many frames it lasts)
+70F3  func  stage_frame          # a stage's frame: demo_controls, the objects, ...; on a death (<$90) rank_down and
+                                 # stage_phase 3
+7115  func  rank_down            # player_rank one down, not below the DIP's difficulty (<$57)
+000B  var  stage_step           # the stage phase's step (stage_start's, player_died's tables)
+000E  var  stage_substep
+0028  var  game_on              # 0 while no game is on (the attract demo: demo_controls; no sound but the demo's)
+004B  var  demo_input
+004D  var  demo_input_frames
+004E  var  demo_inputs_pointer  count=2

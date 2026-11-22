@@ -2,7 +2,8 @@
 
 The translation (milestone M4, `tools/m6809/translate.py`) is the 6809 program an instruction at a time: the CPU's
 registers in a struct, a region of code per C function, a trampoline that dispatches addresses. It is exact, and it
-is the game today. The readable C is the same program through the shared core's decompiler (`tools/core/decompiler`,
+stays as the reference the readable C is compared with (`gng_headless`, `makaimura_translated`). The game
+(`makaimura`) is the readable C. The readable C is the same program through the shared core's decompiler (`tools/core/decompiler`,
 arcade-decomp): functions as the program has them, structured C with no goto, local variables instead of
 registers, and no CPU left in it, checked frame by frame against the reference like the translation is.
 
@@ -84,5 +85,14 @@ the bus at each IRQ byte by byte (`--irq-dumps`) to find where a difference star
 
 ## To do
 
-See TODO.md, M6: the names (symbols.txt: the routines, the RAM's variables and the objects' structures), the
-work RAM's 16-bit values as variables of their own, the window on the readable C.
+See TODO.md, M6: the names (symbols.txt: the routines, the RAM's variables and the objects' structures).
+
+## Reading it
+
+- The work RAM's 16-bit values (high byte first, the 6809's order) are `read16(&x)` and `write16(&x, v)` where the
+  C reads or writes both bytes of one (`decompile.join_words`: the same bytes in the same order).
+- A dispatch through a table whose address the code loads right before it (`LDX #table; ... JMP [B,X]`) is a
+  switch on the offset into the table (`case 0x2u:` the second entry); the others switch on the address read.
+- `m6809_block(n)`, `m6809_at(c)`: the board's time (above); `mem_read8/mem_write8`: the board's bus, where the
+  address is worked out or a device's; `ROM8(a)`: the program's data through the board; `RAM8`, the variables of
+  `ram.h`: the work RAM.

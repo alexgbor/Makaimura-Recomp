@@ -196,9 +196,8 @@ Roughly in order; each milestone is checked against the reference before it is t
 
 ## M6. Readable C
 
-- [~] The core's decompiler on the 6809's IR (structured C, no CPU left), checked frame by frame again
-      (`docs/decompilation.md`; branch `m6-readable-c`; the translation stays the game until the readable C matches
-      gref everywhere):
+- [x] The core's decompiler on the 6809's IR (structured C, no CPU left), checked frame by frame again
+      (`docs/decompilation.md`; branch `m6-readable-c`), the game since it matched gref everywhere:
       - [x] Functions: the program split into functions (the vectors, the calls' targets, the tables', symbols.txt's)
             and each lifted into the decompiler's blocks (`tools/m6809/function.py`: calls and returns as C has them,
             the jumps through tables as switches, the banked window's code by its bank, PSHS/PULS as the stack's
@@ -225,12 +224,19 @@ Roughly in order; each milestone is checked against the reference before it is t
       - [x] Save states on the readable C: taken where the main loop waits for work (617F, symbols.txt's idle: the
             C's stack is the main loop alone), U kept; the run from a state the same as the uninterrupted one
             (`tools/check_states.py --program build/bin/gng_headless_c.exe`)
-      - [ ] The work RAM's 16-bit values as variables (the work RAM kept the other way round, as the 68000's games
-            do?), the conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code
-            the IRQ may interrupt (the main loop's tasks: 745 of them) written shorter
-      - [ ] The window on the readable C (`makaimura` on gng_decompiled: its states the readable C's; the
-            translation's states refused), checked as the translation's window was; then it becomes the game
-- [ ] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...)
+      - [x] The work RAM's 16-bit values as read16/write16 (684 of them), the dispatches through a table the code
+            loads right before as switches on the offset into it
+      - [x] The game is the readable C: `makaimura` on gng_decompiled, `makaimura_translated` kept to compare; the
+            window's pictures the same as the translation's (walk_right, frames 2000-7000), its states saved and
+            loaded the same, the translation's refused ("A STATE OF THE TRANSLATED PROGRAM"; the practice's starts
+            made again); `tools/make_release.ps1` refuses an .exe that is not the readable C
+      - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
+            may interrupt (the main loop's tasks: 745 of them) written shorter
+- [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
+      IRQ's jobs, the game states and steps (by the scripts that reach them and the messages they draw), the
+      controls, the DIPs, the task and sound queues, the random numbers, the animations, the texts' screens; the
+      var lines reach the C (type=, count=). To do: the player, the enemies' types, the objects as a structure
+      (struct/field lines for the core), the score, the stages' maps
 
 ## M7. The game in a window (`ports/sdl2`)
 

@@ -5,7 +5,13 @@ What changes from one version to the next, for players. The version is set in `C
 
 ## Unreleased
 
-Nothing yet.
+- **The game is now its program decompiled into readable C:** the same 6809 program, now as C functions with
+  their own variables rather than an instruction at a time. It plays exactly as before: checked against the
+  reference at every frame of every test (both modes, both loops, every stage, the ending, the test mode),
+  picture for picture and sample for sample.
+- **Save states from v0.1.x can't be loaded** (the game says "A STATE OF THE TRANSLATED PROGRAM"): save again.
+  The practice areas' starts are made again by themselves the first time each one is chosen. High scores and the
+  settings are kept.
 
 ## v0.1.1 (2026-11-20)
 

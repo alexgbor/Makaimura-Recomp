@@ -37,6 +37,14 @@ extern uint64_t m6809_start;
 static inline uint8_t *ram_at(uint32_t address) { return &gng.ram[(uint16_t)address]; }
 static inline const uint8_t *rom_at(uint32_t address) { return &gng.roms.maincpu[(uint16_t)address]; }
 
+/* a 16-bit value of the work RAM, its high byte first (the 6809's order): read16(&high_byte), write16(&high_byte, v) */
+static inline uint16_t read16(const uint8_t *high) { return (uint16_t)(high[0] << 8 | high[1]); }
+static inline void write16(uint8_t *high, uint32_t value)
+{
+	high[0] = (uint8_t)(value >> 8);
+	high[1] = (uint8_t)value;
+}
+
 /* an instruction's end: its cycles pass, then the board's VBLANK and the IRQ the mask lets through */
 void m6809_boundary(void);
 static inline void m6809_block(uint32_t cycles)
