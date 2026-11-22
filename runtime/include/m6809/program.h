@@ -37,6 +37,14 @@ extern uint64_t m6809_start;
 static inline uint8_t *ram_at(uint32_t address) { return &gng.ram[(uint16_t)address]; }
 static inline const uint8_t *rom_at(uint32_t address) { return &gng.roms.maincpu[(uint16_t)address]; }
 
+/* a 16-bit word through the bus (a table's entry, what a pointer leads to): the high byte read first, then the low,
+   as the 6809 reads them; the work RAM and the ROM have no time, so neither needs one */
+static inline uint16_t read16_bus(uint32_t address)
+{
+	const uint32_t high = mem_read8((uint16_t)address);
+	return (uint16_t)(high << 8 | mem_read8((uint16_t)(address + 1u)));
+}
+
 /* a 16-bit value of the work RAM, its high byte first (the 6809's order): read16(&high_byte), write16(&high_byte, v) */
 static inline uint16_t read16(const uint8_t *high) { return (uint16_t)(high[0] << 8 | high[1]); }
 static inline void write16(uint8_t *high, uint32_t value)

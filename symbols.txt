@@ -207,3 +207,13 @@ field object 14 frame_low u8
 field object 15 type u8            # the state routine's table (object_state_tables) and the handler (object_handlers)
 local objects_states 9ACE x object object+10
 instance 0500 object PLAYER       # the player's record (Arthur): the code's X 0510
+field object 1 on_screen u8        # object_on_screen: 1 while its box (8CCA, by animation_kind) is in the camera's view
+8CA4  func  object_on_screen     # the object's box (the table 8CCA by its animation_kind) against the camera (<$9C, <$9E)
+8D22  func  set_animation_kind   # a new animation_kind, the height moved by the table 8D38's difference
+009C  var  camera_x  count=2     # where the screen's view is in the stage (the objects' positions are the stage's)
+009E  var  camera_y  count=2
+param object_on_screen x object object+10
+param set_animation_kind x object object+10
+param animate x object object+10
+param animation_start x object object+10
+param object_off_screen x object object+10

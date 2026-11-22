@@ -377,7 +377,7 @@ def write_c(program, out_dir):
     variables = {s.name: s.address for s in program.syms.entries if s.kind == "var"}
     place = word_places(variables, {(struct.upper(), name): offset
                                     for (struct, offset), (name, _) in known.fields.items()})
-    texts = {entry: join_words(text, place) for entry, text in texts.items()}
+    texts = {entry: join_bus_words(join_words(text, place)) for entry, text in texts.items()}
     # (a structure at its fixed address by the name symbols.txt's instance line gives it: OBJECT(PLAYER)->x; only
     # there, a number of that value elsewhere being no address: queue_task(0x500) is task 5)
     for (macro, address), name in INSTANCE_NAMES.items():
@@ -433,6 +433,38 @@ def write_c(program, out_dir):
 LVALUE = r"(?:[A-Z_]+\((?:[^()]|\([^()]*\))*\)->\w+|unk_[0-9A-F]{4}|[A-Za-z_]\w*\[\d+\]|[A-Za-z_]\w*)"
 READ = re.compile(r"\(\(uint32_t\)(" + LVALUE + r") << 8\) \| (" + LVALUE + r")")
 WRITE = re.compile(r"^(\s*)(" + LVALUE + r") = (\w+) >> 8;\n\1(" + LVALUE + r") = (?:\(uint8_t\))?\3;$", re.M)
+
+
+# two reads of the bus at one address and the next, the high byte first: ((uint32_t)ROM8(e) << 8) | mem_read8(e + 1)
+BUS_BYTE = r"(?:ROM8|mem_read8)\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)"
+BUS_READ = re.compile(r"\(\(uint32_t\)" + BUS_BYTE + r" << 8\) \| " + BUS_BYTE)
+BUS_PLACE = re.compile(r"^(?:\(uint16_t\)\()?(\w+)(?: ([+-]) (0x[0-9A-F]+|\d+)u)?\)?$")
+
+
+def bus_place(text):
+    """(name, offset) of an address the C writes NAME, NAME + N or NAME - N (with a uint16_t cast), or None"""
+    match = BUS_PLACE.match(text)
+    if match is None or (text.startswith("(uint16_t)(") != (match.group(2) is not None)):
+        return None
+    offset = int(match.group(3), 0) if match.group(3) else 0
+    return match.group(1), -offset if match.group(2) == "-" else offset
+
+
+def join_bus_words(text):
+    """The program's 16-bit reads through the bus (a table's entry, a pointer's word) as read16_bus(address): its two
+    reads, high byte then low, in that order (C leaves the order of the two in one expression open)"""
+    def change(match):
+        start, end = match.span()
+        before = text[:start].rstrip()
+        after = text[end:].lstrip()
+        if not (before.endswith(("(", "=", ",", "return", "|", "+")) and not before.endswith(("||", "==", "!=", "<=", ">=", "++"))
+                and after[:1] in (")", ";", ",", "|", "+") and not after.startswith(("||", "++"))):
+            return match.group(0)
+        high, low = bus_place(match.group(1)), bus_place(match.group(2))
+        if high is None or low is None or high[0] != low[0] or low[1] != high[1] + 1:
+            return match.group(0)
+        return f"read16_bus({match.group(1)})"
+    return BUS_READ.sub(change, text)
 
 
 def word_places(variables, fields=None):
