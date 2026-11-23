@@ -10,6 +10,9 @@ midway1.txt, midway3.txt, midway4.txt: stages 1, 3 and 4 from their midway point
 when the player passes it: the start point from 6CEA's second table, 6D0A), where the scripts from the start do not
 reach: the town's windows, the bridge's flames (and the tiles stage 3 draws from the 6809's stack).
 
+tower5.txt: stage 5 with Arthur and the camera moved up the tower at frame 2050 (the player's x and y, <$9C-<$9F:
+the camera 0x47 below him, as at the stage's start), where the dragon flies (object_dragon) and Big Man walks.
+
 loop2_stage0.txt and loop2_stage6.txt: the second loop (<$7F = 1, as 7298 leaves it after the first loop's last
 stage; <$71 is the stage's own state: 0 its start, 1 playing, 7AA0), stage 6 with the cross (<$73 = 3, the weapon
 the last stage asks for: 7129).
@@ -22,7 +25,7 @@ import os
 FRAMES = 12000
 
 
-def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False):
+def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False, moved_to=None):
     what = f"stage {stage}" + (", from its midway point" if midway else "") + (", the second loop" if loop2 else "") + (f", weapon {weapon}" if weapon is not None else "")
     lines = [f"# {what}: coin, start, the RAM written, the lives kept (a test's cheat; tests/controls/make_stages.py)"]
     lines += ["1300 system bf", "1306 system ff", "1400 system fe", "1406 system ff", f"1410 m0072 {stage:02x}"]
@@ -37,6 +40,14 @@ def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False):
         # the stage cleared as E799-E7A0 clears it (<$08 = 2, <$0B = <$0E = 0: the stage's end, 711F): the last
         # stage of the second loop so, the ending (7D3F, 7E18: <$7F = 2, 71D7); the controls let go from there
         events.setdefault(cleared_at, []).extend(["p1 ff", "m0008 02", "m000b 00", "m000e 00"])
+    if moved_to is not None:
+        # Arthur's x and y (0506, 0509: 16 bits each) and the camera's (<$9C, <$9E) written while he plays
+        x, y = moved_to
+        camera_x, camera_y = x - 0x80, y - 0x47
+        events.setdefault(2050, []).extend([f"m0506 {x >> 8:02x}", f"m0507 {x & 0xFF:02x}", f"m0509 {y >> 8:02x}",
+                                            f"m050a {y & 0xFF:02x}", f"m009c {camera_x >> 8:02x}",
+                                            f"m009d {camera_x & 0xFF:02x}", f"m009e {camera_y >> 8:02x}",
+                                            f"m009f {camera_y & 0xFF:02x}"])
     for frame in range(1500, FRAMES, 300):
         events.setdefault(frame, []).append("m0060 05")
     for frame in range(1600, cleared_at if cleared_at is not None else FRAMES, 4):
@@ -62,6 +73,8 @@ if __name__ == "__main__":
     for stage in (1, 3, 4):
         with open(os.path.join(here, f"midway{stage}.txt"), "w", newline="\n") as out:
             out.write(script(stage, midway=True))
+    with open(os.path.join(here, "tower5.txt"), "w", newline="\n") as out:
+        out.write(script(5, moved_to=(0x1E60, 0x07DD)))
     for name, text in (("loop2_stage0", script(0, loop2=True)), ("loop2_stage6", script(6, loop2=True, weapon=3)),
                        ("ending", script(6, loop2=True, weapon=3, cleared_at=2100))):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:

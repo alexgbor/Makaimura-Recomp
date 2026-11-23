@@ -234,11 +234,11 @@ AFC0  func  object_window_flier  # type 4; stage 1 from its midway point (midway
 B4C8  func  object_red_arremer  # type 5; every stage, the attract mode: the red winged demon (sprites 180-1BF)
 BD4F  func  object_type_06     # stages 4, 5
 C256  func  object_type_07     # no script reaches it
-C39D  func  object_big_man     # type 8; stage 5: the giant (sprites 200-21F)
+C39D  func  object_big_man     # type 8; stage 5: the giant (sprites 200-23F: seen walking up the tower, Arthur moved there by a RAM write)
 CB2F  func  object_skeleton    # type 9; stages 4, 5: a skull on the wall (sprite 0A7) that rises as a skeleton (0A0-0AF)
 CE20  func  object_window_giant  # type 10; stages 1, 4: the giant who leans out of the town's windows (sprites 1E0-1EF: midway1)
 D221  func  object_zombie      # type 11; every stage, the attract mode (the title's): out of the ground (sprites 0B0-0BF)
-D45C  func  object_type_12     # stage 5
+D45C  func  object_dragon      # type 12; stage 5: the flying dragon, each of its 9 segments one (sprites 240-25F: up the tower, Arthur moved there by a RAM write)
 DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's demon (sprites 2C0-2FF)
 DD60  func  object_bridge_flame  # type 14; stage 3: the flames that rise under the bridge (sprites 160-16F: midway3)
 DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode; 17 is the man-eater plant (sprites 0D0-0DF: stages 0, 1)

@@ -249,9 +249,9 @@ Roughly in order; each milestone is checked against the reference before it is t
       object and its first sprite; y counts up, the screen's is 256 - (y - camera_y)): the crows and bats, the petite
       devils, Red Arremer, Big Man, the skeletons, the zombies, Astaroth, the man-eater plants, the caves' pillars, and from the stages' midway points (<$81 = 1: tests/controls/midway1, 3,
       4) the town's window fliers and window giant, the bridge's flames; the 4 records at 0530 are Arthur's shots,
-      their type the weapon (<$73: the torch, the lance, the axe, the cross, the dagger). To do: types 0 (several
-      things), 3, 6, 7, 12 (no sprites of their own seen: stage 5's 6 and 12 are up the tower, past where the script
-      climbs; moving Arthur there by a RAM write killed him), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
+      their type the weapon (<$73: the torch, the lance, the axe, the cross, the dagger). The dragon (type 12: stage 5, up the tower:
+      Arthur and the camera moved there by RAM writes, alive). To do: types 0 (several things), 3, 6, 7 (no sprites
+      of their own seen; 6 not even up the tower), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
       (by type: scoped lines), the score, the stages' maps. (The core's BELOW path
       fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
       instead)
