@@ -7,6 +7,13 @@ What changes from one version to the next, for players. The version is set in `C
 
 Nothing yet.
 
+## v0.2.2 (2026-11-23)
+
+- **Fixed: stage 3 after its midway point.** Starting there again (after losing a life past the midway point), a
+  small block of the background was drawn blank for about a second where the arcade draws some odd tiles: the
+  original program reads them from a part of its memory the C version did not fill the same way. Now it does, and
+  that scene is the same as the arcade's again. Nothing else changes; save states, scores and settings are kept.
+
 ## v0.2.1 (2026-11-22)
 
 - **PRACTICE, set up:** choose the area (now 1-7: the last room too), the loop, Arthur's weapon (lance, dagger,
