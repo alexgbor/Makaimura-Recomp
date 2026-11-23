@@ -6,9 +6,9 @@ the game down in board mode (docs/accuracy.md #1).
 ending.txt: loop2_stage6's, its stage cleared at frame 2100 (while it is played) as the program clears one (E799: <$08 = 2), so the
 ending plays (7D3F, 7E18, 71D7) and the game goes back to the first loop.
 
-midway1.txt, midway4.txt: stages 1 and 4 from their midway point (<$81 = 1, as ECB0 sets it
+midway1.txt, midway3.txt, midway4.txt: stages 1, 3 and 4 from their midway point (<$81 = 1, as ECB0 sets it
 when the player passes it: the start point from 6CEA's second table, 6D0A), where the scripts from the start do not
-reach: the town's windows.
+reach: the town's windows, the bridge's flames (and the tiles stage 3 draws from the 6809's stack).
 
 loop2_stage0.txt and loop2_stage6.txt: the second loop (<$7F = 1, as 7298 leaves it after the first loop's last
 stage; <$71 is the stage's own state: 0 its start, 1 playing, 7AA0), stage 6 with the cross (<$73 = 3, the weapon
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     for stage in range(1, 7):
         with open(os.path.join(here, f"stage{stage}.txt"), "w", newline="\n") as out:
             out.write(script(stage))
-    for stage in (1, 4):          # (3: the readable C differs there, TODO.md M6)
+    for stage in (1, 3, 4):
         with open(os.path.join(here, f"midway{stage}.txt"), "w", newline="\n") as out:
             out.write(script(stage, midway=True))
     for name, text in (("loop2_stage0", script(0, loop2=True)), ("loop2_stage6", script(6, loop2=True, weapon=3)),

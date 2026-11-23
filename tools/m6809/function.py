@@ -21,7 +21,9 @@ selects there: the analysis' banks (Program.window_banks), a choice the C makes 
 Builder lifts every instruction (tools/m6809/lift.py, MAME's MC6809 cycle by cycle) and makes it what the decompiler
 works on:
   - JSR and BSR are calls (ir.Call), the return address they push left out (the decompiler's stack has it in its
-    slot 0); RTS, and PULS with PC, are returns (the registers PULS takes are the stack's slots); RTI is the
+    slot 0); the bytes any instruction puts on the stack are written to the work RAM all the same,
+    Effect("m6809_stack_byte", offset from S, value), and S's step at its end Effect("m6809_stack_moved", step) (LDS:
+    "m6809_stack_set"): the program reads its stack as data once (633F, TODO.md M6); RTS, and PULS with PC, are returns (the registers PULS takes are the stack's slots); RTI is the
     return of the IRQ's handler, which the runtime calls (it always returns where it was taken: TODO.md, M6);
   - JMP through a table (JMP [B,X]...) is a switch on the address read from the table, each case a tail call;
     JSR through one is a call with those choices;
@@ -473,7 +475,11 @@ class Builder:
                                  if isinstance(statement, ir.SetReg) and statement.index == SP else statement
                                  for statement in lifted.statements]
         # (RTI pulls the whole state, which the C has in the interrupted code's variables: none of its statements)
+        self.stack_moved = None
         statements = self.timed(lifted) if control.kind != "rti" else []
+        # S's step over the instruction, for the runtime's cpu.s: after its statements (a call's before the call, a
+        # return's before the return)
+        moved = [self.stack_moved] if self.stack_moved is not None else []
         if ins.mnemonic in ("ANDCC", "ORCC"):
             # (with an immediate: the flags it clears or sets, each on its own, not CC rebuilt; I as the mask)
             value = ins.operand.value
@@ -493,24 +499,25 @@ class Builder:
                                               ins.mnemonic == "PSHS" and tuple(ins.operand.registers) == ("Y",)):
             # S kept and put back, or the return address a return=Y function pushes: the C has neither
             statements = []
+            moved = []
         called = program.window_targets(number, control.target) if control.kind == "goto" else []
         if len(called) == 1 and called[0] in program.returns_through_y:
             # LDY #back / JMP function: a call that comes back to 'back'
             back = self.loaded_y(number)
-            block.statements += statements + [cycles, ir.Call(target=called[0], return_address=back)]
+            block.statements += statements + moved + [cycles, ir.Call(target=called[0], return_address=back)]
             block.end = self.transfer(number, back)
             return
 
         kind = control.kind
         if kind in ("call",):
             statements = self.without_pushes(statements, 2)
-            block.statements += statements + [cycles]
+            block.statements += statements + moved + [cycles]
             block.statements.append(self.call(number, ins, control, block))
             block.end = self.transfer(number, following)
             return
         if kind == "return":
             # RTS, PULS with PC: the registers pulled, the PC's two bytes and the read after them left out
-            block.statements += self.without_return(statements) + [cycles]
+            block.statements += self.without_return(statements) + moved + [cycles]
             block.end = ir.Return()
             return
         if kind == "rti":
@@ -522,11 +529,11 @@ class Builder:
                 raise lift.Unsupported(f"{label(number)}: CWAI")
             # (SYNC's cycles, then the wait for the line and its cycle, then the instruction's end: the translation's
             # order)
-            block.statements += statements + [ir.Effect("m6809_cycles", (ir.Const(lifted.cycles, 32),)),
+            block.statements += statements + moved + [ir.Effect("m6809_cycles", (ir.Const(lifted.cycles, 32),)),
                                               ir.Effect("m6809_sync"), ir.Effect("m6809_block", (ir.Const(0, 32),))]
             block.end = self.transfer(number, following)
             return
-        block.statements += statements
+        block.statements += statements + moved
         if kind == "next":
             block.statements.append(cycles)
             return
@@ -676,10 +683,16 @@ class Builder:
         position = 0
         stack = StackTemps()
         result = []
+        self.stack_moved = None      # S's step over the instruction (the runtime's cpu.s follows it), if it moves
         for statement in lifted.statements:
             is_store = isinstance(statement, ir.Store)
             is_load = isinstance(statement, ir.SetTemp) and isinstance(statement.value, ir.Load)
+            pushed = None
             if is_store:
+                offset = stack.offset(statement.address)
+                if offset is not None and statement.bits == 8:
+                    # a byte into the stack: the work RAM's too, at S + offset (S as the instruction started)
+                    pushed = ir.Effect("m6809_stack_byte", (ir.Const(offset & 0xFFFF, 16), statement.value))
                 statement = ir.Store(stack.address(statement.address), statement.value, statement.bits)
             elif is_load:
                 statement = ir.SetTemp(statement.temp, ir.Load(stack.address(statement.value.address),
@@ -690,7 +703,20 @@ class Builder:
                 where = statement.address if is_store else statement.value.address
                 if timed_address(where, is_store):
                     result.append(ir.Effect("m6809_at", (ir.Const(access.cycle + 1, 32),)))
+            if isinstance(statement, ir.SetReg) and statement.index == SP and stack.offset(statement.value) is None:
+                # S set to a value of its own (LDS #$0300, the boot's): the runtime's from here on, the pushes after
+                # it counted from it
+                if mentions(statement.value, SP):
+                    raise lift.Unsupported(f"{lifted.address:04X}: S set from itself")
+                result.append(ir.Effect("m6809_stack_set", (statement.value,)))
+                stack.sp = 0
+                stack.offsets = {}
             stack.see(statement)
+            if pushed is not None:
+                ir.map_statement(statement, mask_reads)
+                result.append(statement)
+                result.append(ir.Effect(pushed.name, (pushed.args[0], ir.rebuild(pushed.args[1], mask_reads))))
+                continue
             if isinstance(statement, ir.SetFlag) and statement.name == "i":
                 result.append(ir.Effect("m6809_mask", (ir.rebuild(statement.value, mask_reads),)))
                 continue
@@ -702,6 +728,8 @@ class Builder:
                 continue
             ir.map_statement(statement, mask_reads)
             result.append(statement)
+        if stack.sp:
+            self.stack_moved = ir.Effect("m6809_stack_moved", (ir.Const(stack.sp & 0xFFFF, 16),))
         return result
 
 

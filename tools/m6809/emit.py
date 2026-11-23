@@ -151,6 +151,14 @@ class Writer(emit.FunctionWriter):
             return [f"{name}({self.exact(args[0])});"]
         if name == "m6809_sync":
             return ["m6809_sync();"]
+        if name in ("m6809_stack_byte", "m6809_stack_moved"):
+            # the 6809's stack in the work RAM: an offset from S (signed), a byte at it; S's step
+            offset = args[0].value - 0x10000 if args[0].value & 0x8000 else args[0].value
+            if name == "m6809_stack_moved":
+                return [f"m6809_stack_moved({offset});"]
+            return [f"m6809_stack_byte({offset}, {self.exact(args[1])});"]
+        if name == "m6809_stack_set":
+            return [f"m6809_stack_set({self.exact(args[0])});"]
         raise emit.EmitError(f"{self.function.name}: effect {name}")
 
 

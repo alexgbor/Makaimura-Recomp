@@ -12,8 +12,9 @@
  *    pushed, I set, the vector read: lift.IrqEntry) and acknowledged 15 cycles in; SYNC (the line awaited, masked or
  *    not, then a cycle). The C has no registers to push: the handler (program_irq) is called where the IRQ is
  *    taken and comes back there, as the program's always does (TODO.md, M6), and its RTI's end gives back the mask
- *    the code had (clear: the IRQ was taken). What the C cannot have is the stack's bytes in the work RAM (02C0-02FF
- *    at most: the deepest the program goes, measured over every script) and the stack pointer the round robin's
+ *    the code had (clear: the IRQ was taken). The stack's bytes the code pushes are in the work RAM as the board's
+ *    (m6809_stack_byte, S in cpu.s); what the C cannot have is the state the IRQ's entry pushes (the registers are
+ *    the C's variables: S moves past its 12 bytes, they are not written) and the stack pointer the round robin's
  *    copies keep at <$E2.
  */
 #include "m6809/program.h"
@@ -104,7 +105,11 @@ void m6809_boundary(void)
 		update_event_at();
 		if (host.irq_taken)
 			host.irq_taken(0, start + IRQ_ACKNOWLEDGE);
+		/* the state the entry pushes, 12 bytes below S (the C has the registers in its variables: their bytes are
+		   not written), then the handler's own pushes below them, as on the board; its RTI pulls them */
+		cpu.s = (cpu.s - 12u) & 0xFFFFu;
 		program_irq();
+		cpu.s = (cpu.s + 12u) & 0xFFFFu;
 		/* its RTI: the code's own mask back (clear), and the next IRQ, if one is due already, taken at once */
 		cpu.fi = 0;
 		cpu.cycles = m6809_start;
@@ -217,6 +222,9 @@ void m6809_resume(uint16_t pc)
 {
 	if (pc != program_idle_address)
 		m6809_fault("a state the readable C cannot go on from (not where the main loop waits)", pc);
+	/* S there is 0300, the stack empty (gref --registers-at 617F over long_play: always): a state saved before the
+	   C kept S (cpu.s) goes on as well */
+	cpu.s = 0x0300u;
 	resume_pending = 1;
 	if (running)
 		longjmp(resume_jump, 1);

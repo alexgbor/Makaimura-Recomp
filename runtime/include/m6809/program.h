@@ -75,6 +75,23 @@ static inline void m6809_at(uint32_t cycle)
 	cpu.cycles = m6809_start + cycle;
 }
 
+/* The 6809's stack in the memory, as the board has it: the C keeps what it pushes in variables of its own, and the
+   same bytes at S (cpu.s) too, where the program may read them as data (the tiles 633F draws from 02F8-02FF in
+   stage 3 from its midway point: TODO.md, M6). m6809_stack_byte(offset, value): a byte at S + offset (S as the
+   instruction started: a push's offset is below it); m6809_stack_moved(step) at the instruction's end;
+   m6809_stack_set(s): LDS. The work RAM's bytes need no time; below 1E00 or not (the boot's RAM test runs on a stack
+   at 2000, the sprite RAM's) they go where the 6809's would */
+static inline void m6809_stack_byte(int32_t offset, uint32_t value)
+{
+	const uint16_t address = (uint16_t)(cpu.s + (uint32_t)offset);
+	if (address < 0x1E00u)
+		gng.ram[address] = (uint8_t)value;
+	else
+		mem_write8(address, (uint8_t)value);
+}
+static inline void m6809_stack_moved(int32_t step) { cpu.s = (cpu.s + (uint32_t)step) & 0xFFFFu; }
+static inline void m6809_stack_set(uint32_t s) { cpu.s = s & 0xFFFFu; }
+
 /* CC's I */
 void m6809_mask(uint32_t masked);
 static inline uint32_t m6809_masked(void) { return cpu.fi; }

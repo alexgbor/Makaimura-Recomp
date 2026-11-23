@@ -48,10 +48,15 @@ python tools/check_translation.py --decompiled [--accuracy mame|board]
 - **The IRQ.** It always returns where it was taken (checked over every script in both modes: the "nesting" the
   translation once saw was the next IRQ due at the RTI, in slowdown), so it is a call. The interrupt mask is the
   runtime's (`m6809_mask`, `m6809_masked`).
-- **The stack.** The C has none: return addresses and saved registers are C's own. The work RAM's bytes the 6809's
-  stack takes (02C0-02FF: S starts at 0300 and goes no lower than 02CF in any script; a few bytes below S are
-  written as scratch by the code too) and the stack pointer the round robin's copies keep at <$E2-<$E3 are what the
-  C cannot have as the board does (`gng_stack_byte`), and the checks leave them out. The boot's RAM test runs on a
+- **The stack.** Return addresses and saved registers are the C's own variables, and their bytes are in the work
+  RAM too, where the 6809 has them: each byte the code puts on the stack (a call's return address, PSHS, a store
+  through S) is `m6809_stack_byte(offset, value)` at S + offset, each instruction that moves S
+  `m6809_stack_moved(step)` (LDS `m6809_stack_set`), S the runtime's `cpu.s`. The program reads them as data once:
+  in stage 3 from its midway point (tests/controls/midway3.txt) 633F draws a block of the map whose base is 0000,
+  its tiles from 02F8-02FF (return addresses and pushed registers). What the C still cannot write is the state the
+  IRQ's entry pushes (12 bytes below S: the registers are the C's variables) and the stack pointer the round robin's
+  copies keep at <$E2-<$E3; the checks leave 02C0-02FF (S starts at 0300 and goes no lower than 02CF in any script)
+  and <$E2-<$E3 out (`gng_stack_byte`), though above the IRQ's frame the stack is the same as gref's. The boot's RAM test runs on a
   stack at 2000 (the sprite RAM's last bytes): the boot clears them before the first DMA.
 - **S as a pointer.** The round robin's copies (6619-6754) keep S at <$E2, point it at the data and pull it with
   PULS: that S is a variable of its own (`source`), the STS and the LDS left out.
