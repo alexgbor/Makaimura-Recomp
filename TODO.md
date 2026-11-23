@@ -240,6 +240,15 @@ Roughly in order; each milestone is checked against the reference before it is t
       - [x] The switches through a table by an accumulator zero-extended: satan's BDE2 (ASLB / JMP [B,U]) took the
             whole of D, the core's writer printed `d * 2u` (its Switch value from `expr`): no case with A set, Satan's
             state 1 ran nothing (tests/controls/satan4.txt). To report to arcade-decomp
+      - [x] Each function alone against MAME's core (`tools/m6809/check_functions.py`, `fcheck`: docs/decompilation.md):
+            from the states the 21 scripts call each one in (real), those changed with values the game gives
+            (plausible), and made up (wild; unowned: the 255 functions no script calls, from the others' states),
+            what every caller agrees a register holds kept (`src/functions.txt`). Real 70078 runs and plausible
+            1107091 the same as MAME's; of 2.14 million made up, 4 differ, each a made-up pointer writing onto the
+            6809's live stack (the C keeps what it pushes in variables). The runs where the original reads past a
+            table (symbols.txt's `jump=` tables too) or runs code the analysis never found are left out
+      - [ ] The readable C the game again (v0.2.3 packages the translation): fcheck in board mode too, then
+            `tools/make_release.ps1 -Program readable`
       - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
             may interrupt (the main loop's tasks: 745 of them) written shorter
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the

@@ -32,9 +32,17 @@ extern uint64_t m6809_start;
 /* the work RAM (0000-1DFF) by address; the program's data by address, through the board (gng_read: a pointer the
    C reads data through may lead into the fixed ROM, the banked window in the latch's bank, or the work RAM, as its
    callers decide) */
+#ifndef M6809_RAM_GUARD
 #define RAM8(address) (gng.ram[(uint16_t)(address)])
-#define ROM8(address) (gng_read((uint16_t)(address)))
 static inline uint8_t *ram_at(uint32_t address) { return &gng.ram[(uint16_t)address]; }
+#else
+/* the check of each function alone (tools/reference/fcheck.cpp), on states it makes up: the work RAM through a
+   guard that sees the C reach past it (a pointer the game never has), where the C's RAM is not the board's */
+uint8_t *m6809_ram_guard(uint32_t address);
+#define RAM8(address) (*m6809_ram_guard(address))
+static inline uint8_t *ram_at(uint32_t address) { return m6809_ram_guard(address); }
+#endif
+#define ROM8(address) (gng_read((uint16_t)(address)))
 static inline const uint8_t *rom_at(uint32_t address) { return &gng.roms.maincpu[(uint16_t)address]; }
 
 /* a 16-bit word through the bus (a table's entry, what a pointer leads to): the high byte read first, then the low,

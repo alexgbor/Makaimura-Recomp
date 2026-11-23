@@ -402,6 +402,7 @@ def write_c(program, out_dir):
         + "\n".join(emitter.layouts.declarations())
         + "\n\n#endif\n", encoding="ascii")
     write_sources(out, files, texts, "game.h", header=lambda name, description: HEADER + f"/* {description} */\n")
+    write_signatures(out / "functions.txt", entries, emitter, typing.entry_kinds)
     reset, irq = program.reset, program.irq
     for vector in (reset, irq):
         if emitter.wrapper(vector) is not None:
@@ -425,6 +426,47 @@ def write_c(program, out_dir):
     print(f"gotos:      {gotos}, in {sum(1 for text in texts.values() if 'goto ' in text)} functions")
     return 0
 
+
+
+def write_signatures(path, entries, emitter, entry_kinds):
+    """What each function takes and hands back, by register, in its prototype's order, for the check of each
+    function against MAME's core (tools/m6809/check_functions.py): "ADDRESS NAME RETURNED IN OUT [FLAGS]", RETURNED
+    the register it returns (- for none), IN and OUT "register:bits,..." (- for none: OUT what it hands back
+    through pointers), FLAGS entry_point and return_address where the prototype takes them. Registers by the core's
+    names (a, b, d, x, y, u, dp, s; carry, zero, negative, overflow, half_carry, firq_mask, entire). Then what every
+    caller agrees a register points at as the function starts (pointers.Program's entry_kinds), which the C may take
+    as given: "register=global:ADDRESS" (that address: the C reads its fields as variables), "register=STRUCT:OFFSET"
+    (into a structure of the work RAM)."""
+    def width(entry, value, pointer):
+        if value[0] != "r":
+            return 32
+        if pointer:
+            return decompiler_emit.register_bits(value[1])
+        return emitter.param_widths.get(entry, {}).get(value[1], decompiler_emit.register_bits(value[1]))
+
+    lines = []
+    for entry in entries:
+        returned = emitter.returned(entry)
+        returned_text = "-" if returned is None else \
+            f"{decompiler_emit.value_name(returned)}:" + str(
+                emitter.result_bits.get(entry, decompiler_emit.register_bits(returned[1])) if returned[0] == "r" else 32)
+        taken = ",".join(f"{decompiler_emit.value_name(value)}:{width(entry, value, False)}"
+                         for value in emitter.by_value(entry)) or "-"
+        given = ",".join(f"{decompiler_emit.value_name(value)}:{width(entry, value, True)}"
+                         for value in emitter.by_pointer(entry)) or "-"
+        flags = [flag for flag, present in (("entry_point", emitter.second_entries.get(entry)),
+                                             ("return_address", entry in emitter.needs_return_address)) if present]
+        kinds = []
+        for index, kind in sorted(entry_kinds.get(entry, {}).items()):
+            if not isinstance(index, int) or not isinstance(kind, tuple) or len(kind) < 2:
+                continue
+            register = decompiler_emit.register_name(index)
+            if kind[0] == "global" and isinstance(kind[1], int):
+                kinds.append(f"{register}=global:{kind[1]:X}")
+            elif isinstance(kind[0], str) and isinstance(kind[1], int) and kind[0] not in ("unknown", "conflict"):
+                kinds.append(f"{register}={kind[0]}:{kind[1]:X}")
+        lines.append(" ".join([f"{entry:04X}", emitter.names[entry], returned_text, taken, given, *flags, *kinds]))
+    path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
 # ---- the work RAM's 16-bit values ----

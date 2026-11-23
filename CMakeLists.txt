@@ -130,6 +130,25 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 		endif()
 		add_executable(gng_headless_c ports/headless/main.c)
 		target_link_libraries(gng_headless_c PRIVATE gng_decompiled)
+
+		# Each function of the readable C against MAME's core, alone (tools/m6809/check_functions.py, which
+		# writes build/fcheck/calls.c, the table of the functions: never committed)
+		set(MAKAIMURA_FCHECK_CALLS ${CMAKE_SOURCE_DIR}/build/fcheck/calls.c)
+		if(EXISTS ${MAKAIMURA_FCHECK_CALLS})
+			add_executable(fcheck tools/reference/fcheck.cpp tools/reference/fcheck_runtime.c
+				${MAKAIMURA_FCHECK_CALLS} ${MAKAIMURA_DECOMPILED}
+				${MAKAIMURA_M6809}/m6809.cpp ${MAKAIMURA_M6809}/6x09dasm.cpp ${MAKAIMURA_GENERATED}/cpu/m6809/m6809.hxx)
+			target_include_directories(fcheck PRIVATE tools/reference tools/reference/stub ${MAKAIMURA_M6809}
+				${MAKAIMURA_GENERATED} runtime/include ${MAKAIMURA_DECOMPILED_DIR})
+			target_compile_features(fcheck PRIVATE cxx_std_20)
+			target_compile_definitions(fcheck PRIVATE M6809_RAM_GUARD)
+			target_link_libraries(fcheck PRIVATE gng_runtime)
+			if(MSVC)
+				target_compile_options(fcheck PRIVATE /wd4244 /wd4146 /wd4102 /bigobj)
+				# (a recursion with no end on made-up registers is caught, not a crash: a large stack)
+				target_link_options(fcheck PRIVATE /STACK:268435456)
+			endif()
+		endif()
 	endif()
 
 	# The game in a window (ports/sdl2): SDL2 from the system, or on Windows its development package

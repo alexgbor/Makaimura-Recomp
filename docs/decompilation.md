@@ -94,6 +94,30 @@ a state the same as the uninterrupted one.
 each frame's picture; every YM2203 write and the sound, byte for byte. `tools/m6809/compare_dumps.py` compares
 the bus at each IRQ byte by byte (`--irq-dumps`) to find where a difference starts.
 
+That sees only what the scripts play. **Each function alone** (`tools/m6809/check_functions.py`, on
+`build/bin/fcheck`, `tools/reference/fcheck.cpp`): the original program runs on MAME's core over a script, and the
+state at each function's entry is kept (the registers, the board's memories and latches; up to `--samples` a
+function, spread over the run). Then each function of the C is run from those states, and from changed ones, on
+MAME's core and in the C (`tools/reference/fcheck_runtime.c`: the board's time from 0, no IRQ), until it returns,
+and compared: how it ends, its cycles, the registers it hands back (`src/functions.txt`, the signatures
+`decompile.py` writes), the board's memories and latches but the stack below S and <$E2-<$E3, the sound latch's
+writes and their times. The states, by kind:
+
+- **real**: as the game called it. These must all be the same.
+- **plausible**: registers from the function's other calls, and bytes of the work RAM it read changed to values that
+  byte held somewhere in the run (after the boot's RAM test).
+- **wild**: registers and bytes made up, but what every caller agrees a register holds as the function starts
+  (`functions.txt`: `x=global:15A2`, an address the C reads what it points at as variables; `x=object:10`, a
+  pointer into an object's record), which the C takes as given.
+- **unowned**: the same, for a function the script never calls, from the other functions' states.
+
+A run where the original goes where the C cannot follow is counted apart, not compared: to an instruction the static
+analysis never found (`build/fcheck/code.txt`), or through a table past its end (the analysis's tables and
+symbols.txt's `jump=`: an index the game never gives, which the original reads code as an address for and the C's
+switch has no case for); and where the C reaches past the work RAM (a pointer no state of the game holds:
+`M6809_RAM_GUARD`, `m6809/program.h`). `--function NAME --trace` (on fcheck) prints the original's instructions in
+the first run that differs.
+
 ## To do
 
 See TODO.md, M6: the names (symbols.txt: the routines, the RAM's variables and the objects' structures).
