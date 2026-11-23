@@ -33,6 +33,23 @@
                                    # A: JSR through the table at 6188, in bank 3); 6160 clears it. Its top is where
                                    # the main loop waits for work (idle: the readable C's states)
 6188  data  main_tasks             # (the words read by LDX A,X at 6174)
+# the main loop's tasks by number (queue_task's A; B their argument), bank 3 but 6 and 18:
+3:4800 func task_text_clear      # 00: the text layer cleared (its codes 20, its colours 0)
+3:485C func task_text_clear_row  # 01: a row of the text layer (B: 80 + the row)
+3:48BD func task_draw_texts      # 03: a list of texts (the table 48DD by B)
+3:5022 func task_set_F1          # 04: <$F1 = B
+3:511E func task_draw_credits    # 05: "FREE PLAY" or the credits
+62AB  func  task_background_column  # 06: a column of the stage's map into the background layer (bank 2, <$6C)
+3:513B func task_draw_lives      # 07: the lives left, as icons (2390-23A0)
+3:527A func task_08              # 08: (player_hit_start, the state 4's: 0800, 0801)
+3:5336 func task_draw_bonus_lives  # 10: the bonus lives' scores (messages 0D, 0E; <$55)
+3:5382 func task_draw_credit_count # 09
+3:53DE func task_draw_ranking    # 11: the ranking (message 10, ranking_order)
+3:542F func task_score_add       # 12: the points by B (the table 5492) added to score (BCD), the top score raised
+3:52F4 func task_draw_timer      # 13: the stage's timer (message 26, stage_timer)
+3:551E func task_background_clear  # 14: the background layer cleared (2800-2FFF)
+0068  var  score  count=4        # the player's: 4 BCD bytes
+0055  var  bonus_scores  count=2 # where the bonus lives' scores are (player_start_lives: the DIP's table)
 
 # ======== the objects ========
 7E6D  func  objects_frame          # bank 4, then the objects' routines (8F0E, 9ACE, 9F0C)
@@ -149,6 +166,19 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 # ======== the game's steps (game_step, <$05: game_state_play's table 6F30) and their screens ========
 # (what each one shows: draw_message's numbers its queue_task(0x02NN) asks for)
 6C05  func  game_init            # a game's variables (the attract mode's demo too)
+6C67  func  stage_setup          # a stage's start: its position (stage_start_position), the pools, its objects and
+                                 # props from its lists, the timer
+6C9D  func  stage_reset          # the same where the stage is already set (the demo, 70E8): the pools, the lists, the timer
+6D26  func  stage_start_position # the map's place (<$6C, <$91: the table 6CEA by midway and the stage), the camera
+6E0E  func  stage_place_objects  # the stage's objects from its list (bank 2's 4B00 by the stage: type, variant, x, y)
+6E76  func  stage_place_props    # its props from the second list; the items' records cleared
+69EB  func  attract_begin        # the attract mode's steps (game_step, by game_state_attract): 0
+69FC  func  attract_title        # 1: the title (attract_title_coin)
+6A4D  func  attract_ranking      # 2: the credits and the ranking (tasks 05, 0B)
+6A8D  func  attract_demo         # 3: the demo: a stage played by the list of inputs (demo_controls), by stage_phase
+6A9F  func  attract_demo_setup
+6B2C  func  attract_demo_play    # its frames (stage_frame)
+6B60  func  attract_credits      # 4: with credits, the title's "PRESS START BUTTON" (attract_title_start)
 6F3A  func  play_begin           # step 0: the screen cleared (tasks 04 and 00), game_init
 6F54  func  play_stage           # step 1: the stage, by stage_phase (6F5C)
 3:5AC5 func play_game_over       # step 2: a player's game over (the scripts that lose every life reach it)
