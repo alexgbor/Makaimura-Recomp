@@ -38,15 +38,16 @@
 7E6D  func  objects_frame          # bank 4, then the objects' routines (8F0E, 9ACE, 9F0C)
 # The two-level dispatch at 9AF4: U = the word of 9AFE by the object's type ($5,X: 0-5), then JSR [A,U] by its
 # state (-$D,X: 0-3). Found by tests/controls/long_play.txt (types 0 and 2-4 were not met in walk_right)
-9AFE  data  object_state_tables            # 6 words: the state tables of the object types 0-5
-9B0A  table object_states_type0  count=4 jump=9AF4
-9C97  table object_states_9AF4  count=4 jump=9AF4    # type 1 (U = 9C97: gref --registers-at 9AF4); the words before it (9C8B-9C96) are pointers to data
-9CD3  table object_states_type2  count=4 jump=9AF4
-9CFA  table object_states_type3  count=4 jump=9AF4
-9D39  table object_states_type4  count=4 jump=9AF4
+9AFE  data  object_state_tables            # 6 words: the state tables of the object types 0-5: Arthur's shots by the
+                                           # weapon (as <$73: their sprites in tests/controls/weapons.txt, gref --registers-at F79D)
+9B0A  table object_states_torch  count=4 jump=9AF4  # type 0: the torch (its fire, sprites 050-05A)
+9C97  table object_states_lance  count=4 jump=9AF4    # type 1: the lance (sprites 054-055) (U = 9C97: gref --registers-at 9AF4); the words before it (9C8B-9C96) are pointers to data
+9CD3  table object_states_axe    count=4 jump=9AF4  # type 2: the axe (sprites 038-039)
+9CFA  table object_states_cross  count=4 jump=9AF4  # type 3: the cross (sprite 05E)
+9D39  table object_states_dagger count=4 jump=9AF4  # type 4: the dagger (sprite 05F)
 4:4712 table object_handlers   count=19   # JSR [B,U] at 9F2D: by the object's type ($5,X); entry 15 is 0000 (unused)
 4:470E table object_phase      count=2    # JSR [B,U] at 9F37: by the frame's parity (<$21 & 1)
-9ECC  table object_states_9AF4_b  count=4 jump=9AF4  # type 5
+9ECC  table object_states_9AF4_b  count=4 jump=9AF4  # type 5 (sprites 132-133, 13A-13B, by Arthur's head: not a weapon)
 0060  var  player_lives         # copied from <$50 (the DIP's) at the game's start (6C35); DEC at 75FD on a death
 0061  var  player_rank          # dynamic difficulty: from <$57 (the DIP's), +4 up to 3F (6C55), back down (7115)
 0008  var  stage_phase          # the stage's dispatch (6F54, JMP [B,X] by it through 6F5C): 0 its start, 1 played,
@@ -163,7 +164,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 3:5A11 func service_obj_ram_test # "OBJ RAM TEST"
 
 # ======== the objects ========
-9ACE  func  objects_states       # 4 objects of 0x40 bytes from 0540: each one's state routine by its type and state
+9ACE  func  objects_shots        # Arthur's shots: 4 objects of 0x40 bytes from 0540: each one's state routine by its type and state
 9F0C  func  objects_handlers     # each object's handler by its type (4:4712), and one of two by the frame's parity
 691C  func  demo_controls        # with no game on (<$28 = 0): the attract demo's controls, from a list in bank 2 (<$4E:
                                  # a byte of inputs, then how many frames it lasts)
@@ -187,7 +188,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 0022  var  credits  count=2
 0051  var  free_play            # 1 when DSW1's coinage is free play (dip1_settings)
 
-# ======== the objects' records (0x30 bytes: the player at 0500, 40 at 0880 (objects_handlers), and 4 0x40 apart at 0530 (objects_states)), the code's pointer X 0x10 bytes
+# ======== the objects' records (0x30 bytes: the player at 0500, 40 at 0880 (objects_handlers), and 4 0x40 apart at 0530 (objects_shots: Arthur's shots)), the code's pointer X 0x10 bytes
 # into each (symbols.txt: object+10) ========
 struct object 30
 field object 0 active u8
@@ -205,7 +206,7 @@ field object 12 frame_timer u8
 field object 13 frame u8
 field object 14 frame_low u8
 field object 15 type u8            # the state routine's table (object_state_tables) and the handler (object_handlers)
-local objects_states 9ACE x object object+10
+local objects_shots 9ACE x object object+10
 instance 0500 object PLAYER       # the player's record (Arthur): the code's X 0510
 field object 1 on_screen u8        # object_on_screen: 1 while its box (8CCA, by animation_kind) is in the camera's view
 8CA4  func  object_on_screen     # the object's box (the table 8CCA by its animation_kind) against the camera (<$9C, <$9E)
@@ -220,21 +221,23 @@ param object_off_screen x object object+10
 local objects_handlers 9F11 x object object+10
 
 # ======== the objects' types: object_handlers (4:4712) by the type, +5,X; where each runs (gref, the scripts; stageN is
-# <$72 = N) ========
-9F41  func  object_type_00     # stages 4, 5; the attract mode's demo
-A2C4  func  object_type_01     # every stage, the attract mode
-A716  func  object_type_02     # stages 1, 4
+# <$72 = N). What each is: the sprites it draws (gref --registers-at F79D: X the object + 0x10, Y its first sprite in the
+# sprite RAM; their codes, the pictures around them), checked over every stage's script; a type whose sprites were never
+# seen keeps its number ========
+9F41  func  object_type_00     # stages 4, 5; the attract mode's demo; several things: a small flier out of stage 4-5's walls (sprites 060-07F), the points (030)
+A2C4  func  object_crow        # type 1; every stage, the attract mode: the graveyard's crows (sprites 0C0-0CF), the caves' bats (0E0-0EF)
+A716  func  object_petite_devil  # type 2; stages 1, 4: the small blue devils out of the towers' windows (sprites 0F0-0FF)
 AE76  func  object_type_03     # no script reaches it
 AFC0  func  object_type_04     # no script reaches it
-B4C8  func  object_type_05     # every stage, the attract mode
+B4C8  func  object_red_arremer  # type 5; every stage, the attract mode: the red winged demon (sprites 180-1BF)
 BD4F  func  object_type_06     # stages 4, 5
 C256  func  object_type_07     # no script reaches it
-C39D  func  object_type_08     # stage 5
-CB2F  func  object_type_09     # stages 4, 5
+C39D  func  object_big_man     # type 8; stage 5: the giant (sprites 200-21F)
+CB2F  func  object_skeleton    # type 9; stages 4, 5: a skull on the wall (sprite 0A7) that rises as a skeleton (0A0-0AF)
 CE20  func  object_type_10     # stages 1, 4
-D221  func  object_type_11     # every stage, the attract mode (the title's)
+D221  func  object_zombie      # type 11; every stage, the attract mode (the title's): out of the ground (sprites 0B0-0BF)
 D45C  func  object_type_12     # stage 5
-DA21  func  object_type_13     # stage 6, the ending
+DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's demon (sprites 2C0-2FF)
 DD60  func  object_type_14     # stage 3
-DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode
-DF0F  func  object_type_18     # stage 2
+DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode; 17 is the man-eater plant (sprites 0D0-0DF: stages 0, 1)
+DF0F  func  object_pillar      # type 18; stage 2: the caves' grey stone pillars (sprites 090-09F)

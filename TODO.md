@@ -238,9 +238,13 @@ Roughly in order; each milestone is checked against the reference before it is t
       var lines reach the C (type=, count=); the continue; the objects as a structure (`struct object`: 0x40
       bytes, X 0x10 into each: `object+10`), their 16-bit fields as read16/write16. The player's record (PLAYER, 0500), the objects at 0880 (objects_handlers, 40 of
       0x30 bytes), the shared routines' X (param lines: 4473 accesses as fields), the 18 types' handlers by number
-      (object_type_NN, where each runs). To do: what each type is (zombie, crow...: by its behaviour; a picture's
-      position did not map to the object's, x - camera_x), the objects' other fields (by type: scoped lines), the
-      score, the stages' maps. (The core's BELOW path
+      (object_type_NN, where each runs); what the types are by the sprites they draw (gref --registers-at F79D: the
+      object and its first sprite; y counts up, the screen's is 256 - (y - camera_y)): the crows and bats, the petite
+      devils, Red Arremer, Big Man, the skeletons, the zombies, Astaroth, the man-eater plants, the caves' pillars; the 4 records at 0530 are Arthur's shots, their type the weapon (<$73: the torch, the
+      lance, the axe, the cross, the dagger). To do: types 0 (several things), 3, 4, 6, 7, 10, 12, 14 (no sprites of
+      their own seen: placed farther on in their stages than the scripts play; moving Arthur there by a RAM write
+      killed him), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
+      (by type: scoped lines), the score, the stages' maps. (The core's BELOW path
       fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
       instead)
 
