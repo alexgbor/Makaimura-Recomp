@@ -47,7 +47,7 @@
 9D39  table object_states_dagger count=4 jump=9AF4  # type 4: the dagger (sprite 05F)
 4:4712 table object_handlers   count=19   # JSR [B,U] at 9F2D: by the object's type ($5,X); entry 15 is 0000 (unused)
 4:470E table object_phase      count=2    # JSR [B,U] at 9F37: by the frame's parity (<$21 & 1)
-9ECC  table object_states_9AF4_b  count=4 jump=9AF4  # type 5 (sprites 132-133, 13A-13B, by Arthur's head: not a weapon)
+9ECC  table object_states_armour  count=4 jump=9AF4  # type 5: the armour's 4 pieces (sprites 132-133, 13A-13B) player_hit_start throws from Arthur
 0060  var  player_lives         # copied from <$50 (the DIP's) at the game's start (6C35); DEC at 75FD on a death
 0061  var  player_rank          # dynamic difficulty: from <$57 (the DIP's), +4 up to 3F (6C55), back down (7115)
 0008  var  stage_phase          # the stage's dispatch (6F54, JMP [B,X] by it through 6F5C): 0 its start, 1 played,
@@ -174,6 +174,21 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 
 # ======== the objects ========
 9ACE  func  objects_shots        # Arthur's shots: 4 objects of 0x40 bytes from 0540: each one's state routine by its type and state
+# the shots' states (the tables above): 0 its start, 1 its flight (each weapon its own), 2 a hit, 3 its end
+9DB7  func  player_shoot         # a free shot (shot_new) thrown: the weapon (<$73) its type, from Arthur's hand (x + 0F
+                                 # facing right), its way (-$2,X) his facing; throw_timer 0F
+9DF9  func  shot_new             # Y = a free one of the first N shots' records (N by the weapon: the table 9E0F); A 0 if none
+9B12  func  shot_start           # its moves and animation by its type (the tables 9C67, 9C8B), state 1
+9C9F  func  lance_start
+9B28  func  torch_flight
+9CC9  func  lance_flight
+9CDB  func  axe_flight
+9D02  func  cross_dagger_flight
+9BDB  func  shot_hit             # by what it hit (B)
+9CF1  func  shot_end             # the record free again
+9ED4  func  armour_piece_flight
+9EDE  func  armour_piece_end
+9E14  func  player_on_props      # the props (the 30 at 1000) the player stands on or runs into (the table 9EB8 by type)
 9F0C  func  objects_handlers     # each object's handler by its type (4:4712), and one of two by the frame's parity
 691C  func  demo_controls        # with no game on (<$28 = 0): the attract demo's controls, from a list in bank 2 (<$4E:
                                  # a byte of inputs, then how many frames it lasts)
@@ -423,3 +438,78 @@ DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's d
 DD60  func  object_bridge_flame  # type 14; stage 3: the flames that rise under the bridge (sprites 160-16F: midway3)
 DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode; 17 is the man-eater plant (sprites 0D0-0DF: stages 0, 1)
 DF0F  func  object_pillar      # type 18; stage 2: the caves' grey stone pillars (sprites 090-09F)
+# each type's handler by the object's state (-$D,X), as Arthur's shots: 0 its start, 1 alive (by its variant, -$E,X),
+# 2 dying (hit), 3 removed (one more of its type may come: type_room; its record free)
+9F51  func  type_00_start
+A039  func  type_00_alive
+A25B  func  type_00_dying
+A285  func  type_00_remove
+A2D4  func  crow_start
+A347  func  crow_alive
+A6E9  func  crow_dying
+A4BC  func  crow_bat             # variant 2: the caves' bats (stage 2: sprites 0E0-0EF)
+A6B9  func  crow_graveyard       # variant 5: the graveyard's crows (stage 0: sprites 0C0-0CF)
+A9E9  func  petite_devil_stage1  # variant 0 (stage 1's towers), variant 2 (AAC0) stage 4's
+AAC0  func  petite_devil_stage4
+A706  func  crow_remove
+A726  func  petite_devil_start
+A9C5  func  petite_devil_alive
+AD1B  func  petite_devil_dying
+AD38  func  petite_devil_remove
+AE86  func  type_03_start
+AEF1  func  type_03_alive
+AF91  func  type_03_dying
+AFAE  func  type_03_remove
+B4D8  func  red_arremer_start
+B650  func  red_arremer_alive
+BD10  func  red_arremer_dying
+BD3E  func  red_arremer_remove
+BD5F  func  satan_start
+C20F  func  satan_dying
+C23D  func  satan_remove
+C266  func  type_07_start
+C28A  func  type_07_alive
+C362  func  type_07_dying
+C38D  func  type_07_remove
+C3AD  func  big_man_start
+C43E  func  big_man_alive
+CAE2  func  big_man_dying
+CB0D  func  big_man_remove
+CB3F  func  skeleton_start
+CB85  func  skeleton_alive
+CDF1  func  skeleton_dying
+CE0E  func  skeleton_remove
+CE30  func  window_giant_start
+CEA2  func  window_giant_alive
+D1E4  func  window_giant_dying
+D20F  func  window_giant_remove
+D231  func  zombie_start
+D314  func  zombie_alive
+D42D  func  zombie_dying
+D44A  func  zombie_remove
+D46C  func  dragon_start
+D61A  func  dragon_alive
+D949  func  dragon_dying
+D9FF  func  dragon_remove
+DE13  func  type_16_start
+DF04  func  type_16_remove
+DF2A  func  pillar_start
+E1F1  func  pillar_remove
+AFD0  func  window_flier_start
+B0B2  func  window_flier_alive
+B47D  func  window_flier_dying
+B49A  func  window_flier_remove
+BDE2  func  satan_alive
+DE46  func  type_16_alive
+DEE7  func  type_16_dying
+DF6F  func  pillar_alive
+E1C3  func  pillar_dying
+DD73  func  bridge_flame_start
+DDA2  func  bridge_flame_alive
+DDEA  func  bridge_flame_dying
+DDED  func  bridge_flame_remove
+DA23  func  astaroth_states
+DA31  func  astaroth_start
+DAB6  func  astaroth_alive
+DCAF  func  astaroth_dying
+DCEB  func  astaroth_remove      # one more may come (type_room), its record free, then the stage's end (stage_end_countdown)
