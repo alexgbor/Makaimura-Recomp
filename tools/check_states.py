@@ -10,6 +10,11 @@ write, the mix's samples (the WAV) and the pictures.
 
 --program checks another build of the runner: build/bin/gng_headless_c, the readable C (its states are taken where
 the main loop waits for work, the first time after the frame's VBLANK: runtime/src/m6809_program.c).
+
+--load-with EXE: the state saved by --program, loaded by EXE (the readable C's states in the translation,
+build/bin/gng_headless: runtime/src/state.c), against EXE's own uninterrupted run. The stack's bytes below S are
+each program's own (the readable C does not write the state the IRQ's entry pushes), so the bus is compared at each
+IRQ but the stack (--irq-state, as tools/check_translation.py --decompiled), not at each VBLANK.
 """
 import argparse
 import os
@@ -22,9 +27,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HEADLESS = os.path.join(ROOT, 'build', 'bin', 'gng_headless.exe' if os.name == 'nt' else 'gng_headless')
 
 
-def run(args, folder, name):
+def run(args, folder, name, program=None, stackless=False):
     outputs = {key: os.path.join(folder, f'{name}.{key}') for key in ('bus', 'irq', 'sound', 'ym', 'wav', 'pictures')}
-    command = [HEADLESS, *args, '--bus-hashes', outputs['bus'], '--irq-hashes', outputs['irq'],
+    command = [program or HEADLESS, *args, '--bus-hashes', outputs['bus'],
+               '--irq-state' if stackless else '--irq-hashes', outputs['irq'],
                '--sound', outputs['sound'], '--ym-writes', outputs['ym'], '--wav', outputs['wav'],
                '--picture-hashes', outputs['pictures']]
     done = subprocess.run(command, capture_output=True, text=True)
@@ -67,7 +73,9 @@ def main():
     parser.add_argument('--frames', type=int, default=2400)
     parser.add_argument('--at', type=int, nargs='+', default=[700, 1500])
     parser.add_argument('--program', help='the runner (default: build/bin/gng_headless)')
+    parser.add_argument('--load-with', help='the runner that loads the state (default: the same)')
     options = parser.parse_args()
+    cross = options.load_with is not None
     global HEADLESS
     if options.program:
         HEADLESS = options.program
@@ -85,8 +93,15 @@ def main():
             first, sample = int(found.group(1)), int(found.group(4))
             print(f'{options.accuracy} mode, {os.path.basename(options.inputs)}: the state after frame {at}\'s '
                   f'VBLANK (frame {first}, pc {found.group(2)}, cycle {found.group(3)}), to frame {options.frames}')
-            resumed, _ = run([*common, '--load-state', state], folder, f'resumed{at}')
-            good &= compare('bus at each VBLANK', by_frame(whole['bus'], first), lines(resumed['bus']))
+            if cross:
+                # (the loader's own run from the power on is what the state's run must give from there)
+                print(f'  loaded by {os.path.basename(options.load_with)}, against its own uninterrupted run')
+                whole, _ = run(common, folder, f'loader{at}', options.load_with, stackless=True)
+                resumed, _ = run([*common, '--load-state', state], folder, f'resumed{at}', options.load_with,
+                                 stackless=True)
+            else:
+                resumed, _ = run([*common, '--load-state', state], folder, f'resumed{at}')
+                good &= compare('bus at each VBLANK', by_frame(whole['bus'], first), lines(resumed['bus']))
             good &= compare('sound board at each VBLANK', by_frame(whole['sound'], first), lines(resumed['sound']))
             # (the IRQs and the YM2203 writes after the state's: the uninterrupted run's last ones; an IRQ's line
             # starts with its count from power-on)

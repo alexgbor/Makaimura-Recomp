@@ -17,7 +17,12 @@
 #include <string.h>
 
 /* the magic is the program's (m6809_state_magic): the translation's "MKRSTATE", the readable C's "MKRSTATC", whose
-   states are taken where its main loop waits for work only (m6809/program.h); neither goes on from the other's */
+   states are taken where its main loop waits for work only (m6809/program.h). The translation goes on from the
+   readable C's too (the game of v0.2.0-v0.2.2 was the readable C: its players' states): there the main loop is at
+   617F with nothing on the stack (S 0300: gref --registers-at 617F over long_play) and nothing in the registers but
+   U that its code reads before it writes them (the readable C goes on from there with U alone), so the CPU's state is
+   the same but S, which the readable C before v0.2.3 did not keep (tools/check_states.py --load-with). The readable
+   C does not go on from the translation's: they may be taken anywhere */
 #define MAGIC m6809_state_magic
 #define VERSION 1u
 
@@ -34,6 +39,11 @@ typedef struct header
 	uint64_t frame;
 	uint64_t sizes[4];          /* the parts': the 6809, the board, the video, the sound */
 } header;
+
+static int readable_c_state(const header *h)
+{
+	return !memcmp(h->magic, "MKRSTATC", sizeof(h->magic)) && !memcmp(MAGIC, "MKRSTATE", sizeof(h->magic));
+}
 
 static uint32_t fnv(uint32_t hash, const uint8_t *bytes, size_t count)
 {
@@ -93,7 +103,7 @@ const char *gng_state_check(const uint8_t *in, size_t size)
 	if (size < sizeof(h))
 		return "not a save state";
 	memcpy(&h, in, sizeof(h));
-	if (memcmp(h.magic, MAGIC, sizeof(h.magic)))
+	if (memcmp(h.magic, MAGIC, sizeof(h.magic)) && !readable_c_state(&h))
 	{
 		if (!memcmp(h.magic, "MKRSTATE", sizeof(h.magic)))
 			return "a state of the translated program";
@@ -138,6 +148,8 @@ void gng_state_load(const uint8_t *in)
 	gng_video_state_load(in);
 	in += gng_video_state_size();
 	gng_sound_state_load(in);
+	if (readable_c_state(&h))
+		cpu_state.cpu.s = 0x0300u;
 	m6809_state_set(&cpu_state);
 	m6809_resume((uint16_t)h.pc);
 }
