@@ -119,6 +119,12 @@ uint64_t fc_now(void)
 	return cpu.cycles;
 }
 
+void fc_halt(uint32_t cycles)
+{
+	cpu.cycles += cycles;
+	m6809_start += cycles;
+}
+
 void fc_run(unsigned index, fc_registers *registers, uint64_t cap, fc_result *result)
 {
 	memset(result, 0, sizeof(*result));

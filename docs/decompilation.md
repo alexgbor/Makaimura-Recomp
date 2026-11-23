@@ -98,7 +98,7 @@ That sees only what the scripts play. **Each function alone** (`tools/m6809/chec
 `build/bin/fcheck`, `tools/reference/fcheck.cpp`): the original program runs on MAME's core over a script, and the
 state at each function's entry is kept (the registers, the board's memories and latches; up to `--samples` a
 function, spread over the run). Then each function of the C is run from those states, and from changed ones, on
-MAME's core and in the C (`tools/reference/fcheck_runtime.c`: the board's time from 0, no IRQ), until it returns,
+MAME's core and in the C (`tools/reference/fcheck_runtime.c`: the board's time the state's, no IRQ), until it returns,
 and compared: how it ends, its cycles, the registers it hands back (`src/functions.txt`, the signatures
 `decompile.py` writes), the board's memories and latches but the stack below S and <$E2-<$E3, the sound latch's
 writes and their times. The states, by kind:
@@ -115,8 +115,15 @@ A run where the original goes where the C cannot follow is counted apart, not co
 analysis never found (`build/fcheck/code.txt`), or through a table past its end (the analysis's tables and
 symbols.txt's `jump=`: an index the game never gives, which the original reads code as an address for and the C's
 switch has no case for); and where the C reaches past the work RAM (a pointer no state of the game holds:
-`M6809_RAM_GUARD`, `m6809/program.h`). `--function NAME --trace` (on fcheck) prints the original's instructions in
-the first run that differs.
+`M6809_RAM_GUARD`, `m6809/program.h`); where the original reads <$E2-<$E3 while they hold the round robin's S (which
+the C keeps in a variable: a made-up pointer into the direct page); and in board mode where it reads 3C00 (which
+starts the sprite DMA there: the program does it in the reset only, and the C reads through the pointers the game
+gives with no time asked for).
+
+`--accuracy board` (on both): each state keeps the board's time it was taken at, the runs go on from it, and every
+time the board asks for the time (each write that changes the picture, each palette write, each DMA and its halt)
+is compared too: what the beam makes of them depends on nothing else. `--function NAME --trace` (on fcheck) prints
+the original's instructions in the first run that differs.
 
 ## To do
 

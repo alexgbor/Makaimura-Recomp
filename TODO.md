@@ -247,8 +247,11 @@ Roughly in order; each milestone is checked against the reference before it is t
             1107091 the same as MAME's; of 2.14 million made up, 4 differ, each a made-up pointer writing onto the
             6809's live stack (the C keeps what it pushes in variables). The runs where the original reads past a
             table (symbols.txt's `jump=` tables too) or runs code the analysis never found are left out
-      - [ ] The readable C the game again (v0.2.3 packages the translation): fcheck in board mode too, then
-            `tools/make_release.ps1 -Program readable`
+      - [x] fcheck in board mode (`--accuracy board`): the runs from the state's board time, every time the board
+            asks for it compared (the beam). Real 70281 runs and plausible 1110268 the same as MAME's; of 2.14 million
+            made up 2 differ, made-up pointers onto the stack again. Left out too: reads of <$E2-<$E3 holding the round
+            robin's S (the C keeps it in a variable) and, board mode, of 3C00 (it starts the DMA)
+      - [ ] The readable C the game again (`tools/make_release.ps1 -Program readable`) once the names are done
       - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
             may interrupt (the main loop's tasks: 745 of them) written shorter
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the

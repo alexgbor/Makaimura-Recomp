@@ -7,7 +7,7 @@
  *    Created:     23-11-2026
  *
  *    license:BSD-3-Clause
- *    fcheck [--accuracy mame] [--inputs FILE] [--frames N] [--samples N] [--variants N] [--seed N] [--cap CYCLES]
+ *    fcheck [--accuracy mame|board] [--inputs FILE] [--frames N] [--samples N] [--variants N] [--seed N] [--cap CYCLES]
  *           [--function NAME [--trace]] [--regions FILE]
  *
  *    First the original program runs on MAME's core as gref runs it (tools/reference/gref.cpp: the IRQ at each
@@ -22,7 +22,9 @@
  *    (returned, past --cap cycles, at a SYNC), its cycles, the registers the C hands back (src/functions.txt), the
  *    board's memories and latches but the stack below S and <$E2-<$E3, the sound latch's writes and their times.
  *    Not compared: a run where the original goes to code the analysis never found or reads past a table it jumps
- *    through (build/fcheck/code.txt), or where the C reaches past the work RAM (M6809_RAM_GUARD).
+ *    through (build/fcheck/code.txt), reads <$E2-<$E3 holding the round robin's S or (board mode) 3C00, or where the C
+ *    reaches past the work RAM (M6809_RAM_GUARD). Board mode: the runs go on from the state's time, and each time the
+ *    board asks for it (the beam: the picture's writes, the palette's, the DMA and its halt) is compared too.
  *
  *    One line a function: "F name" then, for each kind, the runs compared, how many differ and how many were not
  *    compared; then each kind's first difference after a tab. --trace prints to stderr the original's instructions
@@ -33,6 +35,7 @@
 
 #include "fcheck.h"
 #include "gng/board.h"
+#include "gng/video.h"
 
 #include <cstddef>
 #include <cstdio>
@@ -86,6 +89,7 @@ static const size_t BOARD_BYTES = offsetof(gng_board, roms);
 struct state
 {
 	u32 key;
+	u64 time;       // the board's, as the function was called: board mode's beam (the DMA's halt, the raster)
 	bool booted;    // kept after the boot (the main loop reached): the work RAM holds the game's values, not the test's
 	fc_registers registers;
 	std::vector<u8> board;
@@ -152,10 +156,30 @@ static u64 core_elapsed()
 	return cycle_base + u64(run_length - core->icount());
 }
 
+// board mode: a read of 3C00 starts the sprite DMA (runtime/src/board.c), which the program does only in the reset
+// (6017); elsewhere it is a made-up pointer, and the C reads through the pointers the game gives with no time asked
+// for (m6809_at: the decompiler's analysis of where they lead), so the run is the program's no more
+static bool board_mode;
+static bool dma_read;
+// the round robin's copies keep S at <$E2-<$E3 (its STS <$E2 at 661D-6720), which the C keeps in a variable of its own
+// (docs/decompilation.md: S as a pointer): a read of those bytes after one, but by the round robin's LDS, reads what
+// the C never wrote (a made-up pointer: the program reads them as a counter only after writing one itself)
+static bool e2_holds_s[2];
+static bool unkept_read;
+static bool in_round_robin()
+{
+	const u16 pc = u16(previous_key);
+	return pc >= 0x6619 && pc <= 0x6754;
+}
+
 static u8 host_read(u16 address)
 {
 	if (now_phase == CHECKING && address < 0x1E00)
 		reads.insert(address);
+	if (now_phase == CHECKING && board_mode && address == 0x3C00)
+		dma_read = true;
+	if (now_phase == CHECKING && (address == 0xE2 || address == 0xE3) && e2_holds_s[address - 0xE2] && !in_round_robin())
+		unkept_read = true;
 	if (in_table_jump && !in_table_jump->reads_inside(address))
 		off_table = true;
 	return gng_read(address);
@@ -168,6 +192,8 @@ static u8 host_read_opcode(u16 address)
 
 static void host_write(u16 address, u8 data)
 {
+	if (now_phase == CHECKING && (address == 0xE2 || address == 0xE3))
+		e2_holds_s[address - 0xE2] = in_round_robin();
 	gng_write(address, data);
 }
 
@@ -208,6 +234,7 @@ static void host_instruction(u16 pc)
 		state s;
 		s.key = key_of(pc);
 		s.booted = booted;
+		s.time = core_elapsed();
 		core->get(s.registers);
 		s.board.assign(reinterpret_cast<const u8 *>(&gng), reinterpret_cast<const u8 *>(&gng) + BOARD_BYTES);
 		if (slot == kept[index].size())
@@ -233,7 +260,7 @@ static void host_instruction(u16 pc)
 	in_table_jump = table != table_jumps.end() ? &table->second : nullptr;
 	off_table = false;
 	previous_key = here;
-	if (!known_code[here] || off)
+	if (!known_code[here] || off || dma_read || unkept_read)
 	{
 		stop_core(FC_OFF_CODE);
 		return;
@@ -248,12 +275,27 @@ static void host_instruction(u16 pc)
 		stop_core(FC_SYNC);
 }
 
-// the sound latch's writes, by both runs: their time from the run's start
+// the sound latch's writes, by both runs, with the board's time; and every time the board asks the time (board mode:
+// each write that changes the picture, each palette write, each DMA: what the beam makes of them hangs on it alone)
 static std::vector<std::pair<u64, u8>> latch_log;
+static std::vector<u64> clock_log;
 static bool running_c;
+static u64 time_base;    // the board's time as the run starts (the state's)
 static u64 clock_now()
 {
-	return running_c ? fc_now() : core_elapsed();
+	if (now_phase != CHECKING)
+		return core_elapsed();
+	const u64 time = time_base + (running_c ? fc_now() : core_elapsed());
+	clock_log.push_back(time);
+	return time;
+}
+static void on_dma(gng_board *)
+{
+	const u32 halt = gng_dma_halt(clock_now());
+	if (running_c)
+		fc_halt(halt);
+	else
+		core->eat(int(halt));
 }
 static void on_latch(gng_board *, uint8_t value)
 {
@@ -333,6 +375,7 @@ struct outcome
 	fc_registers registers;
 	std::vector<u8> board;
 	std::vector<std::pair<u64, u8>> latch;
+	std::vector<u64> clock;
 	std::string fault;
 	bool outside = false;
 };
@@ -356,12 +399,16 @@ static outcome run_core(u16 pc, const fc_registers &registers, const std::vector
 	}
 	set_board(board);
 	latch_log.clear();
+	clock_log.clear();
 	running_c = false;
 	core->set(pc, registers);
 	start_s = u16(registers.s);
 	previous_key = 0xFFFFFFFFu;
 	in_table_jump = nullptr;
 	off_table = false;
+	dma_read = false;
+	unkept_read = false;
+	e2_holds_s[0] = e2_holds_s[1] = false;
 	stopped = false;
 	reads.clear();
 	now_phase = CHECKING;
@@ -380,6 +427,7 @@ static outcome run_core(u16 pc, const fc_registers &registers, const std::vector
 	core->get(o.registers);
 	o.board.assign(reinterpret_cast<const u8 *>(&gng), reinterpret_cast<const u8 *>(&gng) + BOARD_BYTES);
 	o.latch = latch_log;
+	o.clock = clock_log;
 	return o;
 }
 
@@ -387,6 +435,7 @@ static outcome run_c(unsigned index, const fc_registers &registers, const std::v
 {
 	set_board(board);
 	latch_log.clear();
+	clock_log.clear();
 	running_c = true;
 	fc_registers r = registers;
 	fc_result result;
@@ -400,6 +449,7 @@ static outcome run_c(unsigned index, const fc_registers &registers, const std::v
 	o.registers = r;
 	o.board.assign(reinterpret_cast<const u8 *>(&gng), reinterpret_cast<const u8 *>(&gng) + BOARD_BYTES);
 	o.latch = latch_log;
+	o.clock = clock_log;
 	o.fault = result.fault;
 	o.outside = result.outside != 0;
 	return o;
@@ -506,6 +556,16 @@ static std::string compare(const outcome &a, const outcome &b, u32 compared)
 		std::snprintf(text, sizeof(text), "%d bytes: ", differing);
 		found += text + bytes;
 	}
+	if (a.clock != b.clock)
+	{
+		size_t i = 0;
+		while (i < a.clock.size() && i < b.clock.size() && a.clock[i] == b.clock[i])
+			i++;
+		std::snprintf(text, sizeof(text), "board's time asked %zu/%zu times, the %zuth at %lld/%lld ", a.clock.size(),
+			b.clock.size(), i + 1, i < a.clock.size() ? (long long)a.clock[i] : -1LL,
+			i < b.clock.size() ? (long long)b.clock[i] : -1LL);
+		found += text;
+	}
 	if (a.latch != b.latch)
 	{
 		std::snprintf(text, sizeof(text), "latch writes %zu/%zu ", a.latch.size(), b.latch.size());
@@ -549,7 +609,9 @@ int main(int argc, char **argv)
 		if (a == "--regions") regions_path = next();
 		else if (a == "--accuracy")
 		{
-			if (std::string(next()) != "mame") { std::fprintf(stderr, "fcheck: only --accuracy mame for now\n"); return 2; }
+			const std::string mode = next();
+			if (mode != "mame" && mode != "board") { std::fprintf(stderr, "fcheck: --accuracy mame or board\n"); return 2; }
+			board_mode = mode == "board";
 		}
 		else if (a == "--inputs") inputs_path = next();
 		else if (a == "--frames") frames = std::atoi(next());
@@ -568,12 +630,14 @@ int main(int argc, char **argv)
 	if (regions.count("chars")) roms.chars = regions["chars"].data();
 	if (regions.count("tiles")) roms.tiles = regions["tiles"].data();
 	if (regions.count("sprites")) roms.sprites = regions["sprites"].data();
-	gng.accuracy = GNG_ACCURACY_MAME;
+	gng.accuracy = board_mode ? GNG_ACCURACY_BOARD : GNG_ACCURACY_MAME;
 	gng_power_on(&roms);
 	gng.inputs.dsw1 = GNG_DSW1_DEFAULT;
 	gng.inputs.dsw2 = GNG_DSW2_DEFAULT;
 	gng.on_sound_latch = on_latch;
 	gng.clock = clock_now;
+	gng.on_dma = on_dma;
+	gng_video_decode();
 
 	{
 		std::ifstream code("build/fcheck/code.txt");
@@ -729,6 +793,7 @@ int main(int argc, char **argv)
 						}
 					}
 				}
+				time_base = base->time;
 				const outcome reference_run = run_core(pc, registers, board);
 				read_union.insert(reads.begin(), reads.end());
 				if (reference_run.end == FC_OFF_CODE)

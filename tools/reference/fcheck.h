@@ -69,6 +69,8 @@ typedef struct fc_result
 void fc_run(unsigned index, fc_registers *registers, uint64_t cap, fc_result *result);
 /* the C's time in the run: the end of the bus cycle being made (cpu.cycles) */
 uint64_t fc_now(void);
+/* board mode: the sprite DMA's halt, from the access's time on (as runtime/src/m6809_program.c's on_dma) */
+void fc_halt(uint32_t cycles);
 
 #ifdef __cplusplus
 }
