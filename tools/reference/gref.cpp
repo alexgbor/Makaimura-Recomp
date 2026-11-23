@@ -68,10 +68,10 @@ public:
 	u8 cc() const { return m_cc; }
 	int icount() const { return m_icount; }
 	void eat(int cycles) { m_icount -= cycles; }    // the CPU halted (board mode's DMA): its time goes on
-	void print_registers(FILE *out) const
+	void print_registers(FILE *out, int frame) const
 	{
-		std::fprintf(out, "PC=%04X A=%02X B=%02X X=%04X Y=%04X U=%04X S=%04X DP=%02X CC=%02X bank=%u\n", m_pc.w,
-			m_q.r.a, m_q.r.b, m_x.w, m_y.w, m_u.w, m_s.w, m_dp, m_cc, gng.bank);
+		std::fprintf(out, "PC=%04X A=%02X B=%02X X=%04X Y=%04X U=%04X S=%04X DP=%02X CC=%02X bank=%u frame=%d\n",
+			m_pc.w, m_q.r.a, m_q.r.b, m_x.w, m_y.w, m_u.w, m_s.w, m_dp, m_cc, gng.bank, frame);
 	}
 };
 
@@ -148,6 +148,7 @@ static u16 instruction_length(u16 pc)
 }
 
 static int registers_at = -1, registers_left = 0;
+static int registers_frame;    // the frame being run, printed after the registers (--registers-at)
 
 static void host_instruction(u16 pc)
 {
@@ -155,7 +156,7 @@ static void host_instruction(u16 pc)
 	if (pc == registers_at && registers_left > 0)
 	{
 		registers_left--;
-		cpu->print_registers(stdout);
+		cpu->print_registers(stdout, registers_frame);
 	}
 	if (trace_executed)
 		executed.insert(here);
@@ -402,6 +403,7 @@ int main(int argc, char **argv)
 	};
 	for (int frame = 0; frame < frames; frame++)
 	{
+		registers_frame = frame;
 		const u64 vblank = GNG_VBLANK_CYCLE + u64(frame) * GNG_CPU_CYCLES_PER_FRAME;
 		run_until(vblank);
 		if (sound)
