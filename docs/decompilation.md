@@ -138,6 +138,11 @@ See TODO.md, M6: the names (symbols.txt: the routines, the RAM's variables and t
   handlers keep X 0x10 bytes into each record, so their C reads `OBJECT(object - 0x10u)->type`); the pointer
   analysis carries it on to the functions the pointer is handed to. Its fields are the work RAM's (no bus, no
   time), as the objects are.
+- The objects' bytes from 0x16 on are each type's own: symbols.txt's `scoped object FAMILY OFFSET NAME TYPE` lines
+  name them for a family of functions, read through a pointer `param FUNCTION x NAME object.FAMILY+10` says is
+  one of the family's (`OBJECT(x - 0x10u)->player.facing` in the `player_...` functions). The core names a family's
+  fields through the function's own object only when its pointer is the record's start (`emit.OWN_OBJECT_REGISTERS`,
+  X for the 6809: `tools/m6809/emit.py`); the 6809's points 0x10 bytes in, so each function says it.
 - A dispatch through a table whose address the code loads right before it (`LDX #table; ... JMP [B,X]`) is a
   switch on the offset into the table (`case 0x2u:` the second entry); the others switch on the address read.
 - `m6809_block(n)`, `m6809_at(c)`: the board's time (above); `mem_read8/mem_write8`: the board's bus, where the

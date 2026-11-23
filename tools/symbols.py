@@ -19,7 +19,8 @@ A line is   ADDRESS  KIND  NAME  [key=value ...]   [# comment]
     struct, field, local, param lines are the shared core's (tools/core/disassemble.py: load_names), for the readable
     C: "struct NAME SIZE", "field STRUCT OFFSET NAME TYPE" (OFFSET hex, from where the code's pointer points), "local FUNCTION ADDRESS rN NAME STRUCT" (the register the instruction at ADDRESS writes points at one);
     "below STRUCT SIZE UNDER" (the SIZE bytes right before where a pointer to STRUCT points are an UNDER: the driver's);
-    "instance ADDRESS STRUCT NAME" (a STRUCT at that address, NAME its address in the C: the driver's)
+    "instance ADDRESS STRUCT NAME" (a STRUCT at that address, NAME its address in the C: the driver's);
+    "scoped STRUCT FAMILY OFFSET NAME TYPE" (a field named its own way in the functions named FAMILY or FAMILY_...)
 Addresses and names only: no game data lives in symbols.txt.
 """
 from dataclasses import dataclass, field
@@ -37,7 +38,7 @@ class Symbol:
 
 # lines for the shared core's decompiler as they are (tools/core/disassemble.py's load_names): the structures the
 # readable C reads through pointers, their fields, which register holds one where (tools/m6809/decompile.py)
-CORE_KINDS = ("struct", "field", "local", "param", "below", "instance")
+CORE_KINDS = ("struct", "field", "local", "param", "below", "instance", "scoped")
 
 
 class Symbols:

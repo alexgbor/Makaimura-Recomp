@@ -85,6 +85,9 @@ def use_memory_map(names):
     pointers.NESTED = {}
     pointers.BELOW = {}
     pointers.OWN_REGISTERS = ()
+    # the object a function of a family runs on (symbols.txt's scoped lines: player_... reads the player's fields by
+    # their own names) is the one X points at as it starts: the objects' handlers' pointer (object+10)
+    emit.OWN_OBJECT_REGISTERS = (3,)    # (lift.X)
     pointers.STRUCT_FUNCTION = "ram_at"
     pointers.ROM_STRUCTS = set(names.rom_structs)
     pointers.RUNS = set(names.structs)    # (records one after another, the work RAM's too: past one, the next)

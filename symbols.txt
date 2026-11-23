@@ -270,6 +270,93 @@ E1FC  func  props_frame          # each of the 30 props in use (-$10,X): its rou
 995F  func  player_hit           # armoured (player_naked 0): steps 0-4 (997F...), the last player_armour_lost
 99FB  func  player_armour_lost   # player_naked = 1, back on foot (9886: state 1)
 930E  func  player_state_4
+8FDF  func  player_control       # on foot: the ladders (player_climb_check), walking, the jump and fire buttons
+8F71  func  player_fire_check    # the fire button (10) just pressed: a shot thrown (9DB7)
+8F9C  func  player_throw         # the throw's frames (by player_naked, facing), its timer 0F
+8FBF  func  player_throwing      # the throw's timer down; at 0 the frames back
+9004  func  player_set_speeds    # speed_x and speed_y (16-1D) from the 8 bytes at U
+9034  func  player_ground_check  # on the ground (background_check: onto it) or, with nothing under, a fall (the step on)
+904F  func  player_onto_ground   # y up by B (the distance background_check gives)
+9055  func  player_fall          # on foot's step 1: down by speed_y until the ground (player_set_speeds 93C2 then)
+908B  func  player_climb_check   # up (08) or down (04) held by a ladder (player_ladder_at_feet, _at_head)
+9174  func  player_ladder_at_feet  # carry set if the background's tile under the player is a ladder's
+91AD  func  player_ladder_at_head  # the same 12 pixels up
+91DE  func  move_y               # y (9-B) += the signed 16-bit step at U
+9233  func  player_walk_input    # left (02) or right (01) held: facing and the walk's frames
+9265  func  player_walk          # a step its way, unless a wall (8B7D, 8BAF) or the screen's edge
+92BF  func  player_probe_right   # the point (2B, 2D) checked: x + 1, y + 1
+92C9  func  player_probe_left
+92E8  func  player_face_astaroth # with Astaroth on (astaroth_on): facing him, carry set
+9301  func  player_set_walk_frames
+93E5  func  player_wall_right    # pushed back by a wall on the right (8B7D), stopped at the screen's edge
+9405  func  player_wall_left
+94A3  func  player_move_left     # x -= speed_x
+94CA  func  player_move_right    # x += speed_x
+94B0  func  player_move_up       # y += speed_y (y counts up)
+94BD  func  player_move_down
+94D7  func  player_probe_below   # the point (2B, 2D) checked: x, y - 1
+94EA  func  player_jump_speeds   # speed_x and speed_y changed by the table at U (the jump's arc)
+950C  func  player_fall_speeds
+955D  func  player_set_jump_frames
+9572  func  player_turn_in_air   # left or right pressed in a jump: facing only
+9756  func  player_set_frames    # the frames from the table at U by player_naked, then by facing (975B)
+975B  func  player_set_frames_facing
+997F  func  player_hit_start     # blinking for 120 frames (player_blink_on); the armour's 4 pieces thrown into the
+                                 # shots' records at 0540 (99CE, from the table 99BA)
+99CE  func  player_armour_piece
+9A12  func  player_death_start   # a sound by the lives left (the last: 787C), the death's frames
+9A61  func  player_dying         # its steps (9A78, 9A8D): at the end player_dead
+9A8D  func  player_dying_end
+param player_states x player object.player+10   # the player's record, read with the player's own field names
+param player_blink x player object.player+10
+param player_state_start x player object.player+10
+param player_fire_check x player object.player+10
+param player_throw x player object.player+10
+param player_throwing x player object.player+10
+param player_on_foot x player object.player+10
+param player_control x player object.player+10
+param player_set_speeds x player object.player+10
+param player_ground_check x player object.player+10
+param player_onto_ground x player object.player+10
+param player_fall x player object.player+10
+param player_jump_check x player object.player+10
+param player_climb_check x player object.player+10
+param player_ladder_at_feet x player object.player+10
+param player_ladder_at_head x player object.player+10
+param player_walk_input x player object.player+10
+param player_walk x player object.player+10
+param player_probe_right x player object.player+10
+param player_probe_left x player object.player+10
+param player_face_astaroth x player object.player+10
+param player_set_walk_frames x player object.player+10
+param player_state_4 x player object.player+10
+param player_state_5 x player object.player+10
+param player_jump x player object.player+10
+param player_wall_right x player object.player+10
+param player_wall_left x player object.player+10
+param player_move_left x player object.player+10
+param player_move_up x player object.player+10
+param player_move_down x player object.player+10
+param player_move_right x player object.player+10
+param player_probe_below x player object.player+10
+param player_jump_speeds x player object.player+10
+param player_fall_speeds x player object.player+10
+param player_set_jump_frames x player object.player+10
+param player_turn_in_air x player object.player+10
+param player_set_frames x player object.player+10
+param player_set_frames_facing x player object.player+10
+param player_hit x player object.player+10
+param player_hit_start x player object.player+10
+param player_armour_piece x player object.player+10
+param player_armour_lost x player object.player+10
+param player_death_start x player object.player+10
+param player_dying x player object.player+10
+param player_dying_end x player object.player+10
+scoped object player 1E facing u8        # 1 right, 2 left (player_walk_input, player_face_astaroth)
+scoped object player 16 speed_x u8       # 16-19: x's speed, its first 3 bytes added to the position (player_move_right)
+scoped object player 1A speed_y u8       # 1A-1D: y's
+scoped object player 20 timer u8         # the death's, the transformation's (state 4) frames
+scoped object player 2A throw_timer u8   # the throw's frames left (player_throw: 0F)
 937D  func  player_state_5
 907B  func  player_jump_check    # the jump button (20) just pressed (in <$4B, not in <$4C): the next state (a jump)
 00AC  var  player_naked          # 1 once the armour is lost (player_armour_lost, the time's up: EC86); 0 at a stage's
@@ -286,6 +373,18 @@ EC6F  func  stage_timer_tick     # every 64 frames one down; at 15 sound 18, at 
 ECA4  func  midway_check         # before the midway point (<$81 0): past the stage's (the table ECE4, by camera_x) the
                                  # timer set to the midway's and <$81 = 1
 00AA  var  stage_timer  count=2  # the time left
+
+# ======== the enemies' deaths and the items ========
+EAEC  func  enemy_killed         # the record at Y (what is left of it) set up as the dead one's type; one more of its
+                                 # type may come (0030 + type); every 6 kills (<$B0) the item (15D2) comes out of it,
+                                 # which one by <$7D (0-6: the table EB34)
+0030  var  type_room  count=19   # by the object's type: how many more may be out (one less as one dies: enemy_killed;
+                                 # one more as one goes: DCEB)
+00B0  var  kills_to_item         # 6 at a stage's start (6E19), one down a kill
+007D  var  item_next             # 0-6, one up an item
+E55A  func  items_frame          # the two records at 15D2 and 1602 (0x30 apart), each one's routine
+F783  func  items_draw
+7AA5  func  princess_intro       # the princess's record (15B2) at the first stage's start: carried away (by its state)
 
 # ======== the sprites: each frame from sprites_begin, the objects' through object_draw, the rest hidden ========
 F6E4  func  sprites_begin        # bank 4, Y = 1E3C (the sprite RAM's 4th entry: the first ones are the HUD's), 64 left
