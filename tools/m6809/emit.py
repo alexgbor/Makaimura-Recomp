@@ -157,6 +157,10 @@ class Writer(emit.FunctionWriter):
             if name == "m6809_stack_moved":
                 return [f"m6809_stack_moved({offset});"]
             return [f"m6809_stack_byte({offset}, {self.exact(args[1])});"]
+        if name == "m6809_push_return":
+            return [f"m6809_push_return(0x{args[0].value:04X}u);"]
+        if name == "m6809_pop_return":
+            return ["m6809_pop_return();"]
         if name == "m6809_stack_set":
             return [f"m6809_stack_set({self.exact(args[0])});"]
         raise emit.EmitError(f"{self.function.name}: effect {name}")

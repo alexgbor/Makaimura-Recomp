@@ -13,6 +13,9 @@ reach: the town's windows, the bridge's flames (and the tiles stage 3 draws from
 tower5.txt: stage 5 with Arthur and the camera moved up the tower at frame 2050 (the player's x and y, <$9C-<$9F:
 the camera 0x47 below him, as at the stage's start), where the dragon flies (object_dragon) and Big Man walks.
 
+satan4.txt: stage 4 with Arthur held near the top of its last climb (his x and y written every other frame from 2050
+to 2398, while the camera catches up with him), where Satan comes (object_satan).
+
 loop2_stage0.txt and loop2_stage6.txt: the second loop (<$7F = 1, as 7298 leaves it after the first loop's last
 stage; <$71 is the stage's own state: 0 its start, 1 playing, 7AA0), stage 6 with the cross (<$73 = 3, the weapon
 the last stage asks for: 7129).
@@ -25,7 +28,7 @@ import os
 FRAMES = 12000
 
 
-def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False, moved_to=None):
+def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False, moved_to=None, held=False):
     what = f"stage {stage}" + (", from its midway point" if midway else "") + (", the second loop" if loop2 else "") + (f", weapon {weapon}" if weapon is not None else "")
     lines = [f"# {what}: coin, start, the RAM written, the lives kept (a test's cheat; tests/controls/make_stages.py)"]
     lines += ["1300 system bf", "1306 system ff", "1400 system fe", "1406 system ff", f"1410 m0072 {stage:02x}"]
@@ -44,10 +47,15 @@ def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False, moved
         # Arthur's x and y (0506, 0509: 16 bits each) and the camera's (<$9C, <$9E) written while he plays
         x, y = moved_to
         camera_x, camera_y = x - 0x80, y - 0x47
-        events.setdefault(2050, []).extend([f"m0506 {x >> 8:02x}", f"m0507 {x & 0xFF:02x}", f"m0509 {y >> 8:02x}",
-                                            f"m050a {y & 0xFF:02x}", f"m009c {camera_x >> 8:02x}",
-                                            f"m009d {camera_x & 0xFF:02x}", f"m009e {camera_y >> 8:02x}",
-                                            f"m009f {camera_y & 0xFF:02x}"])
+        place = [f"m0506 {x >> 8:02x}", f"m0507 {x & 0xFF:02x}", f"m0509 {y >> 8:02x}", f"m050a {y & 0xFF:02x}"]
+        if held:
+            # Arthur kept there while the camera scrolls to him (it follows him a few pixels a frame); the camera
+            # not written: moved at once, it leaves the objects it passes behind (object_off_screen removes them)
+            for frame in range(2050, 2400, 2):
+                events.setdefault(frame, []).extend(place)
+        else:
+            events.setdefault(2050, []).extend(place + [f"m009c {camera_x >> 8:02x}", f"m009d {camera_x & 0xFF:02x}",
+                                                        f"m009e {camera_y >> 8:02x}", f"m009f {camera_y & 0xFF:02x}"])
     for frame in range(1500, FRAMES, 300):
         events.setdefault(frame, []).append("m0060 05")
     for frame in range(1600, cleared_at if cleared_at is not None else FRAMES, 4):
@@ -75,6 +83,8 @@ if __name__ == "__main__":
             out.write(script(stage, midway=True))
     with open(os.path.join(here, "tower5.txt"), "w", newline="\n") as out:
         out.write(script(5, moved_to=(0x1E60, 0x07DD)))
+    with open(os.path.join(here, "satan4.txt"), "w", newline="\n") as out:
+        out.write(script(4, moved_to=(0x1C40, 0x0680), held=True))
     for name, text in (("loop2_stage0", script(0, loop2=True)), ("loop2_stage6", script(6, loop2=True, weapon=3)),
                        ("ending", script(6, loop2=True, weapon=3, cleared_at=2100))):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:

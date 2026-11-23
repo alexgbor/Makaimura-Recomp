@@ -237,6 +237,9 @@ Roughly in order; each milestone is checked against the reference before it is t
             at frame 1922. The only read of the stack as data in every script (gref: the reads of 02C0-02FF but PULS,
             RTS, RTI and the code's own slots). Above the IRQ's frame the stack is now the same as gref's; the IRQ's
             frame (the registers it pushes) and <$E2-<$E3 are still left out of the checks
+      - [x] The switches through a table by an accumulator zero-extended: satan's BDE2 (ASLB / JMP [B,U]) took the
+            whole of D, the core's writer printed `d * 2u` (its Switch value from `expr`): no case with A set, Satan's
+            state 1 ran nothing (tests/controls/satan4.txt). To report to arcade-decomp
       - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
             may interrupt (the main loop's tasks: 745 of them) written shorter
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
@@ -250,8 +253,8 @@ Roughly in order; each milestone is checked against the reference before it is t
       devils, Red Arremer, Big Man, the skeletons, the zombies, Astaroth, the man-eater plants, the caves' pillars, and from the stages' midway points (<$81 = 1: tests/controls/midway1, 3,
       4) the town's window fliers and window giant, the bridge's flames; the 4 records at 0530 are Arthur's shots,
       their type the weapon (<$73: the torch, the lance, the axe, the cross, the dagger). The dragon (type 12: stage 5, up the tower:
-      Arthur and the camera moved there by RAM writes, alive). To do: types 0 (several things), 3, 6, 7 (no sprites
-      of their own seen; 6 not even up the tower), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
+      Arthur and the camera moved there by RAM writes, alive: tower5), Satan (type 6: stage 4's last climb, Arthur
+      held there while the camera comes: satan4). To do: types 0 (several things), 3, 7 (no script reaches them), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
       (by type: scoped lines), the score, the stages' maps. (The core's BELOW path
       fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
       instead)

@@ -232,7 +232,7 @@ A716  func  object_petite_devil  # type 2; stages 1, 4: the small blue devils ou
 AE76  func  object_type_03     # no script reaches it
 AFC0  func  object_window_flier  # type 4; stage 1 from its midway point (midway1): out of the brick house's windows (sprites 080-08F)
 B4C8  func  object_red_arremer  # type 5; every stage, the attract mode: the red winged demon (sprites 180-1BF)
-BD4F  func  object_type_06     # stages 4, 5
+BD4F  func  object_satan       # type 6; stages 4, 5: the large red demon with purple wings at the top of their last climb (sprites 280-2BF: satan4)
 C256  func  object_type_07     # no script reaches it
 C39D  func  object_big_man     # type 8; stage 5: the giant (sprites 200-23F: seen walking up the tower, Arthur moved there by a RAM write)
 CB2F  func  object_skeleton    # type 9; stages 4, 5: a skull on the wall (sprite 0A7) that rises as a skeleton (0A0-0AF)

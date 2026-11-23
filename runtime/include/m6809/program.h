@@ -91,6 +91,14 @@ static inline void m6809_stack_byte(int32_t offset, uint32_t value)
 }
 static inline void m6809_stack_moved(int32_t step) { cpu.s = (cpu.s + (uint32_t)step) & 0xFFFFu; }
 static inline void m6809_stack_set(uint32_t s) { cpu.s = s & 0xFFFFu; }
+/* a call's return address pushed (JSR, BSR: its low byte at S - 1, its high byte at S - 2), and pulled by RTS */
+static inline void m6809_push_return(uint32_t back)
+{
+	m6809_stack_byte(-1, back & 0xFFu);
+	m6809_stack_byte(-2, back >> 8);
+	m6809_stack_moved(-2);
+}
+static inline void m6809_pop_return(void) { m6809_stack_moved(2); }
 
 /* CC's I */
 void m6809_mask(uint32_t masked);

@@ -511,12 +511,16 @@ class Builder:
         kind = control.kind
         if kind in ("call",):
             statements = self.without_pushes(statements, 2)
+            statements, moved = self.return_pushed(statements, moved, ins.next & 0xFFFF)
             block.statements += statements + moved + [cycles]
             block.statements.append(self.call(number, ins, control, block))
             block.end = self.transfer(number, following)
             return
         if kind == "return":
             # RTS, PULS with PC: the registers pulled, the PC's two bytes and the read after them left out
+            if ins.mnemonic == "RTS":
+                # (S's step is the return address' two bytes: one line, m6809_pop_return())
+                moved = [ir.Effect("m6809_pop_return", ())]
             block.statements += self.without_return(statements) + moved + [cycles]
             block.end = ir.Return()
             return
@@ -560,7 +564,10 @@ class Builder:
             indexed = self.table_index(block, number, ins)
             if indexed is not None:
                 register, cases = indexed
-                block.end = ir.Switch(register, {offset: ("tail", target) for offset, target in cases.items()})
+                # (zero-extended: the core's writer prints a switch's value right only in its low bits, and the
+                # accumulator may be a byte of a wider value, D's B: satan's BDE2, ASLB / JMP [B,U] with A set)
+                block.end = ir.Switch(ir.Op("zext", (register,), 32),
+                                      {offset: ("tail", target) for offset, target in cases.items()})
                 return
             block.end = ir.Switch(control.address, {split_key(target)[1]: ("tail", target) for target in targets})
             return
@@ -662,6 +669,24 @@ class Builder:
         if removed != count:
             raise lift.Unsupported("a call whose pushes are not its last statements")
         return kept
+
+    @staticmethod
+    def return_pushed(statements, moved, back):
+        """A call's statements with the two bytes of its return address and S's step made one effect,
+        m6809_push_return(back) (the runtime writes them at S - 2 and S - 1 and moves S): one line in the C"""
+        def offset(statement):
+            return statement.args[0].value if isinstance(statement, ir.Effect) and \
+                statement.name == "m6809_stack_byte" else None
+        low = [index for index, statement in enumerate(statements) if offset(statement) == 0xFFFF]
+        high = [index for index, statement in enumerate(statements) if offset(statement) == 0xFFFE]
+        if not (low and high and len(moved) == 1 and moved[0].args[0].value == 0xFFFE):
+            raise lift.Unsupported("a call that does not push its return address as JSR does")
+        pushed = (statements[low[-1]].args[1], statements[high[-1]].args[1])
+        if not (isinstance(pushed[0], ir.Const) and isinstance(pushed[1], ir.Const) and
+                pushed[0].value == back & 0xFF and pushed[1].value == back >> 8):
+            raise lift.Unsupported(f"a call whose pushed return address is not {back:04X}")
+        kept = [statement for index, statement in enumerate(statements) if index not in (low[-1], high[-1])]
+        return kept, [ir.Effect("m6809_push_return", (ir.Const(back, 16),))]
 
     @staticmethod
     def without_return(statements):

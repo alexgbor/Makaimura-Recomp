@@ -51,7 +51,8 @@ python tools/check_translation.py --decompiled [--accuracy mame|board]
 - **The stack.** Return addresses and saved registers are the C's own variables, and their bytes are in the work
   RAM too, where the 6809 has them: each byte the code puts on the stack (a call's return address, PSHS, a store
   through S) is `m6809_stack_byte(offset, value)` at S + offset, each instruction that moves S
-  `m6809_stack_moved(step)` (LDS `m6809_stack_set`), S the runtime's `cpu.s`. The program reads them as data once:
+  `m6809_stack_moved(step)` (LDS `m6809_stack_set`), S the runtime's `cpu.s`; a call's return address is one line,
+  `m6809_push_return(back)` before the call, and an RTS's `m6809_pop_return()`. The program reads them as data once:
   in stage 3 from its midway point (tests/controls/midway3.txt) 633F draws a block of the map whose base is 0000,
   its tiles from 02F8-02FF (return addresses and pushed registers). What the C still cannot write is the state the
   IRQ's entry pushes (12 bytes below S: the registers are the C's variables) and the stack pointer the round robin's
@@ -62,6 +63,11 @@ python tools/check_translation.py --decompiled [--accuracy mame|board]
   PULS: that S is a variable of its own (`source`), the STS and the LDS left out.
 - **Returning through Y.** The boot's RAM and ROM test (3:553A) is entered by a jump with its return address in Y,
   which it pushes and returns through (symbols.txt: `return=Y`): a call.
+- **A jump through a table by an accumulator** (ASLB / LDU #table / JMP [B,U]) is a switch on the offset, its value
+  zero-extended (`function.Builder.lift`): the core's writer prints a switch's value right in its low bits only, and
+  where the function takes the whole of D (satan's BDE2: its callee reads A) the byte was printed as `d * 2u`, no
+  case matched with A set and Satan's state 1 ran nothing (found by tests/controls/satan4.txt). To tell upstream
+  (arcade-decomp's emit.py: the jump_target of a Switch from `expr`, not `exact`).
 - **DP** is 0 all along (the two TFR B,DP of the boot set it to 0): the direct page is the work RAM's first 256
   bytes, read as variables.
 - **A function that loops back to its start** (the main loop; a routine that counts down from its entry) gets an
