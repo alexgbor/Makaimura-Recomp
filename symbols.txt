@@ -107,6 +107,13 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
                                  # at <$10): main_loop runs it in bank 3 (main_tasks)
 7775  func  sound_queue_put      # B into the sound queue (0140-017F, written at <$14)
 776D  func  sound_request        # B to the sound queue if the demo sounds are on (<$52) or a game is on (<$28)
+77BB  func  sound_request_ff     # B then FF to the sound queue (sound_request)
+779E  func  sound_00             # the sound requests by number (sound_request; sound_request_ff: _ff)
+7822  func  sound_18
+7831  func  sound_1B_ff
+77F5  func  sound_0C_ff
+78C9  func  sound_3F
+788C  func  sound_3F_00_31       # sound_3F, sound_00, then 31
 68F9  func  random               # the random numbers: a shift register at <$6E-<$6F, its low byte in <$70 and B
 68DF  func  clear_sprites        # the sprite RAM's 1E00-1F7F set to F8 (off the screen), 24 PSHU of 16 bytes
 3:489B func draw_message         # message B of the table at 3:48DD on the text layer (its colour <$F2; '/' a new line)
@@ -186,6 +193,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 76FC  func  continue_countdown   # continue_timer one down (BCD) every 64 frames, drawn at 21EF; at 0 the game ends
 6C35  func  player_start_lives   # the lives from the DIP's (<$50), the bonus lives' scores from the DIP's table (<$55)
 3:5051 func draw_bcd_byte        # the byte at Y as two digits on the text layer at X, colour B
+3:5025 func draw_score           # the 4 BCD bytes at Y (a score) as 8 digits on the text layer at X, colour B
 000A  var  continue_timer       # BCD seconds
 0022  var  credits  count=2
 0051  var  free_play            # 1 when DSW1's coinage is free play (dip1_settings)
@@ -213,6 +221,51 @@ instance 0500 object PLAYER       # the player's record (Arthur): the code's X 0
 field object 1 on_screen u8        # object_on_screen: 1 while its box (8CCA, by animation_kind) is in the camera's view
 8CA4  func  object_on_screen     # the object's box (the table 8CCA by its animation_kind) against the camera (<$9C, <$9E)
 8D22  func  set_animation_kind   # a new animation_kind, the height moved by the table 8D38's difference
+field object 8 x_fraction u8      # x's fraction: 6-8 a 24-bit position, moved by 16-bit steps at 7-8 (move_x)
+field object B y_fraction u8
+field object C moves u8           # a pointer (C-D) to the animation's steps: 4 bytes an animation, x's then y's (move_by_animation)
+field object D moves_low u8
+92DA  func  move_x               # x (6-8) += the signed 16-bit step at U
+A2A1  func  move_by_animation    # the object moved by its animation's step, from its own table (U = moves: move_by_table)
+A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += the one at U+2
+8E47  func  towards_player       # the distance to the player (player_x, player_y) by x and y, their signs in <$E1, the direction
+8B0A  func  background_check     # the background's tile under the object (background_tile, offset by the table 8C09 by -$1,X)
+                                 # and what the table 448E says of it (the stage's ground, walls, ladders)
+8C35  func  background_tile      # Y = the background layer's tile (2800-2BFF) at the stage's position <$EC (x), <$EE (y)
+
+# ======== the records' pools (pools_init, at each stage's start): stacks of free records' addresses ========
+6DA4  func  pools_init           # the 40 objects at 0880 (stack 14D0, <$93-<$94), the 30 props at 1000 (150C, <$96-<$98),
+                                 # the 6 enemy shots at 13C0 (1518, <$A7-<$A8)
+8C5F  func  object_new           # Y = a free object's record (+0x10); carry set if none is free
+8C6F  func  object_free          # the object at X back to the free ones
+8C78  func  prop_new             # Y = a free prop's record (8C88: one back)
+8C91  func  enemy_shot_new       # Y = a free enemy shot's record (8C9B: one back)
+0093  var  objects_free          # how many of the 40 objects are free
+0094  var  objects_free_top  count=2
+0096  var  props_free_top  count=2
+0098  var  props_free            # how many of the 30 props are free
+00A7  var  enemy_shots_free      # how many of the 6 enemy shots are free (the enemies shoot while there are, by the rank)
+00A8  var  enemy_shots_free_top  count=2
+# The props (1000-13BF: 30 records of 0x20 bytes, their X 0x10 into each) are the stage's placed pieces, from its list
+# (6E76, bank 2's 4B00 by the stage): by the sprites they draw, type 1 the graves and the caves' rocks (sprites
+# 170-17F), type 3 the moving platforms (160-162); type 0 the holes in the walls and trees things come out of
+# (sprites 078-08F, 030). The enemy shots (13C0-147F) by type: 5 the pillars' balls (090-09F), 6 the man-eater
+# plant's eyes (1B0-1BF)
+E1FC  func  props_frame          # each of the 30 props in use (-$10,X): its routine by its state (E25D)
+8F0E  func  player_frame         # the player's routine (player_states), its blink, then player_x, player_y
+8F1E  func  player_states        # by the player's state (-$D,X: 8F2A)
+8EFD  func  player_blink         # while <$AD: the frame's sprite blank (A4AB) every other frame
+00A0  var  player_x  count=2     # the player's position, kept for the others (towards_player...)
+00A2  var  player_y  count=2
+00AD  var  player_blink_on
+
+# ======== the sprites: each frame from sprites_begin, the objects' through object_draw, the rest hidden ========
+F6E4  func  sprites_begin        # bank 4, Y = 1E3C (the sprite RAM's 4th entry: the first ones are the HUD's), 64 left
+F799  func  object_draw          # the object's sprites if it is on the screen (-$F,X: on_screen)
+F79D  func  object_draw_sprites  # its screen position (x and y less the camera's, offset by the table F7C0 by its
+                                 # animation_kind), then its sprites at Y by the kind's routine (F7EC...)
+F70F  func  sprites_hide_rest    # the sprites left (<$29) hidden: their y F8
+0029  var  sprites_left          # of the 64 a frame: counted down as they are drawn
 009C  var  camera_x  count=2     # where the screen's view is in the stage (the objects' positions are the stage's)
 009E  var  camera_y  count=2
 param object_on_screen x object object+10
