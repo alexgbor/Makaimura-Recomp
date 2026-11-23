@@ -15,6 +15,11 @@ shows it, its options in `makaimura.ini`. The plan is in [TODO.md](TODO.md), the
 board is described in [docs/hardware.md](docs/hardware.md), and [docs/accuracy.md](docs/accuracy.md) explains
 the two accuracy modes: MAME's, and the real board's, which is the goal.
 
+The program is also decompiled into readable C (`tools/m6809/decompile.py`, `src/`: functions, variables, no CPU
+left), checked frame by frame like the translation. The releases run the translation (`makaimura_translated`,
+packaged as `makaimura.exe`): the readable C becomes the game again once each of its functions is checked against
+the original program on its own, not only the parts the test scripts play ([TODO.md](TODO.md), M6).
+
 ## Download and play
 
 1. Get the latest release from [**Releases**](https://github.com/alexgbor/Makaimura-Recomp/releases/latest):

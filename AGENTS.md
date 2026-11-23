@@ -69,7 +69,7 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `ports/sdl2/` | `makaimura`: the game in a window (on the readable C; `makaimura_translated` on the translation); `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings), `hud.c` (the side panels), `hiscore.c` (makaimura.hi), `replays.c`, `rom_drop.c` (the ROM set's window), `updater.c` (updates from GitHub's releases), `crt.c` (the CRT look), `release/` (the package's README.txt, NOTICES.txt). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs`, `--save-state`, `--load-state`, `--high-scores`, `--keep-replays`, `--drop`, `--drop-shot`, `--update-test` |
 | `tools/make_release.ps1`, `CHANGELOG.md` | the player's package (`release/`, never committed): the version is CMakeLists.txt's `project(makaimura VERSION)`, its section in CHANGELOG.md |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
-| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/3/4, tower5, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
+| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/3/4, tower5, satan4, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md`, `docs/decompilation.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ; the readable C (M6): how it is made, what it does differently, how it is checked |
 
 ## Working
@@ -80,7 +80,10 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
   tools/check_translation.py` (the attract mode and every script, in one mode: `--accuracy mame` or `board`; about
   15-20 minutes each) after any change to the runtime, the translators or the decompiler's frontend; `python
   tools/check_states.py --program build/bin/gng_headless_c.exe` for the states. `makaimura` is the game on the
-  readable C; `makaimura_translated` the same window on the translation, to compare.
+  readable C; `makaimura_translated` the same window on the translation, which the releases package as makaimura.exe
+  (`tools/make_release.ps1 -Program translated`, the default since v0.2.3) until every function of the readable C
+  is checked against the original (TODO.md M6); `tools/check_states.py --load-with` checks the readable C's states
+  going on in the translation.
 - Check the window without disturbing whoever uses the computer: `makaimura --hidden` or `--shot N FILE`, sound
   through `SDL_AUDIODRIVER=disk` (or `volume = 0` in a `--settings` file); never show windows or capture the
   desktop.

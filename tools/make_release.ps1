@@ -14,13 +14,20 @@
     The version is CMakeLists.txt's (project(makaimura VERSION x.y.z)), the one the game's menu shows: change it
     there, build, then package. -Version, if given, must be the same.
 
+    -Program: which build of the game the package holds, as makaimura.exe: "translated" (build\bin\
+    makaimura_translated.exe, the default since v0.2.3: each instruction checked against MAME's core besides every
+    script) or "readable" (build\bin\makaimura.exe, the readable C: the game again once every function of it is
+    checked against the original, TODO.md M6).
+
     It copies only the files named below (an allow list: nothing else can get in), then checks the folder: no ROM
     set, no settings, high scores, states or replays of yours, and an .exe that needs nothing but SDL2.dll beside it.
     Any problem stops it before the .zip is made. The player brings the ROM set (MAME's makaimurg.zip and gng.zip),
     which the game asks for on its first run.
 #>
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [ValidateSet("translated", "readable")]
+    [string]$Program = "translated"
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,8 +50,9 @@ $zip = Join-Path $root "release\$name.zip"
 # ---- what goes in: the only files the package can hold (from -> to) ----
 $sdlLicense = Get-ChildItem "build\downloads\sdl2\SDL2-*\COPYING.txt" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $sdlLicense) { throw "No SDL2 COPYING.txt in build\downloads\sdl2 (the SDL2 development package unpacked there)" }
+$built_exe = if ($Program -eq "translated") { "build\bin\makaimura_translated.exe" } else { "build\bin\makaimura.exe" }
 $files = [ordered]@{
-    "build\bin\makaimura.exe"          = "makaimura.exe"
+    $built_exe                         = "makaimura.exe"
     "build\bin\SDL2.dll"               = "SDL2.dll"
     "ports\sdl2\release\README.txt"    = "README.txt"
     "CHANGELOG.md"                     = "CHANGES.txt"
@@ -70,10 +78,15 @@ if ($changes -match "(?ms)^## Unreleased\s*(.*?)^## v") {
 }
 
 # the .exe newer than the sources: a build made after the last change
-$exe = Get-Item "build\bin\makaimura.exe"
-$newest = Get-ChildItem "ports\sdl2", "runtime", "src" -Recurse -Include *.c, *.h | Sort-Object LastWriteTime | Select-Object -Last 1
+$exe = Get-Item $built_exe
+# (each program's own: the translation's runtime is m6809.c, the readable C's m6809_program.c and m6809/program.h)
+$sources = if ($Program -eq "translated") { "ports\sdl2", "runtime", "build\generated" } else { "ports\sdl2", "runtime", "src" }
+$others = if ($Program -eq "translated") { "runtime\src\m6809_program.c", "runtime\include\m6809\program.h" } else { "runtime\src\m6809.c" }
+$others = $others | ForEach-Object { (Join-Path (Get-Location) $_) }
+$newest = Get-ChildItem $sources -Recurse -Include *.c, *.h | Where-Object { $others -notcontains $_.FullName } |
+    Sort-Object LastWriteTime | Select-Object -Last 1
 if ($newest.LastWriteTime -gt $exe.LastWriteTime) {
-    throw "build\bin\makaimura.exe is older than $($newest.FullName): build the Release again first"
+    throw "$built_exe is older than $($newest.FullName): build the Release again first"
 }
 
 # ---- the folder, made fresh ----
@@ -109,11 +122,16 @@ $bytes = [System.IO.File]::ReadAllBytes((Join-Path $out "makaimura.exe"))
 $pe = [BitConverter]::ToInt32($bytes, 0x3C)
 if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { $problems += "makaimura.exe is not a 64-bit build" }
 if ($bytes.Length -gt 16MB) { $problems += "makaimura.exe is $([int]($bytes.Length / 1MB)) MB: more than the program should be" }
-# (the game is the readable C, src/: a message only its runtime has, runtime/src/m6809_program.c; one only the
-# translation's has, runtime/src/m6809.c, not there)
+# (the program asked for: a message only the readable C's runtime has, runtime/src/m6809_program.c, and one only the
+# translation's has, runtime/src/m6809.c)
 $text = [System.Text.Encoding]::ASCII.GetString($bytes)
-if (-not $text.Contains("the main loop returned") -or $text.Contains("an address the static analysis did not find")) {
+$readable = $text.Contains("the main loop returned")
+$translated = $text.Contains("an address the static analysis did not find")
+if ($Program -eq "readable" -and (-not $readable -or $translated)) {
     $problems += "makaimura.exe is not the readable C (python tools/m6809/decompile.py, then build again)"
+}
+if ($Program -eq "translated" -and (-not $translated -or $readable)) {
+    $problems += "makaimura.exe is not the translation (python tools/m6809/translate.py, then build again)"
 }
 $text = [System.Text.Encoding]::ASCII.GetString($bytes)
 if ($text -match "(?i)vcruntime\d+d?\.dll|msvcp\d+d?\.dll|ucrtbased\.dll") {

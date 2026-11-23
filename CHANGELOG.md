@@ -7,6 +7,15 @@ What changes from one version to the next, for players. The version is set in `C
 
 Nothing yet.
 
+## v0.2.3 (2026-11-23)
+
+- **The game runs on the translation again** (the original program translated an instruction at a time, each one
+  checked against MAME's), not on the readable C that v0.2.0-v0.2.2 used. New tests found two places where the
+  readable C was not the arcade's: **Satan** (at the top of stages 4 and 5) did not go on as he should once he
+  appeared, and the stage 3 scene of v0.2.2's fix. Both are fixed in the readable C, which will be the game again
+  once every one of its functions has been checked against the original program, not only the parts the tests play.
+- **Your save states, scores, replays and settings are kept:** states saved by v0.2.0-v0.2.2 load as before.
+
 ## v0.2.2 (2026-11-23)
 
 - **Fixed: stage 3 after its midway point.** Starting there again (after losing a life past the midway point), a
