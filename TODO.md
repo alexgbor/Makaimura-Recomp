@@ -230,6 +230,12 @@ Roughly in order; each milestone is checked against the reference before it is t
             window's pictures the same as the translation's (walk_right, frames 2000-7000), its states saved and
             loaded the same, the translation's refused ("A STATE OF THE TRANSLATED PROGRAM"; the practice's starts
             made again); `tools/make_release.ps1` refuses an .exe that is not the readable C
+      - [ ] Stage 3 from its midway point (make_stages.py's midway3, left out): the readable C differs from gref, the
+            background's tiles 284C-284D, 286C-286D (frame 1922). The program draws a block of the map whose base
+            (4200's table, bank 2) is 0000: 633F reads its tiles at 02F8-02FF, the 6809's stack (the return addresses
+            617F, 62FA and the registers pushed), which the C does not keep in the RAM. The only read of the stack as
+            data in every script (gref: the reads of 02C0-02FF but PULS, RTS, RTI and the code's own slots). To do:
+            the C's calls and PSHS writing the stack's bytes as the 6809 does (then the checks need not leave it out)
       - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
             may interrupt (the main loop's tasks: 745 of them) written shorter
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
@@ -240,10 +246,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       0x30 bytes), the shared routines' X (param lines: 4473 accesses as fields), the 18 types' handlers by number
       (object_type_NN, where each runs); what the types are by the sprites they draw (gref --registers-at F79D: the
       object and its first sprite; y counts up, the screen's is 256 - (y - camera_y)): the crows and bats, the petite
-      devils, Red Arremer, Big Man, the skeletons, the zombies, Astaroth, the man-eater plants, the caves' pillars; the 4 records at 0530 are Arthur's shots, their type the weapon (<$73: the torch, the
-      lance, the axe, the cross, the dagger). To do: types 0 (several things), 3, 4, 6, 7, 10, 12, 14 (no sprites of
-      their own seen: placed farther on in their stages than the scripts play; moving Arthur there by a RAM write
-      killed him), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
+      devils, Red Arremer, Big Man, the skeletons, the zombies, Astaroth, the man-eater plants, the caves' pillars, and from the stages' midway points (<$81 = 1: tests/controls/midway1,
+      midway4; stage 3's from gref) the town's window fliers and window giant, the bridge's flames; the 4 records at 0530 are Arthur's shots,
+      their type the weapon (<$73: the torch, the lance, the axe, the cross, the dagger). To do: types 0 (several
+      things), 3, 6, 7, 12 (no sprites of their own seen: stage 5's 6 and 12 are up the tower, past where the script
+      climbs; moving Arthur there by a RAM write killed him), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
       (by type: scoped lines), the score, the stages' maps. (The core's BELOW path
       fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
       instead)

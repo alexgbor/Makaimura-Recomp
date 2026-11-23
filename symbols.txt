@@ -66,6 +66,8 @@ E78C  code  stage_end_countdown  # <$B6 counted down, then <$08 = 2 (E799; 78C9'
                                 # (10000, the names of a table at 61AA). Kept between sessions: ports/sdl2/hiscore.c
 0073  var  weapon               # 1 at the start (6C0C, the lance); an item's (E702); 3 the cross (a shield in the
                                 # western releases), which the last stage asks for (7129: stage 5 cleared without it, back into it)
+0081  var  midway               # 1 once the stage's midway point is passed (ECB0): the player starts there (6CEA's
+                                # second table, 6D0A, by the stage); cleared at the game's start and by 6C55
 007F  var  loop                 # 0 the first loop; 1 the second (7298, after the last stage's illusion); 2 the end (7E18)
 AA41  table object_states_AA36  count=4 jump=AA36   # JSR [B,U] at AA36, U = AA41 from AA96 and AAB7 (sub_AA49 follows)
 # The two-level dispatch at 6F64-6F76: X = 6F86 while <$71 is 0, else LDX #$6F78 / LDX B,X by <$72 (the stage:
@@ -228,16 +230,16 @@ local objects_handlers 9F11 x object object+10
 A2C4  func  object_crow        # type 1; every stage, the attract mode: the graveyard's crows (sprites 0C0-0CF), the caves' bats (0E0-0EF)
 A716  func  object_petite_devil  # type 2; stages 1, 4: the small blue devils out of the towers' windows (sprites 0F0-0FF)
 AE76  func  object_type_03     # no script reaches it
-AFC0  func  object_type_04     # no script reaches it
+AFC0  func  object_window_flier  # type 4; stage 1 from its midway point (midway1): out of the brick house's windows (sprites 080-08F)
 B4C8  func  object_red_arremer  # type 5; every stage, the attract mode: the red winged demon (sprites 180-1BF)
 BD4F  func  object_type_06     # stages 4, 5
 C256  func  object_type_07     # no script reaches it
 C39D  func  object_big_man     # type 8; stage 5: the giant (sprites 200-21F)
 CB2F  func  object_skeleton    # type 9; stages 4, 5: a skull on the wall (sprite 0A7) that rises as a skeleton (0A0-0AF)
-CE20  func  object_type_10     # stages 1, 4
+CE20  func  object_window_giant  # type 10; stages 1, 4: the giant who leans out of the town's windows (sprites 1E0-1EF: midway1)
 D221  func  object_zombie      # type 11; every stage, the attract mode (the title's): out of the ground (sprites 0B0-0BF)
 D45C  func  object_type_12     # stage 5
 DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's demon (sprites 2C0-2FF)
-DD60  func  object_type_14     # stage 3
+DD60  func  object_bridge_flame  # type 14; stage 3: the flames that rise under the bridge (sprites 160-16F: midway3)
 DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode; 17 is the man-eater plant (sprites 0D0-0DF: stages 0, 1)
 DF0F  func  object_pillar      # type 18; stage 2: the caves' grey stone pillars (sprites 090-09F)

@@ -6,6 +6,10 @@ the game down in board mode (docs/accuracy.md #1).
 ending.txt: loop2_stage6's, its stage cleared at frame 2100 (while it is played) as the program clears one (E799: <$08 = 2), so the
 ending plays (7D3F, 7E18, 71D7) and the game goes back to the first loop.
 
+midway1.txt, midway4.txt: stages 1 and 4 from their midway point (<$81 = 1, as ECB0 sets it
+when the player passes it: the start point from 6CEA's second table, 6D0A), where the scripts from the start do not
+reach: the town's windows.
+
 loop2_stage0.txt and loop2_stage6.txt: the second loop (<$7F = 1, as 7298 leaves it after the first loop's last
 stage; <$71 is the stage's own state: 0 its start, 1 playing, 7AA0), stage 6 with the cross (<$73 = 3, the weapon
 the last stage asks for: 7129).
@@ -18,10 +22,12 @@ import os
 FRAMES = 12000
 
 
-def script(stage, loop2=False, weapon=None, cleared_at=None):
-    what = f"stage {stage}" + (", the second loop" if loop2 else "") + (f", weapon {weapon}" if weapon is not None else "")
+def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False):
+    what = f"stage {stage}" + (", from its midway point" if midway else "") + (", the second loop" if loop2 else "") + (f", weapon {weapon}" if weapon is not None else "")
     lines = [f"# {what}: coin, start, the RAM written, the lives kept (a test's cheat; tests/controls/make_stages.py)"]
     lines += ["1300 system bf", "1306 system ff", "1400 system fe", "1406 system ff", f"1410 m0072 {stage:02x}"]
+    if midway:
+        lines += ["1410 m0081 01"]
     if loop2:
         lines += ["1410 m007f 01"]
     if weapon is not None:
@@ -53,6 +59,9 @@ if __name__ == "__main__":
     for stage in range(1, 7):
         with open(os.path.join(here, f"stage{stage}.txt"), "w", newline="\n") as out:
             out.write(script(stage))
+    for stage in (1, 4):          # (3: the readable C differs there, TODO.md M6)
+        with open(os.path.join(here, f"midway{stage}.txt"), "w", newline="\n") as out:
+            out.write(script(stage, midway=True))
     for name, text in (("loop2_stage0", script(0, loop2=True)), ("loop2_stage6", script(6, loop2=True, weapon=3)),
                        ("ending", script(6, loop2=True, weapon=3, cleared_at=2100))):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:

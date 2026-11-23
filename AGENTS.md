@@ -69,7 +69,7 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `ports/sdl2/` | `makaimura`: the game in a window (on the readable C; `makaimura_translated` on the translation); `settings.c` (makaimura.ini), `audio_out.c`, `resampler.c`, `menu.c`, `recorder.c` (AVI recordings), `hud.c` (the side panels), `hiscore.c` (makaimura.hi), `replays.c`, `rom_drop.c` (the ROM set's window), `updater.c` (updates from GitHub's releases), `crt.c` (the CRT look), `release/` (the package's README.txt, NOTICES.txt). Check options: `--hidden`, `--inputs`, `--frames`, `--shot`, `--menu`, `--menu-keys`, `--settings`, `--accuracy`, `--record`, `--record-inputs`, `--save-state`, `--load-state`, `--high-scores`, `--keep-replays`, `--drop`, `--drop-shot`, `--update-test` |
 | `tools/make_release.ps1`, `CHANGELOG.md` | the player's package (`release/`, never committed): the version is CMakeLists.txt's `project(makaimura VERSION)`, its section in CHANGELOG.md |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
-| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
+| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/4, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md`, `docs/decompilation.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ; the readable C (M6): how it is made, what it does differently, how it is checked |
 
 ## Working
