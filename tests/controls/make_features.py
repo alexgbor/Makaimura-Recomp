@@ -8,6 +8,12 @@ cocktail.txt: a cocktail cabinet with the picture flipped (DSW2 bit 2, DSW1 bit 
     turns (the picture turned for the second), a game over each and a continue (a coin, then a button, 76D8).
 dips.txt: free play (no coin), very difficult, bonus lives at 30k and 80k only, the demo's sound off, the second
     coin slot's coinage; a game with the moves of long_play.
+service_pages.txt: the test mode entered with coin 1 held (service_start, frame 494: the player's step 1, the
+    hidden pages), its pages turned with both start buttons (service_pages): the cross hatch and scroll test (the
+    background moved by the stick), the object RAM test; the controls pressed one after another on each.
+ranking.txt: three games whose score is written (a test's cheat) into the ranking (first, then second and third
+    places' scores), their last life lost (<$60 = 0) and the initials entered (play_step3: the cursor moved about
+    the letters by a pseudo-random sequence, letters taken, deleted, the end).
 
 The lines are "FRAME PORT VALUE" (the byte as the board reads it, active low; dsw1 and dsw2 from the power on) and
 "FRAME mADDR VALUE" (the work RAM written: a test's cheat), for gref, gng_headless and makaimura --inputs. The moves
@@ -82,6 +88,41 @@ def service_mode():
     return s.text(dsw1=DSW1 & ~0x40)
 
 
+def service_pages():
+    s = Script("the test mode entered with coin 1 held (its hidden pages), the pages turned with both starts", 0x5E52)
+    s.press(0, "system", 0xFF & ~COIN1)
+    s.press(520, "system", 0xFF)
+    controls = [("p1", UP), ("p1", DOWN), ("p1", LEFT), ("p1", RIGHT), ("p1", FIRE), ("p1", JUMP), ("p2", UP),
+                ("p2", FIRE), ("system", SERVICE)]
+    frame = 600
+    for page in range(7):
+        s.tap(frame, "system", START1 | START2, 8)
+        frame += 60
+        end = frame + 900
+        while frame < end:
+            port, bits = controls[s.rand(len(controls))]
+            s.tap(frame, port, bits, 4 + s.rand(60))
+            frame += 30 + s.rand(90)
+    return s.text(dsw1=DSW1 & ~0x40)
+
+
+def ranking():
+    s = Script("three games into the ranking (the score written: a test's cheat), the initials entered", 12345)
+    # the scores (BCD, <$68-<$6B), the ranking's ten being 10000: first place, then second, then third
+    for start, score in ((1300, (0x00, 0x09, 0x87, 0x60)), (7000, (0x00, 0x01, 0x05, 0x00)),
+                         (12700, (0x00, 0x01, 0x00, 0x10))):
+        s.tap(start, "system", COIN1)
+        s.tap(start + 100, "system", START1)
+        for i, value in enumerate(score):
+            s.press(start + 400, f"m{0x68 + i:04x}", value)
+        s.press(start + 400, "m0060", 0x00)
+        # standing still until the zombies take the last life; then the cursor moved about the letters
+        for frame in range(start + 3300, start + 5200, 6):
+            move = (RIGHT, LEFT, DOWN, UP, FIRE, FIRE, RIGHT | DOWN, LEFT | UP, 0, FIRE)[s.rand(10)]
+            s.tap(frame, "p1", move, 3)
+    return s.text()
+
+
 def weapons():
     s = Script("stage 1 with each weapon in turn (<$73), thrown in bursts; the lives kept", 0x3EA9)
     s.tap(1300, "system", COIN1)
@@ -141,6 +182,7 @@ def dips():
 if __name__ == "__main__":
     here = os.path.dirname(os.path.abspath(__file__))
     for name, text in (("service_mode", service_mode()), ("weapons", weapons()), ("cocktail", cocktail()),
-                       ("dips", dips()), ("clears", clears(CLEARS))):
+                       ("dips", dips()), ("clears", clears(CLEARS)), ("service_pages", service_pages()),
+                       ("ranking", ranking())):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:
             out.write(text)
