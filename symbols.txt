@@ -883,11 +883,375 @@ param player_armour_lost x player object.player+10
 param player_death_start x player object.player+10
 param player_dying x player object.player+10
 param player_dying_end x player object.player+10
+param player_ladder_frames x player object.player+10
+param player_transformed x player object.player+10
+param player_transformed_move x player object.player+10
+param player_state_5_start x player object.player+10
+param player_jump_start x player object.player+10
+param player_jump_up_way x player object.player+10
+param player_jump_rise x player object.player+10
+param player_jump_rise_left x player object.player+10
+param player_jump_down_way x player object.player+10
+param player_jump_fall x player object.player+10
+param player_transformed_frames x player object.player+10
+param player_transformed_frames_b x player object.player+10
+param player_transform_start x player object.player+10
+param player_transform_blink x player object.player+10
+param player_transformed_wait x player object.player+10
+param player_transform_end x player object.player+10
+param player_transform_back_blink x player object.player+10
+param player_transform_back x player object.player+10
+param player_rest_frames x player object.player+10
+param player_face_right_frames x player object.player+10
+param player_stand_frames x player object.player+10
+param player_crouch_input x player object.player+10
+param player_crouch_start x player object.player+10
+param player_crouch_timer x player object.player+10
+param player_crouch_frames x player object.player+10
+param player_hit_bounce x player object.player+10
+param player_death_animation x player object.player+10
+param player_death_frames x player object.player+10
+param player_shoot x player object.player+10
+param player_on_props x player object.player+10
 scoped object player 1E facing u8        # 1 right, 2 left (player_walk_input, player_face_astaroth)
+param window_flier_start_0 x window_flier object.window_flier+10
+param window_flier_animation x window_flier object.window_flier+10
+param window_flier_start_0_wait x window_flier object.window_flier+10
+param window_flier_start_check x window_flier object.window_flier+10
+param window_flier_start_1_wait x window_flier object.window_flier+10
+param window_flier_frames x window_flier object.window_flier+10
+param window_flier_alive x window_flier object.window_flier+10
+param window_flier_step_0 x window_flier object.window_flier+10
+param window_flier_step_1 x window_flier object.window_flier+10
+param window_flier_step_1_start x window_flier object.window_flier+10
+param window_flier_step_1_move x window_flier object.window_flier+10
+param window_flier_step_2 x window_flier object.window_flier+10
+param window_flier_step_2_start x window_flier object.window_flier+10
+param window_flier_step_2_move x window_flier object.window_flier+10
+param window_flier_step_3 x window_flier object.window_flier+10
+param window_flier_step_3_start x window_flier object.window_flier+10
+param window_flier_step_3_move x window_flier object.window_flier+10
+param window_flier_turn x window_flier object.window_flier+10
+param window_flier_step_4 x window_flier object.window_flier+10
+param window_flier_step_4_start x window_flier object.window_flier+10
+param window_flier_step_4_move x window_flier object.window_flier+10
+param window_flier_step_4_end x window_flier object.window_flier+10
+param window_flier_step_5 x window_flier object.window_flier+10
+param window_flier_step_5_start x window_flier object.window_flier+10
+param window_flier_step_5_aim x window_flier object.window_flier+10
+param window_flier_step_5_move x window_flier object.window_flier+10
+param window_flier_step_5_next x window_flier object.window_flier+10
+param window_flier_step_5_again x window_flier object.window_flier+10
+param window_flier_fly x window_flier object.window_flier+10
+param window_flier_fly_x x window_flier object.window_flier+10
+param window_flier_fly_y x window_flier object.window_flier+10
+param window_flier_fly_end x window_flier object.window_flier+10
+param window_flier_step_6 x window_flier object.window_flier+10
+param window_flier_dying x window_flier object.window_flier+10
+param window_flier_hit x window_flier object.window_flier+10
+param window_flier_dying_end x window_flier object.window_flier+10
+param window_flier_remove x window_flier object.window_flier+10
+param window_flier_dodge_check x window_flier object.window_flier+10
+scoped object window_flier 16 turn_y u8  # 16-17: the turn's centre
+scoped object window_flier 17 turn_y_low u8
+scoped object window_flier 18 turn_angle u8
+scoped object window_flier 19 climb_speed u8  # 19-1A: + 0400 a frame
+scoped object window_flier 1A climb_speed_low u8
+scoped object window_flier 1C turn_radius u8  # 10
+scoped object window_flier 1D rise_time u8
+scoped object window_flier 1F fly_kind u8  # the flight's table by it
+scoped object window_flier 20 fly_time u8
+scoped object window_flier 21 fly_speed u8
+scoped object window_flier 22 aim_wait u8  # 0A
+scoped object window_flier 24 fly_way u8  # the table B405 by it
+scoped object window_flier 25 aim_step u8
+scoped object window_flier 26 aim_steps u8  # 26-27: a pointer (B30F)
+scoped object window_flier 27 aim_steps_low u8
+scoped object window_flier 28 aim_y u8  # 28-29
+scoped object window_flier 29 aim_y_low u8
+scoped object window_flier 2E start_wait u8  # 2E-2F: the frames before it comes out
+scoped object window_flier 2F start_wait_low u8
+param astaroth_states x astaroth object.astaroth+10
+param astaroth_start x astaroth object.astaroth+10
+param astaroth_init x astaroth object.astaroth+10
+param astaroth_set_up x astaroth object.astaroth+10
+param astaroth_wait x astaroth object.astaroth+10
+param astaroth_walk_move x astaroth object.astaroth+10
+param astaroth_alive x astaroth object.astaroth+10
+param astaroth_walk_start x astaroth object.astaroth+10
+param astaroth_walking x astaroth object.astaroth+10
+param astaroth_pause x astaroth object.astaroth+10
+param astaroth_random_fire_time x astaroth object.astaroth+10
+param astaroth_attack x astaroth object.astaroth+10
+param astaroth_random_1 x astaroth object.astaroth+10
+param astaroth_random_2 x astaroth object.astaroth+10
+param astaroth_range_check x astaroth object.astaroth+10
+param astaroth_range_turn x astaroth object.astaroth+10
+param astaroth_fire x astaroth object.astaroth+10
+param astaroth_fire_timer x astaroth object.astaroth+10
+param astaroth_face x astaroth object.astaroth+10
+param astaroth_animation x astaroth object.astaroth+10
+param astaroth_fire_wait x astaroth object.astaroth+10
+param astaroth_shot x astaroth object.astaroth+10
+param astaroth_dying x astaroth object.astaroth+10
+param astaroth_hit x astaroth object.astaroth+10
+param astaroth_dying_end x astaroth object.astaroth+10
+param astaroth_remove x astaroth object.astaroth+10
+scoped object astaroth 16 walk_time u8  # 16-17
+scoped object astaroth 17 walk_time_low u8
+scoped object astaroth 18 pause_time u8
+scoped object astaroth 19 fire_kind u8
+scoped object astaroth 1B speed_x u8  # 1B-1C
+scoped object astaroth 1C speed_x_low u8
+scoped object astaroth 1D action u8  # what it does (astaroth_walking, astaroth_attack)
+scoped object astaroth 1E range_time u8  # 1E-1F
+scoped object astaroth 1F range_time_low u8
+scoped object astaroth 20 turn_time u8  # 20-21
+scoped object astaroth 21 turn_time_low u8
+scoped object astaroth 22 turn_way u8
+scoped object astaroth 23 speed_y u8  # 23-24
+scoped object astaroth 24 speed_y_low u8
+scoped object astaroth 26 hits_left u8  # 0A
+scoped object astaroth 27 fire_ready u8
+scoped object astaroth 28 facing u8
+scoped object astaroth 29 walked u8
+scoped object astaroth 2A level u8  # its tables (DB0F, 55BC) by it: the difficulty's
+param item_states x item object.item+10
+param item_states_0 x item object.item+10
+param item_alive x item object.item+10
+param item_alive_0 x item object.item+10
+param item_alive_0_0 x item object.item+10
+param item_alive_0_1 x item object.item+10
+param item_alive_1 x item object.item+10
+param item_alive_1_0 x item object.item+10
+param item_alive_1_1 x item object.item+10
+param item_alive_1_1_0 x item object.item+10
+param item_alive_1_1_1 x item object.item+10
+param item_alive_2 x item object.item+10
+param item_alive_2_0 x item object.item+10
+param item_alive_2_1 x item object.item+10
+param item_alive_3 x item object.item+10
+param item_alive_3_0 x item object.item+10
+param item_alive_3_1 x item object.item+10
+param item_alive_3_2 x item object.item+10
+param item_alive_3_3 x item object.item+10
+param item_states_2 x item object.item+10
+param item_states_2_0 x item object.item+10
+param item_states_2_1 x item object.item+10
+param item_states_3 x item object.item+10
+scoped object item 16 offset_x u8  # its place by its carrier's (the table at 5A9C)
+scoped object item 17 offset_y u8
+scoped object item 18 timer u8  # 0A
+scoped object item 1A speed_y u8  # 1A-1D
+scoped object item 1B speed_y_1 u8
+scoped object item 1C speed_y_2 u8
+scoped object item 1D speed_y_3 u8
+scoped object item 1E carrier u8  # 1E-1F: the record it came from
+scoped object item 1F carrier_low u8
+param type_00_start x type_00 object.type_00+10
+param type_00_init x type_00 object.type_00+10
+param type_00_start_1 x type_00 object.type_00+10
+param type_00_start_1_begin x type_00 object.type_00+10
+param type_00_start_1_move x type_00 object.type_00+10
+param type_00_start_2 x type_00 object.type_00+10
+param type_00_start_2_begin x type_00 object.type_00+10
+param type_00_start_2_wait x type_00 object.type_00+10
+param type_00_alive x type_00 object.type_00+10
+param type_00_flier x type_00 object.type_00+10
+param type_00_flier_start x type_00 object.type_00+10
+param type_00_flying x type_00 object.type_00+10
+param type_00_flier_turn x type_00 object.type_00+10
+param type_00_v1 x type_00 object.type_00+10
+param type_00_v1_frames x type_00 object.type_00+10
+param type_00_v1_aim x type_00 object.type_00+10
+param type_00_v1_move x type_00 object.type_00+10
+param type_00_v1_next x type_00 object.type_00+10
+param type_00_v1_end x type_00 object.type_00+10
+param type_00_v2 x type_00 object.type_00+10
+param type_00_v2_start x type_00 object.type_00+10
+param type_00_v2_move x type_00 object.type_00+10
+param type_00_v2_follow x type_00 object.type_00+10
+param type_00_v2_end x type_00 object.type_00+10
+param type_00_flier_aim x type_00 object.type_00+10
+param type_00_flier_shoot x type_00 object.type_00+10
+param type_00_dying x type_00 object.type_00+10
+param type_00_hit x type_00 object.type_00+10
+param type_00_dying_end x type_00 object.type_00+10
+param type_00_remove x type_00 object.type_00+10
+scoped object type_00 16 turn_count u8
+scoped object type_00 18 turn_angle u8
+scoped object type_00 19 v2_time u8
+scoped object type_00 1A aim_angle u8  # + 26 a step
+scoped object type_00 1B aim_way u8
+scoped object type_00 1C aim_offset u8
+scoped object type_00 1D wait_count u8
+scoped object type_00 1E wait_list u8  # 1E-1F
+scoped object type_00 1F wait_list_low u8
+scoped object type_00 2E leader u8  # 2E-2F: the record it follows (variant 2)
+scoped object type_00 2F leader_low u8
+param type_03_start x type_03 object.type_03+10
+param type_03_alive x type_03 object.type_03+10
+param type_03_v0 x type_03 object.type_03+10
+param type_03_v1 x type_03 object.type_03+10
+param type_03_move x type_03 object.type_03+10
+param type_03_v2 x type_03 object.type_03+10
+param type_03_dying x type_03 object.type_03+10
+param type_03_hit x type_03 object.type_03+10
+param type_03_dying_end x type_03 object.type_03+10
+param type_03_remove x type_03 object.type_03+10
+scoped object type_03 16 radius u8  # the sine's (4140) scale: 32
+scoped object type_03 17 centre_y u8  # 17-18
+scoped object type_03 18 centre_y_low u8
+scoped object type_03 19 angle u8
+scoped object type_03 1A offset_y u8  # 1A-1B
+scoped object type_03 1B offset_y_low u8
+param type_07_start x type_07 object.type_07+10
+param type_07_frames x type_07 object.type_07+10
+param type_07_alive x type_07 object.type_07+10
+param type_07_v0 x type_07 object.type_07+10
+param type_07_v0_start x type_07 object.type_07+10
+param type_07_v0_move x type_07 object.type_07+10
+param type_07_v1 x type_07 object.type_07+10
+param type_07_v1_start x type_07 object.type_07+10
+param type_07_v1_fire x type_07 object.type_07+10
+param type_07_v1_end x type_07 object.type_07+10
+param type_07_v2 x type_07 object.type_07+10
+param type_07_v2_start x type_07 object.type_07+10
+param type_07_v2_move x type_07 object.type_07+10
+param type_07_shoot x type_07 object.type_07+10
+param type_07_dying x type_07 object.type_07+10
+param type_07_hit x type_07 object.type_07+10
+param type_07_dying_end x type_07 object.type_07+10
+param type_07_remove x type_07 object.type_07+10
+scoped object type_07 16 move_time u8  # 3C
+scoped object type_07 1A dying_time u8  # 3F when hit
+scoped object type_07 28 fire_time u8  # 14
+param intro_arthur x intro_arthur object.intro_arthur+10
+param intro_arthur_0 x intro_arthur object.intro_arthur+10
+param intro_arthur_1 x intro_arthur object.intro_arthur+10
+param intro_arthur_1_0 x intro_arthur object.intro_arthur+10
+param intro_arthur_1_1 x intro_arthur object.intro_arthur+10
+param intro_arthur_1_2 x intro_arthur object.intro_arthur+10
+param intro_arthur_1_3 x intro_arthur object.intro_arthur+10
+param intro_arthur_2 x intro_arthur object.intro_arthur+10
+param intro_arthur_2_0 x intro_arthur object.intro_arthur+10
+param intro_arthur_2_2 x intro_arthur object.intro_arthur+10
+param intro_arthur_3 x intro_arthur object.intro_arthur+10
+param intro_arthur_3_0 x intro_arthur object.intro_arthur+10
+param intro_arthur_3_1 x intro_arthur object.intro_arthur+10
+param intro_arthur_3_2 x intro_arthur object.intro_arthur+10
+param intro_arthur_3_3 x intro_arthur object.intro_arthur+10
+param intro_arthur_3_4 x intro_arthur object.intro_arthur+10
+scoped object intro_arthur 23 jump_steps u8  # 23-24 (the player's; 24 alone a timer in the intro's steps)
+scoped object intro_arthur 24 timer u8
+scoped object intro_arthur 25 flag u8
+scoped object intro_arthur 2A throw_timer u8
+param ending_walk x ending_walk object.ending_walk+10
+param ending_walk_0 x ending_walk object.ending_walk+10
+param ending_walk_1 x ending_walk object.ending_walk+10
+param ending_walk_1_0 x ending_walk object.ending_walk+10
+param ending_walk_1_1 x ending_walk object.ending_walk+10
+param ending_walk_1_2 x ending_walk object.ending_walk+10
+param ending_walk_1_3 x ending_walk object.ending_walk+10
+scoped object ending_walk 16 moved u8
+scoped object ending_walk 17 target_x u8  # 17-18
+scoped object ending_walk 18 target_x_low u8
+scoped object ending_walk 1A step_time u8  # 4
+scoped object ending_walk 1B column u8  # 1B-1C: the map's column by x
+scoped object ending_walk 1C column_low u8
+param ending_arthur x ending_arthur object.ending_arthur+10
+param ending_arthur_0 x ending_arthur object.ending_arthur+10
+param ending_arthur_1 x ending_arthur object.ending_arthur+10
+scoped object ending_arthur 24 timer u8  # 32
+param ending_princess x ending_princess object.ending_princess+10
+param ending_princess_0 x ending_princess object.ending_princess+10
+param ending_princess_1 x ending_princess object.ending_princess+10
+param ending_princess_2 x ending_princess object.ending_princess+10
+scoped object ending_princess 25 timer u8  # 25-26: 015E frames
+scoped object ending_princess 26 timer_low u8
+param bridge_flame_start x bridge_flame object.bridge_flame+10
+param bridge_flame_alive x bridge_flame object.bridge_flame+10
+param bridge_flame_dying x bridge_flame object.bridge_flame+10
+param bridge_flame_remove x bridge_flame object.bridge_flame+10
+scoped object bridge_flame 18 animation_list u8  # 18-19 (56B1, 56B5)
+scoped object bridge_flame 19 animation_list_low u8
+scoped object bridge_flame 1A steps u8  # 1A-1B
+scoped object bridge_flame 1B steps_low u8
+scoped object bridge_flame 1C step_time u8
+param shot_start x shot object.shot+10
+param shot_set_moves x shot object.shot+10
+param shot_move x shot object.shot+10
+param shot_speeds x shot object.shot+10
+param shot_hit_end x shot object.shot+10
+param shot_hit x shot object.shot+10
+param shot_free x shot object.shot+10
+param shot_hit_enemy x shot object.shot+10
+param shot_hit_other x shot object.shot+10
+param shot_spark x shot object.shot+10
+param shot_spark_b x shot object.shot+10
+param shot_end x shot object.shot+10
+param shot_flight_end x shot object.shot+10
+scoped object shot 1E start_x u8  # 1E-1F: where it was thrown
+scoped object shot 1F start_x_low u8
+scoped object shot 21 speed_y u8  # 21-22
+scoped object shot 22 speed_y_low u8
+scoped object shot 23 travelled u8  # 23-24
+scoped object shot 24 travelled_low u8
+scoped object shot 27 hit_time u8
+param torch_flight x torch object.torch+10
+param torch_fall x torch object.torch+10
+param torch_fall_move x torch object.torch+10
+param torch_burn_start x torch object.torch+10
+param torch_burning x torch object.torch+10
+scoped object torch 27 burn_time u8  # 20
+param cross_dagger_flight x cross_dagger object.cross_dagger+10
+param cross_dagger_far x cross_dagger object.cross_dagger+10
+param cross_dagger_move x cross_dagger object.cross_dagger+10
+param cross_dagger_end x cross_dagger object.cross_dagger+10
+scoped object cross_dagger 27 far_time u8  # 0F
+param lance_start x lance object.lance+10
+param lance_flight x lance object.lance+10
+scoped object lance 1E start_x u8
+scoped object lance 1F start_x_low u8
+param princess_intro x princess_intro object.princess_intro+10
+param princess_intro_0 x princess_intro object.princess_intro+10
+param princess_intro_1 x princess_intro object.princess_intro+10
+param princess_intro_2 x princess_intro object.princess_intro+10
+param princess_intro_3 x princess_intro object.princess_intro+10
+scoped object princess_intro 25 timer u8  # 96
+param stage_key_gate x stage_key_gate object.stage_key_gate+10
+param stage_key_gate_open x stage_key_gate object.stage_key_gate+10
+scoped object stage_key_gate 20 timer u8  # 32
+param stage_map_icon_0 x stage_map_icon object.stage_map_icon+10
+param stage_map_icon_1 x stage_map_icon object.stage_map_icon+10
+param stage_map_icon_2 x stage_map_icon object.stage_map_icon+10
+param stage_map_icon_3 x stage_map_icon object.stage_map_icon+10
+scoped object stage_map_icon 26 timer u8  # 1E
 scoped object player 16 speed_x u8       # 16-19: x's speed, its first 3 bytes added to the position (player_move_right)
 scoped object player 1A speed_y u8       # 1A-1D: y's
 scoped object player 20 timer u8         # the death's, the transformation's (state 4) frames
 scoped object player 2A throw_timer u8   # the throw's frames left (player_throw: 0F)
+scoped object player 17 speed_x_1 u8
+scoped object player 18 speed_x_2 u8
+scoped object player 19 speed_x_3 u8
+scoped object player 1B speed_y_1 u8
+scoped object player 1C speed_y_2 u8
+scoped object player 1D speed_y_3 u8
+scoped object player 1F crouching u8     # 1 crouched: the shot's height by it (player_shoot's 9DF7, player_throw)
+scoped object player 21 transform_timer u8  # 21-22: the transformation's frames (player_transform_*)
+scoped object player 22 transform_timer_low u8
+scoped object player 23 jump_steps u8    # 23-24: a pointer to the jump's speeds (93BA)
+scoped object player 24 jump_steps_low u8
+scoped object player 25 ladder_step u8   # 0-4 on the ladder's ends (player_climb_check)
+scoped object player 26 on_ladder u8
+scoped object player 27 climb_timer u8   # the climb's frames (11 a step)
+scoped object player 28 transformed u8   # the frames left transformed (8 a step), cleared when hit or dead
+scoped object player 29 hit_count u8     # 5 as a hit starts
+scoped object player 2B probe_x u8       # the probes' place (player_probe_right/left/below)
+scoped object player 2C on_prop u8       # 1 above a prop (player_probe_below), read by player_on_props
+scoped object player 2D probe_y u8
+scoped object player 2E standing_on u8   # 2E-2F: the ground's (or prop's) record under the player
+scoped object player 2F standing_on_low u8
 937D  func  player_state_5
 907B  func  player_jump_check    # the jump button (20) just pressed (in <$4B, not in <$4C): the next state (a jump)
 00AC  var  player_naked          # 1 once the armour is lost (player_armour_lost, the time's up: EC86); 0 at a stage's
@@ -1101,6 +1465,13 @@ scoped object pillar 1A list_b u8
 scoped object pillar 1B list_b_low u8
 scoped object pillar 1C ready u8           # bit 1: counter_b ran out, bit 2: counter_a
 scoped object pillar 1D timer u8
+scoped object pillar 1E attack_1_step u8  # into E0BC's lists of 3 bytes
+scoped object pillar 1F attack_2_step u8
+scoped object pillar 20 open_x u8  # 20-21
+scoped object pillar 21 open_x_low u8
+scoped object pillar 22 open_y u8  # 22-23
+scoped object pillar 23 open_y_low u8
+scoped object pillar 26 hits_left u8  # 4
 # each type's handler by the object's state (-$D,X), as Arthur's shots: 0 its start, 1 alive (by its variant, -$E,X),
 # 2 dying (hit), 3 removed (one more of its type may come: type_room; its record free)
 9F51  func  type_00_start
@@ -1345,6 +1716,14 @@ scoped object petite_devil 25 swoops_left u8
 scoped object petite_devil 28 timer_start u8
 scoped object petite_devil 29 moves_next u8 # 29-2A
 scoped object petite_devil 2A moves_next_low u8
+scoped object petite_devil 19 turn_rate_low u8
+scoped object petite_devil 1A window_time u8
+scoped object petite_devil 1B swoop_kind u8  # the swoop's table by it
+scoped object petite_devil 1C facing u8
+scoped object petite_devil 1F fly_out_time u8
+scoped object petite_devil 21 shots u8
+scoped object petite_devil 2B from_window u8
+scoped object petite_devil 2C kind u8  # its variant's
 A706  func  crow_remove
 A726  func  petite_devil_start
 A9C5  func  petite_devil_alive
@@ -1519,6 +1898,20 @@ scoped object red_arremer 2A action6_times u8
 scoped object red_arremer 2B action6_times_low u8
 scoped object red_arremer 2C fly_times u8
 scoped object red_arremer 2D fly_times_low u8
+scoped object red_arremer 19 ground_time u8
+scoped object red_arremer 1A move_kind u8  # 1A-1B: the ground walk's (its animation when flying)
+scoped object red_arremer 1B move_count u8
+scoped object red_arremer 1F shots_seen u8  # the player's shots coming (red_arremer_shot_coming, close_check)
+scoped object red_arremer 20 wait_time u8  # 20-21: F0 frames
+scoped object red_arremer 21 wait_time_low u8
+scoped object red_arremer 22 flight_dest u8  # 22-23: where its flight ends
+scoped object red_arremer 23 flight_dest_low u8
+scoped object red_arremer 24 flight_radius u8  # the sine's (4140) scale
+scoped object red_arremer 25 swoop_radius u8
+scoped object red_arremer 26 walk_steps u8  # 26-27: a pointer to its ground steps
+scoped object red_arremer 27 walk_steps_low u8
+scoped object red_arremer 2E perch_count u8
+scoped object red_arremer 2F perch_rise u8
 BD5F  func  satan_start
 C20F  func  satan_dying
 C23D  func  satan_remove
@@ -1584,6 +1977,26 @@ scoped object satan 23 stand_time u8
 scoped object satan 27 walk_time u8
 scoped object satan 2A fire_wait u8
 scoped object satan 2F held u8
+scoped object satan 16 fly_radius u8  # the sine's (4140) scale
+scoped object satan 17 fly_start_y u8  # 17-18
+scoped object satan 18 fly_start_y_low u8
+scoped object satan 19 fly_angle u8  # 0-7F, into the sine (4140)
+scoped object satan 1A fly_y u8  # 1A-1B; 3F when hit (the dying's timer)
+scoped object satan 1B fly_y_low u8
+scoped object satan 1C fly_start_x u8  # 1C-1D
+scoped object satan 1D fly_start_x_low u8
+scoped object satan 20 fire_count u8
+scoped object satan 21 wait_count u8  # 6
+scoped object satan 22 fire_wait_b u8  # 5
+scoped object satan 24 wait_step u8  # 4
+scoped object satan 25 fly_way u8
+scoped object satan 26 screen_side u8  # 0-3 (satan_keep_on_screen)
+scoped object satan 28 fly_path u8  # 28-29: a pointer to its flight
+scoped object satan 29 fly_path_low u8
+scoped object satan 2B stand_timer u8  # 1E
+scoped object satan 2C kind u8  # the tables BE31, 4EC3 by it
+scoped object satan 2D flying u8
+scoped object satan 2E screen_edge u8
 C266  func  type_07_start
 C28A  func  type_07_alive
 C362  func  type_07_dying
@@ -1691,6 +2104,22 @@ scoped object big_man 29 actions_low u8
 scoped object big_man 2B acting u8
 scoped object big_man 2C target_x u8          # 2C-2D
 scoped object big_man 2D target_x_low u8
+scoped object big_man 17 walk_step u8  # the walk's next speed (big_man_walk_way, from walk_steps)
+scoped object big_man 18 walk_steps u8  # 18-19: a pointer into the walk's speeds
+scoped object big_man 19 walk_steps_low u8
+scoped object big_man 1B walk_count u8
+scoped object big_man 1C speed_y u8  # 1C-1F: the jump's y speed
+scoped object big_man 1D speed_y_1 u8
+scoped object big_man 1E speed_y_2 u8
+scoped object big_man 1F speed_y_3 u8
+scoped object big_man 20 jump_falling u8  # 0 rising, 1 falling (the table C6A3 by it)
+scoped object big_man 22 kind u8  # its variant's, at its start
+scoped object big_man 24 land_pause u8  # 0F frames after landing
+scoped object big_man 25 jump_asked u8  # set to keep its distance, read and cleared as a jump starts
+scoped object big_man 26 hits_left u8  # 0A
+scoped object big_man 2A walk_timer u8
+scoped object big_man 2E walk_table u8  # 2E-2F: its walk's animations by player_side (4F77, 4FF9)
+scoped object big_man 2F walk_table_low u8
 CB3F  func  skeleton_start
 CB85  func  skeleton_alive
 CDF1  func  skeleton_dying
@@ -1840,6 +2269,14 @@ scoped object window_giant 24 edge_way u8
 scoped object window_giant 25 turned u8
 scoped object window_giant 2C pause_time u8
 scoped object window_giant 2D start_variant u8
+scoped object window_giant 16 chase_count u8
+scoped object window_giant 17 chase_steps u8  # 17-18: a pointer to its chase's steps
+scoped object window_giant 18 chase_steps_low u8
+scoped object window_giant 19 walk_count u8
+scoped object window_giant 1A walk_steps u8  # 1A-1B: a pointer to its walk's steps
+scoped object window_giant 1B walk_steps_low u8
+scoped object window_giant 1C drop_time u8  # 14 as it drops
+scoped object window_giant 26 hits_left u8  # 0A
 D231  func  zombie_start
 D314  func  zombie_alive
 D42D  func  zombie_dying
@@ -1959,6 +2396,20 @@ scoped object dragon 1D part u8           # 0 the head, 1 a body segment, 2 the 
 scoped object dragon 24 facing_left u8
 scoped object dragon 2E next u8           # 2E-2F: the next segment's record (+10)
 scoped object dragon 2F next_low u8
+scoped object dragon 16 follow_index u8  # the segment's place in the history it follows
+scoped object dragon 17 follow_delay u8
+scoped object dragon 1B hit u8  # 1 once a segment is hit
+scoped object dragon 1E kind u8
+scoped object dragon 20 hits_left u8  # 6 the head, 1 a segment
+scoped object dragon 21 path_wait u8
+scoped object dragon 23 flash u8
+scoped object dragon 25 dying u8
+scoped object dragon 26 fire_time u8
+scoped object dragon 28 follow_on u8
+scoped object dragon 29 turn_table u8  # 29-2A
+scoped object dragon 2A turn_table_low u8
+scoped object dragon 2C body u8  # 2C-2D: cleared as a body starts
+scoped object dragon 2D body_low u8
 DE13  func  type_16_start
 DF04  func  type_16_remove
 DF2A  func  pillar_start
