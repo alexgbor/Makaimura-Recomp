@@ -58,6 +58,23 @@ python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt 
 
 `tools/mame_trace.py` needs MAME 0.289 (`MAME` environment variable, or `D:/repositories/mame0289/mame.exe`).
 
+## Reading the game's code
+
+The game's own program, as readable C, is made from your ROM set on your computer: it is Capcom's program, so
+it is never in this repository or in the releases.
+
+```sh
+python tools/m6809/decompile.py           # src/: the 6809 program as C, every function and variable by name
+cmake --build build/msvc --config Release # build/bin/makaimura: the game built from that C
+```
+
+`src/game_NN.c` hold the functions in the order of their addresses, `src/ram.h` the work RAM's variables and the
+objects' structure, `src/functions.txt` each function's address and registers. The names and the notes on what
+each routine does are in [symbols.txt](symbols.txt) (addresses and names only), and
+[docs/decompilation.md](docs/decompilation.md) explains how the C is made and what the board's calls in it
+(`m6809_block`, `mem_write8`...) do. A change to `src/` builds into the game, but the next `decompile.py` writes
+`src/` again.
+
 ## Playing
 
 `makaimura` looks for `makaimurg.zip` and `gng.zip` beside itself, in a `rom` folder beside it, in the repository's
