@@ -121,7 +121,16 @@ being drawn, and that entry keeps the wrong colour until the program writes it a
 in the wrong colour for one to three frames. In stage 4's cave the background turns yellow (frames 3303-3305 and
 7306 of stage4.txt in board mode: 16% of the picture yellow; never in MAME mode over the same 7330 frames), the
 "yellow flashes" jt_gng's option is named after; streaks of the written colours run along the lines the writes
-fell on (the score's line, mostly). Still to compare with the recordings MAME's header cites.
+fell on (the score's line, mostly).
+
+Seen on the board: a recording of a real board's game (the project owner's, at 13:57), stage 5's tower, Arthur's
+lance hitting the flying dragon's head while the scene slows down: in two of four consecutive frames (the 2nd and
+the 4th) the background alone is in wrong colours (the bricks black with purple joints, then black with yellow
+strokes: their shapes kept, their palette entries overwritten; the ladders too, "TIME" in the 4th), the sprites
+(Arthur, the dragon, the shots) untouched; the frames between are right. The owner found nothing like it in MAME.
+Board mode makes the same of tests/controls/bosses5.txt's dragon (frames 4959-5101: 2 to 128 writes in the active
+display, every other frame at first; the sky and the walls in wrong colours, the sprites right), MAME mode never.
+The same in kind; not pixel by pixel, which a recording cannot give (the game's state is not a script's).
 
 Not known, and so not modelled: which of the 4 pixel clocks the write strobe really covers (jt_gng: all of the
 cycle's, its chip select being the address decode alone); the pixel pipeline's delay between the beam's position
