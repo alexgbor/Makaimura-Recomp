@@ -63,6 +63,7 @@ from m6809 import translate  # noqa: E402
 
 REPORTS = os.path.join(ROOT, "build", "decompile")
 INSTANCE_NAMES = {}    # (STRUCT macro, address) -> the name of a structure at a fixed address (instance lines)
+INSTANCE_FAMILIES = {}  # (STRUCT macro, its name) -> (the family's scoped fields by offset, the family)
 SYMBOLS = SimpleNamespace(entries=[])    # symbols.txt (tools/symbols.py), for core_symbols
 CORE_SYMBOLS = Path(REPORTS) / "symbols_core.txt"
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
@@ -425,11 +426,20 @@ def write_c(program, out_dir):
         if words[0] == "below":
             pointers.BELOW[words[1]] = (int(words[2], 16), words[3])
         if words[0] == "instance":
-            # "instance ADDRESS STRUCT NAME": a structure at a fixed address (the player's record), its fields by
-            # name where the code reaches them by their own address, the address by NAME
+            # "instance ADDRESS STRUCT NAME [FAMILY]": a structure at a fixed address (the player's record), its
+            # fields by name where the code reaches them by their own address, the address by NAME; FAMILY the
+            # scoped lines its own fields are named by (OBJECT(PLAYER)->player.hit_count)
             address = int(words[1], 16)
             pointers.INSTANCES[address] = (words[2], known.structs[words[2]])
             INSTANCE_NAMES[(words[2].upper(), address)] = words[3]
+            if len(words) > 4:
+                INSTANCE_FAMILIES[(words[2].upper(), words[3])] = known.scoped.get((words[2], words[4]), {}), words[4]
+    # (each reaches up to the next one: the princess's record is 0x20 long, the items' after it)
+    starts = sorted(pointers.INSTANCES)
+    for address, following in zip(starts, starts[1:] + [None]):
+        struct, extent = pointers.INSTANCES[address]
+        if following is not None:
+            pointers.INSTANCES[address] = (struct, min(extent, following - address))
     # what symbols.txt's param and local lines say a register points at (as the 68000's driver takes them)
     entries_by_name = {name: entry for entry, name in names.items()}
     hints, site_hints = {}, {}
@@ -516,6 +526,13 @@ def write_c(program, out_dir):
     for (macro, address), name in INSTANCE_NAMES.items():
         pattern = re.compile(rf"\b{macro}\(0x0*{address:X}u\)")
         texts = {entry: pattern.sub(f"{macro}({name})", text) for entry, text in texts.items()}
+    for (macro, name), (fields, family) in INSTANCE_FAMILIES.items():
+        pattern = re.compile(rf"\b{macro}\({name}\)->unk_([0-9A-F]{{2}})\b")
+
+        def own(match, macro=macro, name=name, fields=fields, family=family):
+            field = fields.get(int(match.group(1), 16))
+            return f"{macro}({name})->{family}.{field[0]}" if field and field[1] == "u8" else match.group(0)
+        texts = {entry: pattern.sub(own, text) for entry, text in texts.items()}
     texts = {entry: side_timing(text) for entry, text in texts.items()}
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)

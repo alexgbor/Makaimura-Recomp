@@ -150,6 +150,12 @@ See TODO.md, M6: the names (symbols.txt: the routines, the RAM's variables and t
   one of the family's (`OBJECT(x - 0x10u)->player.facing` in the `player_...` functions). The core names a family's
   fields through the function's own object only when its pointer is the record's start (`emit.OWN_OBJECT_REGISTERS`,
   X for the 6809: `tools/m6809/emit.py`); the 6809's points 0x10 bytes in, so each function says it.
+- A record at a fixed address is an `instance ADDRESS STRUCT NAME [FAMILY]` line: the code's own reads of it by
+  address are `OBJECT(PLAYER)->x`, and with a family its own bytes by the family's names
+  (`OBJECT(PLAYER)->player.hit_count`: `decompile.py` writes them, the core's typing knows no family at a fixed
+  address). Each reaches up to the next one (the princess's record is 0x20 long, the first item's after it), so an
+  address is named by the record it is in. Not only the objects: the coin slots (`struct coin_slot`, COIN_A and
+  COIN_B).
 - A dispatch through a table whose address the code loads right before it (`LDX #table; ... JMP [B,X]`) is a
   switch on the offset into the table (`case 0x2u:` the second entry); the others switch on the address read.
 - `m6809_block(n)`, `m6809_at(c)`: the board's time (above); `mem_read8/mem_write8`: the board's bus, where the

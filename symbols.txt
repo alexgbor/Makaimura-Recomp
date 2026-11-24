@@ -37,7 +37,7 @@
 3:4800 func task_text_clear      # 00: the text layer cleared (its codes 20, its colours 0)
 3:485C func task_text_clear_row  # 01: a row of the text layer (B: 80 + the row)
 3:48BD func task_draw_texts      # 03: a list of texts (the table 48DD by B)
-3:5022 func task_set_F1          # 04: <$F1 = B
+3:5022 func task_score_kind      # 04: <$F1 = B
 3:511E func task_draw_credits    # 05: "FREE PLAY" or the credits
 62AB  func  task_background_column  # 06: a column of the stage's map into the background layer (bank 2, <$6C)
 3:513B func task_draw_lives      # 07: the lives left, as icons (2390-23A0)
@@ -291,6 +291,58 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 15A8  var  map_screen_scroll_x  count=2  # the scroll kept while the map is shown
 15AA  var  map_screen_scroll_y  count=2
 15AC  var  map_screen_timer
+
+# the rest of the RAM's variables (round 12)
+0000  var  unused_0000  count=2  # cleared at the start (start_end); task_11 halves it; nothing reads it
+0003  var  start_timer  count=2  # the start's wait (start_tasks counts it down)
+000F  var  service_dip          # DSW1 bit 6 (dip1_settings): the test mode at the start (start_end), no credits drawn
+002C  var  unused_002C  count=4  # cleared with the score at a game's start (player_start_lives); nothing reads it
+0043  var  inputs_system_before   # inputs_system the frame before (the newly pressed: coin_inputs, service_pages)
+0044  var  inputs_system_before_2 # and the one before
+0047  var  inputs_p1_before     # inputs_p1 the frame before (the service mode's newly pressed)
+0058  var  camera_x_min  count=2  # scroll_follow_x does not scroll back past it (stage_effect_c_0 moves it on)
+005A  var  camera_x_max  count=2  # nor on past it (the stage's end: the key's walk, the big man, the dragon read it)
+005C  var  camera_y_max  count=2  # scroll_follow_y's limits
+005E  var  camera_y_min  count=2  # (stage_effect_c_4 moves it up)
+0063  var  bonus_step           # the bonus lives' dispatch (stage_effect_a): the first, then every
+0064  var  next_bonus  count=4  # the score of the next bonus life (BCD), from the DIP's table (player_start_lives)
+007E  var  item_roll            # +0x15 a kill (enemy_killed_0): its carry chooses the item
+0080  var  map_shown            # 1 once the map between stages was shown (map_screen_end): stage_start_ready skips it
+0082  var  unused_0082          # cleared at a game's start and by rank_up; nothing reads it
+00AE  var  hit_dx  count=2      # the player's x less what touched him (player_touch_check, player_hit_check): its sign the side
+00B2  var  place_count          # stage_place_objects writes them; nothing reads them
+00B3  var  place_pointer  count=2
+00B6  var  stage_end_timer      # stage_timer_set by the stage (6ED1); stage_end_countdown counts it down
+00B8  var  bg_wrap_rows         # the rows before the background's RAM wraps (scroll_start_0_c: bg_left's row + 1)
+00B9  var  bg_wrap_rows_next    # the frame's new one (scroll_keep copies it)
+00BA  var  bg_wrap_columns      # the columns before it wraps (0x20 - bg_lower's column)
+00BB  var  bg_wrap_columns_next
+00BC  var  map_event_done  count=2  # <$BD the last of the map's events passed (map_event; midway_reached reads it)
+00C0  var  bg_left  count=2     # the background RAM's address (2800-2BFF, a column 0x20) of four points the scroll keeps,
+00C2  var  bg_left_next  count=2  # from scroll_start_0_a: column 17 row 23 (left), 30 row 23 (right), 24 row 30 (lower),
+00C4  var  bg_right  count=2      # 24 row 17 (upper); a column on: +0x20 (map_column_colours), a row: the low 5 bits
+00C6  var  bg_right_next  count=2  # (scroll_rows_c_draw); _next the frame's new ones, scroll_keep copies them
+00C8  var  bg_lower  count=2
+00CA  var  bg_lower_next  count=2
+00CC  var  bg_upper  count=2
+00CE  var  bg_upper_next  count=2
+00EA  var  temp_EA
+00EB  var  temp_EB
+00F1  var  score_kind           # task 4's parameter (task_score_kind): draw_score's, task_score_add's
+00F2  var  text_colour          # added to each character's colour by draw_message (never written: 0)
+00FD  var  row_count            # task_text_clear_row's, task_10's
+0200  var  satan_temp  count=2  # satan_fly_start's
+0760  var  spawner_prop_active  # the spawner at 0760 (the 8th): armed where a prop that takes hits runs out of them
+0761  var  spawner_prop_on      # (collisions_frame), at the prop's position
+0763  var  spawner_prop_state
+0764  var  spawner_prop_step
+0776  var  spawner_prop_x  count=2
+0778  var  spawner_prop_y  count=2
+15A2  var  map_path_address  count=2  # the map screen's path (stage_map_marker: 7492 by the stage)
+15A7  var  map_marker_x         # map_marker_sprite's
+15B4  var  map_path_step        # stage_map_marker_move's step (its table 75A2)
+15B5  var  map_path_timer       # its wait
+1596  var  map_screen_unused    # cleared with map_screen_step (stage_start_background_clear); nothing reads it
 0052  var  demo_sounds
 0057  var  dip_difficulty
 006E  var  random_seed  count=2
@@ -320,7 +372,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 6693  func  irq_job_1
 6716  func  irq_job_palette_38C0     # 8 colours from 04C0 (through 0480) to the palette at 38C0
 671C  func  irq_job_palette_3880     # the same to 3880
-6793  func  coin_slot                # coin_counters' for each slot (X its record)
+6793  func  coin_meter               # coin_counters' for each slot (X its record): a pulse of its coin counter (U)
 67DB  func  coin_inputs              # the coin inputs (<$45) into 1591
 6812  func  coin_count               # a coin: the credits by its slot's setting (6839), the sound (sound_coin)
 6810  func  coin_count_x
@@ -345,7 +397,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 6C55  func  rank_up                  # midway 0, player_rank + 4 (up to 3F)
 6CC8  func  stage_colours            # 4 colours from the table 6CAC by the stage
 6EFF  func  stage_enemy_settings     # bank 4's 4240 by the stage and the difficulty (<$9A), 8 entries
-0006  var  attract_timer            # 16 bits
+0006  var  attract_timer  count=2  # 16 bits
 6C67  func  stage_setup          # a stage's start: its position (stage_start_position), the pools, its objects and
                                  # props from its lists, the timer
 6C9D  func  stage_reset          # the same where the stage is already set (the demo, 70E8): the pools, the lists, the timer
@@ -396,7 +448,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 7731  func  continue_end_clear
 773E  func  continue_end_swap
 0009  var  phase_timer          # a 16-bit wait of the stage's phases (stage_start, the ending's)
-000C  var  death_timer          # 16 bits: player_died's wait
+000C  var  death_timer  count=2  # 16 bits: player_died's wait
 0026  var  two_players
 0027  var  current_player       # 0 the first, 1 the second (players_swap)
 00F0  var  tasks_busy           # set as the screen's tasks are asked for (cleared by them); tasks_wait waits for it
@@ -541,12 +593,39 @@ field object 13 frame u8
 field object 14 frame_low u8
 field object 15 type u8            # the state routine's table (object_state_tables) and the handler (object_handlers)
 local objects_shots 9ACE x object object+10
-instance 0500 object PLAYER       # the player's record (Arthur): the code's X 0510
-instance 0530 object SHOT0        # Arthur's first shot's record (the cut scenes' too: intro_obj0530, stage_map_icon)
-instance 0630 object CAMERA       # the scroll's record (scroll_frame: its state 0633, its step 0634)
+instance 0500 object PLAYER player  # the player's record (Arthur): the code's X 0510
+instance 0530 object SHOT0 stage_map_icon  # Arthur's first shot's record (the cut scenes' too: intro_obj0530;
+                                    # the stage's end: the key, stage_map_icon)
+instance 0630 object CAMERA camera  # the scroll's record (scroll_frame: its state 0633, its step 0634)
+scoped object camera 16 event_way u8  # map_event's B: its sign the way (bit 7: the column's events behind)
+param map_event x camera object.camera+10
+scoped object camera 17 step_timer u8    # 12 frames a start's step (scroll_start_0-2)
+scoped object camera 18 column u8        # 18-19: the map's column (<$6C) the background was drawn to
+scoped object camera 19 column_low u8
+scoped object camera 1A column_next u8   # the frame's new one (scroll_keep copies it to 18-19)
+scoped object camera 1B column_next_low u8
+scoped object camera 1C column_index u8  # the background RAM's column (0-1F, the map's columns drawn count it
+scoped object camera 1D column_index_next u8  # on: map_column_colours), for scroll_rows_c
+scoped object camera 1E row_index u8     # the same for the rows (for scroll_layer_copy)
+scoped object camera 1F row_index_next u8
 instance 0660 object STAGE_EVENT  # stage_event's record
 instance 0880 object OBJECT0      # the first of the 40 objects (the cut scenes' demon)
 instance 1572 object RECORD_1572  # play_step3's
+struct coin_slot 8                # the coin slots' (1582: A, 158A: B): the code's X their start
+field coin_slot 0 meter_count u8  # the coins its counter has still to count (coin_credit_step adds, coin_meter counts)
+field coin_slot 1 coins_in u8     # the coins in towards a credit
+field coin_slot 2 meter_timer u8  # the counter's pulse (3C frames)
+field coin_slot 3 coinage_coins u8        # the DIP's coinage (dip1_settings: 6208 by DSW1): coins for credits
+field coin_slot 4 coinage_credits u8
+field coin_slot 5 counting u8     # 1 while a coin goes in (coin_count: the input's 0011 then 1100)
+field coin_slot 6 timer u8        # 3C frames to see it out
+field coin_slot 7 inputs u8       # the input's last 4 frames, a bit each (coin_inputs shifts them in)
+instance 1582 coin_slot COIN_A
+instance 158A coin_slot COIN_B
+param coin_meter x slot coin_slot
+param coin_count x slot coin_slot
+param coin_count_x x slot coin_slot
+param coin_credit_step x slot coin_slot
 instance 15B2 object PRINCESS     # the princess (princess_intro, the ending)
 instance 15D2 object ITEM0        # the items' two records (items_frame)
 instance 1602 object ITEM1
@@ -1087,6 +1166,7 @@ scoped object type_00 1C aim_offset u8
 scoped object type_00 1D wait_count u8
 scoped object type_00 1E wait_list u8  # 1E-1F
 scoped object type_00 1F wait_list_low u8
+scoped object type_00 20 flier_step u8  # the flier's dispatch (type_00_flier), one on as it aims
 scoped object type_00 2E leader u8  # 2E-2F: the record it follows (variant 2)
 scoped object type_00 2F leader_low u8
 param type_03_start x type_03 object.type_03+10
@@ -1226,6 +1306,10 @@ param stage_map_icon_0 x stage_map_icon object.stage_map_icon+10
 param stage_map_icon_1 x stage_map_icon object.stage_map_icon+10
 param stage_map_icon_2 x stage_map_icon object.stage_map_icon+10
 param stage_map_icon_3 x stage_map_icon object.stage_map_icon+10
+scoped object stage_map_icon 20 key_y u8   # 20-21: where the key is (stage_map_icon_2), the player's y against
+scoped object stage_map_icon 21 key_y_low u8  # it (stage_key_walk_on)
+scoped object stage_map_icon 23 key_shown u8  # 1 once the player walks to it (stage_key_walk)
+scoped object stage_map_icon 25 key_taken u8  # 9 once he reaches it (stage_key_walk_on): stage_map_icon goes on
 scoped object stage_map_icon 26 timer u8  # 1E
 scoped object player 16 speed_x u8       # 16-19: x's speed, its first 3 bytes added to the position (player_move_right)
 scoped object player 1A speed_y u8       # 1A-1D: y's
@@ -1238,7 +1322,8 @@ scoped object player 1B speed_y_1 u8
 scoped object player 1C speed_y_2 u8
 scoped object player 1D speed_y_3 u8
 scoped object player 1F crouching u8     # 1 crouched: the shot's height by it (player_shoot's 9DF7, player_throw)
-scoped object player 21 transform_timer u8  # 21-22: the transformation's frames (player_transform_*)
+scoped object player 21 transform_timer u8  # 21-22: the transformation's frames (player_transform_*);
+                                    # the key's x at a stage's end (stage_key_walk)
 scoped object player 22 transform_timer_low u8
 scoped object player 23 jump_steps u8    # 23-24: a pointer to the jump's speeds (93BA)
 scoped object player 24 jump_steps_low u8
@@ -2493,3 +2578,26 @@ DC5A  func  astaroth_shot        # an enemy shot
 DCBB  func  astaroth_hit         # dying: its sounds, the music off (sound_3F)
 DCD4  func  astaroth_dying_end
 DD01  func  object_type_13       # type 13 (the ending: sprites 2C0-2FF): one of Arthur's shots within 20 of it, sound 782C
+
+# the intro's demon (OBJECT0, intro_demon_*)
+param intro_demon x intro_demon object.intro_demon+10
+param intro_demon_0 x intro_demon object.intro_demon+10
+param intro_demon_1 x intro_demon object.intro_demon+10
+param intro_demon_2 x intro_demon object.intro_demon+10
+param intro_demon_3 x intro_demon object.intro_demon+10
+param intro_demon_4 x intro_demon object.intro_demon+10
+param intro_demon_4_0 x intro_demon object.intro_demon+10
+param intro_demon_5 x intro_demon object.intro_demon+10
+param intro_demon_6 x intro_demon object.intro_demon+10
+scoped object intro_demon 24 timer u8
+
+# the camera's record through X (scroll_start_*: LDX #0640, and scroll_keep's X back)
+local scroll_start_0 7F1A x camera object.camera+10
+local scroll_start_1 7F7C,7F82 x camera object.camera+10
+local scroll_start_2 7F95,7F9B x camera object.camera+10
+
+# the player's record at a stage's end (the key): X from player_frame, and the key's own steps on it
+local stage_key_walk 72CF x player object.player+10
+local stage_key_walk_on 730A x player object.player+10
+param stage_key_armour x player object.player+10
+param stage_key_next x player object.player+10

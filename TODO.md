@@ -262,7 +262,7 @@ Roughly in order; each milestone is checked against the reference before it is t
             m6809_block on its instruction's line and each m6809_at on its access's (the C 48772 lines to 36958).
             fcheck, both modes: real and plausible all the same; of 3.15 million made up, 6 differ (MAME mode) and 4
             (board), each a made-up pointer onto the live stack or the routine's own scratch bytes (<$E0-<$EF)
-- [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
+- [x] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
       IRQ's jobs, the game states and steps (by the scripts that reach them and the messages they draw), the
       controls, the DIPs, the task and sound queues, the random numbers, the animations, the texts' screens; the
       var lines reach the C (type=, count=); the continue; the objects as a structure (`struct object`: 0x40
@@ -274,8 +274,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       4) the town's window fliers and window giant, the bridge's flames; the 4 records at 0530 are Arthur's shots,
       their type the weapon (<$73: the torch, the lance, the axe, the cross, the dagger). The dragon (type 12: stage 5, up the tower:
       Arthur and the camera moved there by RAM writes, alive: tower5), Satan (type 6: stage 4's last climb, Arthur
-      held there while the camera comes: satan4). To do: types 0 (several things), 3, 7 (no script reaches them), the shots' type 5, the records at 1000-16xx (the points, the pots, the graves' pieces...), the objects' other fields
-      (by type: scoped lines), the score, the stages' maps. (The core's BELOW path
+      held there while the camera comes: satan4). Every function named (no sub_ left), every variable of the
+      work RAM (no unk_ left: the scroll's points in the background RAM, the camera's limits, the bonus lives, the
+      coin slots as a structure...), each type's own fields (scoped lines; on the records at fixed addresses too:
+      `instance ... FAMILY`); 10 accesses left as unk_ fields, bytes several types share (enemy_killed's 1E-1F,
+      record_appear's 1E) or one routine only clears. (The core's BELOW path
       fails: pointers.py's access function has a local 'moved' that hides the module's moved(); STRUCT+OFFSET
       instead)
 
