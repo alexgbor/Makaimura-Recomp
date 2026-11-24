@@ -29,6 +29,10 @@ python tools/check_translation.py --decompiled [--accuracy mame|board]
   function writes them apart (the Z80's pairs: `tools/core/z80/pairs.py`); a subtraction's or an addition's flags
   are the core's carry_sub, overflow_sub... of its operands and the branches its conditions, so that a branch on
   them reads as the comparison (`if (d >= 0x8Fu)`: `function.DecompileLifter`, the same values as the lift's).
+  Where the flags were set from a value a register still holds at the branch (CMPA, then the branch; a DECB the
+  value it wrote), or from the work RAM in code the IRQ cannot interrupt (nothing writes it in between), the
+  condition is written on that register or variable (`recover_kept`: `while (b != 0u)`); the rest stay on flags:
+  the ones a call hands back, and the work RAM's where the IRQ may write it between the flag and the branch.
   `--plain` writes A and B apart and the lift's flags as they are.
 - `tools/m6809/emit.py`: the 6809's board for the writer: the work RAM by address (`RAM8`), the program's data
   through the board (`ROM8`: a pointer may lead into the fixed ROM, the window in its bank, or the work RAM), the
@@ -44,7 +48,10 @@ python tools/check_translation.py --decompiled [--accuracy mame|board]
   video RAMs, the palette, the devices), the end of its bus cycle; `m6809_cycles(n)` on a long branch's longer
   way. The work RAM needs no time: nothing but the 6809 reads it. Where the IRQ cannot come in (the functions that
   only run with it masked: the IRQ's handler and all it calls, most of the game; `function.masked_functions`) a
-  block's instructions are one `m6809_block` at its end, or before a call (`function.merge_time`).
+  block's instructions are one `m6809_block` at its end, or before a call (`function.merge_time`). Elsewhere each
+  instruction keeps its own (the IRQ is taken between any two), written on the line of its instruction
+  (`a = temp_E4;  m6809_block(3);`), and an access's `m6809_at` before it on its line (`decompile.side_timing`:
+  the same calls in the same order).
 - **The IRQ.** It always returns where it was taken (checked over every script in both modes: the "nesting" the
   translation once saw was the next IRQ due at the RTI, in slowdown), so it is a call. The interrupt mask is the
   runtime's (`m6809_mask`, `m6809_masked`).

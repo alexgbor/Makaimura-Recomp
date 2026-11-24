@@ -214,6 +214,137 @@ def analysis_view(program):
                            call_tables={}, jump_tables={}, return_jumps={}, instructions=program.instructions)
 
 
+def replaced(node, pattern, replacement):
+    """'node' with each occurrence of 'pattern' replaced (top down)"""
+    if node == pattern:
+        return replacement
+    if isinstance(node, ir.Load):
+        address = replaced(node.address, pattern, replacement)
+        return node if address is node.address else ir.Load(address, node.bits)
+    if isinstance(node, ir.Op):
+        args = tuple(replaced(arg, pattern, replacement) for arg in node.args)
+        return node if all(new is old for new, old in zip(args, node.args)) else ir.Op(node.name, args, node.bits)
+    return node
+
+
+def held_parts(index, value):
+    """(value, what reads it from the register) for what register 'index' holds once set to 'value': the whole of
+    it, and for D the byte A or B a write of one byte left in it (or(and(D, FF00), zext(b)): B; the same with 00FF
+    and shl(zext(a), 8): A)"""
+    bits = cpu.current.register_bits[index]
+    register = ir.Reg(index, bits)
+    parts = [(value, register)]
+    if isinstance(value, ir.Op) and value.name == "or" and bits == 16:
+        mask, part = value.args
+        if isinstance(mask, ir.Op) and mask.name == "and" and mask.args[0] == register \
+                and isinstance(mask.args[1], ir.Const):
+            if mask.args[1].value == 0xFF00 and isinstance(part, ir.Op) and part.name == "zext" \
+                    and part.args[0].bits == 8:
+                parts.append((part.args[0], ir.trunc(register, 8)))
+            elif mask.args[1].value == 0x00FF and isinstance(part, ir.Op) and part.name == "shl" \
+                    and part.args[1] == ir.Const(8, 8) and isinstance(part.args[0], ir.Op) \
+                    and part.args[0].name == "zext" and part.args[0].args[0].bits == 8:
+                parts.append((part.args[0].args[0], ir.trunc(ir.op("shr", (register, ir.Const(8, 8)), 16), 8)))
+    return parts
+
+
+def kept_flags(block, flow):
+    """conditions.carried (the flags a block leaves set, as expressions that hold at its end), where a flag about to
+    go stale is first written with what a register holds: a value the flag's expression computes that is still in a
+    register the statement does not write (LDA <$80 / BMI: A's sign, not the RAM's, past an IRQ that may change
+    it), or that the statement itself puts in a register (DECB / BNE: t = b - 1, zero = t == 0, b = t: b == 0). Both
+    are values of the same moment, before the statement; the register holds it after"""
+    values, flags, held = {}, {}, {}      # held: register -> [(value, how to read it)], while they hold
+    for statement in block.statements:
+        if isinstance(statement, ir.SetTemp):
+            resolved = conditions.resolve_all(statement.value, values)
+            if resolved is not None and not cleanup.has_effect(resolved):
+                values[statement.temp.name] = resolved
+            continue
+        written, writes_memory = conditions.written_by(statement, flow)
+        resolved = conditions.resolve_all(statement.value, values) if isinstance(statement, ir.SetReg) else None
+
+        def stale(expression):
+            reads, memory = conditions.reads_of(expression)
+            return bool(reads & written) or (memory and writes_memory)
+        for name in list(flags):
+            if ("f", name) in written:
+                del flags[name]
+                continue
+            if not stale(flags[name]):
+                continue
+            expression = flags[name]
+            candidates = [part for register, parts in held.items() if ("r", register) not in written for part in parts]
+            if resolved is not None and not cleanup.has_effect(resolved):
+                candidates += held_parts(statement.index, resolved)
+            readers = {}
+            for value, reader in candidates:
+                if isinstance(value, ir.Const):
+                    continue
+                marker = ir.Temp(f"held{len(readers)}", value.bits)
+                before = expression
+                expression = replaced(expression, value, marker)
+                if expression is not before:
+                    readers[marker] = reader
+            # (with the values marked: what is left must not be stale; then the registers read in their place)
+            if stale(expression):
+                del flags[name]
+                continue
+            for marker, reader in readers.items():
+                expression = replaced(expression, marker, reader)
+            flags[name] = expression
+        for register in list(held):
+            held[register] = [(value, reader) for value, reader in held[register] if not stale(value)]
+            if ("r", register) in written or not held[register]:
+                del held[register]
+        for table in (values,):
+            for name in list(table):
+                if stale(table[name]):
+                    del table[name]
+        if isinstance(statement, ir.SetFlag):
+            value = conditions.resolve_all(statement.value, values)
+            if value is not None and ("f", statement.name) not in conditions.reads_of(value)[0]:
+                flags[statement.name] = value
+        elif resolved is not None and not cleanup.has_effect(resolved) \
+                and ("r", statement.index) not in conditions.reads_of(resolved)[0]:
+            held[statement.index] = held_parts(statement.index, resolved)
+        elif resolved is not None and not cleanup.has_effect(resolved):
+            held[statement.index] = [part for part in held_parts(statement.index, resolved)[1:]
+                                     if ("r", statement.index) not in conditions.reads_of(part[0])[0]]
+    return flags
+
+
+def recover_kept(function, flow, masked=False):
+    """The branches on flags their own block set from registers (CMPA #4: A - 4, A read where the flags are set),
+    which conditions.recover leaves on flags (it compares registers only where it checked that nothing changes them
+    before the branch: the block before's flags, conditions.carried). The same check on the block itself: the flags
+    it leaves set as expressions that still hold at its end (what they read not written after, no memory read past a
+    write or an m6809_block, where the IRQ may change the work RAM; the registers are the C's own, which the IRQ does
+    not touch). In a function only the masked code runs ('masked': function.masked_functions) the time's effects
+    write nothing the program reads (no IRQ comes in; a device's read is never carried, cleanup.has_effect), so a
+    value read from the work RAM holds past them too. How many changed"""
+    changed = 0
+    for block in function.blocks.values():
+        end = block.end
+        if not isinstance(end, ir.Branch):
+            continue
+        name = conditions.condition_name(end.condition)
+        if name is None or not any(isinstance(node, ir.Flag) for node in ir.walk(end.condition)):
+            continue
+        view = block
+        if masked:
+            view = SimpleNamespace(statements=[statement for statement in block.statements if not (
+                isinstance(statement, ir.Effect) and statement.name in ("m6809_block", "m6809_cycles", "m6809_at"))])
+        flags = kept_flags(view, flow)
+        if not conditions.FLAGS_READ[name] <= set(flags):
+            continue
+        new = conditions.rewrite_condition(end.condition, flags, {}, checked=True)
+        if new is not end.condition:
+            end.condition = new
+            changed += 1
+    return changed
+
+
 def analyse(program, built):
     """Stack slots, preserved registers and the data flow summaries, in place"""
     for function in built.values():
@@ -226,6 +357,8 @@ def analyse(program, built):
               for function in built.values()):
         flow.solve()
     changed = sum(conditions.recover(function, flow) for function in built.values())
+    masked = functions.masked_functions(program, built)
+    changed += sum(recover_kept(function, flow, entry in masked) for entry, function in built.items())
     if changed:
         flow.reset()
         flow.solve()
@@ -383,6 +516,7 @@ def write_c(program, out_dir):
     for (macro, address), name in INSTANCE_NAMES.items():
         pattern = re.compile(rf"\b{macro}\(0x0*{address:X}u\)")
         texts = {entry: pattern.sub(f"{macro}({name})", text) for entry, text in texts.items()}
+    texts = {entry: side_timing(text) for entry, text in texts.items()}
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     entries = sorted(built)
@@ -481,6 +615,35 @@ WRITE = re.compile(r"^(\s*)(" + LVALUE + r") = (\w+) >> 8;\n\1(" + LVALUE + r") 
 BUS_BYTE = r"(?:ROM8|mem_read8)\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)"
 BUS_READ = re.compile(r"\(\(uint32_t\)" + BUS_BYTE + r" << 8\) \| " + BUS_BYTE)
 BUS_PLACE = re.compile(r"^(?:\(uint16_t\)\()?(\w+)(?: ([+-]) (0x[0-9A-F]+|\d+)u)?\)?$")
+
+
+TIME_AFTER = re.compile(r"\t+(m6809_block\(\d+\)|m6809_cycles\(.*\));\Z")
+TIME_BEFORE = re.compile(r"\t+m6809_at\(\d+\);\Z")
+
+
+def side_timing(text):
+    """The board's time beside the statements it belongs to, a quarter of the lines on their own otherwise (the code
+    the IRQ may interrupt keeps an m6809_block after each instruction): an instruction's cycles after it, on its line
+    (a = temp_E4;  m6809_block(3);); an access's time before it, on its line (m6809_at(12); mem_write8(...)). The
+    same statements in the same order: only the lines change"""
+    lines = text.split("\n")
+    out = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        previous = out[-1] if out else ""
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        indent = line[:len(line) - len(line.lstrip())]
+        if TIME_AFTER.match(line) and previous.strip().endswith(";") \
+                and not previous.lstrip().startswith(("//", "/*", "case ", "default")):
+            out[-1] += "\t" + line.strip()
+        elif TIME_BEFORE.match(line) and following.strip().endswith(";") and following.startswith(indent) \
+                and not following[len(indent):].startswith(("\t", " ")) and not TIME_BEFORE.match(following):
+            lines[index + 1] = indent + line.strip() + " " + following.strip()
+        else:
+            out.append(line)
+        index += 1
+    return "\n".join(out)
 
 
 def bus_place(text):

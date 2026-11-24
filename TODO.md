@@ -256,8 +256,12 @@ Roughly in order; each milestone is checked against the reference before it is t
             any instruction, and the readable C goes on only from the main loop's idle (617F, S 0300): a release on
             it would refuse them. To do first: load them by running the translation from the state up to the idle
             (both CPUs in one program), checked with `tools/check_states.py --load-with`
-      - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
-            may interrupt (the main loop's tasks: 745 of them) written shorter
+      - [x] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
+            may interrupt (the main loop's tasks: 745 of them) written shorter: 1360 branches on values (from 438 on
+            flags to 157: those a call hands back, the work RAM's where the IRQ may come in between), each
+            m6809_block on its instruction's line and each m6809_at on its access's (the C 48772 lines to 36958).
+            fcheck, both modes: real and plausible all the same; of 3.15 million made up, 6 differ (MAME mode) and 4
+            (board), each a made-up pointer onto the live stack or the routine's own scratch bytes (<$E0-<$EF)
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
       IRQ's jobs, the game states and steps (by the scripts that reach them and the messages they draw), the
       controls, the DIPs, the task and sound queues, the random numbers, the animations, the texts' screens; the
