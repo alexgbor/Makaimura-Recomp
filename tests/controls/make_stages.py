@@ -50,6 +50,8 @@ magician_beaten0.txt: magician0's gravestone, then Arthur put 0x20 left of the m
 unhurt (<$AD as pillar2's): it can be hit only while it casts (+0 = 1, 16 frames; 2 as it comes and goes, which
 object_check_hits passes over) and the gravestone stops the shots thrown standing (003B), so a throw early in a
 jump (its row within 13 of the magician's): hit, dying.
+crows1.txt: stage 1 from its midway point, Arthur put before the perched crows (variant 3, 1840-19B0 in the stage's
+list) and left standing, then walking about, unhurt: they take off at him; one flies in from the side (variant 4).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -156,6 +158,9 @@ def scenes():
         (1960, None, None, 0, "walk"), (2030, None, None, 0, "crouch_throw"), (2340, 0x00E0, 0x003E, 40, "still", "camera"),
         (2392, None, None, 0, "jump_throw"), (2432, None, None, 0, "still"), (2470, None, None, 0, "wander")], 5000,
         ram=unhurt)
+    yield "crows1", scene("stage 1 from its midway point: the perched crows take off", 1, [
+        (2050, 0x1800, 0x0047, 60, "still", "camera"), (3000, None, None, 0, "wander")], 6000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)])
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
