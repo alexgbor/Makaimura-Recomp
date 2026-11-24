@@ -32,7 +32,10 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Board mode #2 seen in busy scenes (`gng_headless --palette-conflicts`): the palette routine runs into the active
       display in stages 1, 2, 4, 5; in stage 4 the cave's background flashes yellow for 1-3 frames (board mode only),
       the "yellow flashes" of jt_gng's option
-- [ ] Board mode #2, to compare: those flashes against the recordings MAME's header cites
+- [x] Board mode #2 against a recording of the board (docs/accuracy.md #2): the same in kind, as a recording allows
+      (the game's state is not a script's, so not pixel by pixel): the background's colours wrong in single frames
+      while the slowdown lasts, the sprites untouched, never in MAME; in board mode tests/controls/bosses5.txt's
+      dragon flashes so (frames 4959-5101, every other frame at first)
 - [x] Board mode: a read of 3C00 starts the DMA (jt_gng's decode has no R/W)
 
 ## M1. The 6809 program, read
@@ -69,13 +72,18 @@ Roughly in order; each milestone is checked against the reference before it is t
       instructions run in every script
 - [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
 - [x] Coverage of the program ROM (`tools/coverage.py`: gref on the attract mode and every script): every address
-      run is an instruction the analyses found (6809 and Z80); 71.3% of the 16830 instructions found are run by
-      the scripts (the Z80's: 91.8%); the fixed ROM is 57% code run, 22% code never run, 19% data, banks 0-2 and 4
+      run is an instruction the analyses found (6809 and Z80); 91.6% of the 16823 instructions found are run by
+      the scripts (the Z80's: 94.8%); the fixed ROM is 73% code run, 6.7% code never run, 19% data, banks 0-2 and 4
       data only (graphics' tables, the stages' maps), bank 3 code (the boot, the test mode, the ranking) and data
-- [~] The code never run (114 routines, 6.9 KB): enemies the scripts never meet (object_handlers 6, 8 and 10:
-      C39D, CE20, BD4F and what they call), the stage clears of stages 0-4 (they wait for the gate, <$90),
-      the test mode's other screens; their translation is checked instruction by instruction against MAME's core
-      (`compare_lift_with_mame.py`: the 3983 forms of every instruction found, 50 states each), not in context
+- [~] The code never run: 249 routines (6.7 KB) down to 99 (1.5 KB) by the scenes (`make_stages.py`: bosses5,
+      red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6; `make_features.py`: ranking,
+      service_pages): Big Man, the dragon, Red Arremer and Satan fought and beaten, the magician (type 7) and its
+      spell, a stage's end through the key, the gate and the map, the weapon's and the illusion's messages, the
+      ranking's initials (play_name_entry), the test mode's hidden pages (coin 1 held as it starts). Left: Astaroth
+      beaten (no throw of these scripts hurts it), object type 3 (no stage's list places it), some crows' and the
+      window giant's and the pillars' ways, the dragon's and Satan's last steps; their translation is checked
+      instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of every
+      instruction found, 50 states each), not in context
 
 ## M2. The reference (`tools/reference`, "gref")
 

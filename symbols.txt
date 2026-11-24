@@ -98,19 +98,19 @@
 3:5B30 func ranking_compare
 3:5B47 func ranking_insert
 3:5B09 func game_over_2
-3:5B88 func play_step3_start
-3:5B9E func play_step3_steps
-3:5BB2 func play_step3_0
-3:5C75 func play_step3_0_draw
-3:5BE1 func play_step3_1         # sounds 26, 2C, 25, 27
-3:5BEC func play_step3_2         # sound 28
-3:5C18 func play_step3_3
-3:5C56 func play_step3_3_a
-3:5D99 func play_step3_3_b
-3:5DB7 func play_step3_3_c
-3:5C2E func play_step3_4
-3:5E18 func play_step3_4_draw
-3:5C45 func play_step3_5
+3:5B88 func name_entry_start
+3:5B9E func name_entry_steps
+3:5BB2 func name_entry_0
+3:5C75 func name_entry_0_draw
+3:5BE1 func name_entry_1         # sounds 26, 2C, 25, 27
+3:5BEC func name_entry_2         # sound 28
+3:5C18 func name_entry_3
+3:5C56 func name_entry_3_a
+3:5D99 func name_entry_3_b
+3:5DB7 func name_entry_3_c
+3:5C2E func name_entry_4
+3:5E18 func name_entry_4_draw
+3:5C45 func name_entry_5
 0068  var  score  count=4        # the player's: 4 BCD bytes
 0055  var  bonus_scores  count=2 # where the bonus lives' scores are (player_start_lives: the DIP's table)
 
@@ -414,7 +414,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 6F3A  func  play_begin           # step 0: the screen cleared (tasks 04 and 00), game_init
 6F54  func  play_stage           # step 1: the stage, by stage_phase (6F5C)
 3:5AC5 func play_game_over       # step 2: a player's game over (the scripts that lose every life reach it)
-3:5B75 func play_step3           # step 3: task 01 with 1A (no script reaches it)
+3:5B75 func play_name_entry      # step 3: the ranking's initials (game_over_2, a score in the ranking: ranking.txt); task 01 with 1A
 7669  func  play_continue        # step 4: "CONTINUE PLAY ?" (76B3), by stage_phase (7671)
 76B3  func  continue_prompt
 6F64  func  stage_start          # stage_phase 0: "PLAYER ONE READY", the stage's start (player_states_6F86...)
@@ -610,7 +610,7 @@ scoped object camera 1E row_index u8     # the same for the rows (for scroll_lay
 scoped object camera 1F row_index_next u8
 instance 0660 object STAGE_EVENT  # stage_event's record
 instance 0880 object OBJECT0      # the first of the 40 objects (the cut scenes' demon)
-instance 1572 object RECORD_1572  # play_step3's
+instance 1572 object RECORD_1572  # play_name_entry's
 struct coin_slot 8                # the coin slots' (1582: A, 158A: B): the code's X their start
 field coin_slot 0 meter_count u8  # the coins its counter has still to count (coin_credit_step adds, coin_meter counts)
 field coin_slot 1 coins_in u8     # the coins in towards a credit
@@ -1185,27 +1185,27 @@ scoped object type_03 18 centre_y_low u8
 scoped object type_03 19 angle u8
 scoped object type_03 1A offset_y u8  # 1A-1B
 scoped object type_03 1B offset_y_low u8
-param type_07_start x type_07 object.type_07+10
-param type_07_frames x type_07 object.type_07+10
-param type_07_alive x type_07 object.type_07+10
-param type_07_v0 x type_07 object.type_07+10
-param type_07_v0_start x type_07 object.type_07+10
-param type_07_v0_move x type_07 object.type_07+10
-param type_07_v1 x type_07 object.type_07+10
-param type_07_v1_start x type_07 object.type_07+10
-param type_07_v1_fire x type_07 object.type_07+10
-param type_07_v1_end x type_07 object.type_07+10
-param type_07_v2 x type_07 object.type_07+10
-param type_07_v2_start x type_07 object.type_07+10
-param type_07_v2_move x type_07 object.type_07+10
-param type_07_shoot x type_07 object.type_07+10
-param type_07_dying x type_07 object.type_07+10
-param type_07_hit x type_07 object.type_07+10
-param type_07_dying_end x type_07 object.type_07+10
-param type_07_remove x type_07 object.type_07+10
-scoped object type_07 16 move_time u8  # 3C
-scoped object type_07 1A dying_time u8  # 3F when hit
-scoped object type_07 28 fire_time u8  # 14
+param magician_start x magician object.magician+10
+param magician_frames x magician object.magician+10
+param magician_alive x magician object.magician+10
+param magician_v0 x magician object.magician+10
+param magician_v0_start x magician object.magician+10
+param magician_v0_move x magician object.magician+10
+param magician_v1 x magician object.magician+10
+param magician_v1_start x magician object.magician+10
+param magician_v1_fire x magician object.magician+10
+param magician_v1_end x magician object.magician+10
+param magician_v2 x magician object.magician+10
+param magician_v2_start x magician object.magician+10
+param magician_v2_move x magician object.magician+10
+param magician_shoot x magician object.magician+10
+param magician_dying x magician object.magician+10
+param magician_hit x magician object.magician+10
+param magician_dying_end x magician object.magician+10
+param magician_remove x magician object.magician+10
+scoped object magician 16 move_time u8  # 3C
+scoped object magician 1A dying_time u8  # 3F when hit
+scoped object magician 28 fire_time u8  # 14
 param intro_arthur x intro_arthur object.intro_arthur+10
 param intro_arthur_0 x intro_arthur object.intro_arthur+10
 param intro_arthur_1 x intro_arthur object.intro_arthur+10
@@ -1451,11 +1451,11 @@ local objects_handlers 9F11 x object object+10
 9F41  func  object_type_00     # stages 4, 5; the attract mode's demo; several things: a small flier out of stage 4-5's walls (sprites 060-07F), the points (030)
 A2C4  func  object_crow        # type 1; every stage, the attract mode: the graveyard's crows (sprites 0C0-0CF), the caves' bats (0E0-0EF)
 A716  func  object_petite_devil  # type 2; stages 1, 4: the small blue devils out of the towers' windows (sprites 0F0-0FF)
-AE76  func  object_type_03     # no script reaches it
+AE76  func  object_type_03     # no stage's list places it (bank 2's 4B00); no script reaches it
 AFC0  func  object_window_flier  # type 4; stage 1 from its midway point (midway1): out of the brick house's windows (sprites 080-08F)
 B4C8  func  object_red_arremer  # type 5; every stage, the attract mode: the red winged demon (sprites 180-1BF)
 BD4F  func  object_satan       # type 6; stages 4, 5: the large red demon with purple wings at the top of their last climb (sprites 280-2BF: satan4)
-C256  func  object_type_07     # no script reaches it
+C256  func  object_magician    # type 7; stage 0: the magician, out of a gravestone shot 15 times (the spawner at 0760, kind 7: magician0)
 C39D  func  object_big_man     # type 8; stage 5: the giant (sprites 200-23F: seen walking up the tower, Arthur moved there by a RAM write)
 CB2F  func  object_skeleton    # type 9; stages 4, 5: a skull on the wall (sprite 0A7) that rises as a skeleton (0A0-0AF)
 CE20  func  object_window_giant  # type 10; stages 1, 4: the giant who leans out of the town's windows (sprites 1E0-1EF: midway1)
@@ -2082,24 +2082,24 @@ scoped object satan 2B stand_timer u8  # 1E
 scoped object satan 2C kind u8  # the tables BE31, 4EC3 by it
 scoped object satan 2D flying u8
 scoped object satan 2E screen_edge u8
-C266  func  type_07_start
-C28A  func  type_07_alive
-C362  func  type_07_dying
-C38D  func  type_07_remove
-C27C  func  type_07_frames
-C296  func  type_07_v0
-C2A2  func  type_07_v0_start     # its sound (77CD)
-C2AB  func  type_07_v0_move
-C2B8  func  type_07_v1
-C2C6  func  type_07_v1_start
-C2CD  func  type_07_v1_fire
-C2F0  func  type_07_v1_end
-C2FB  func  type_07_v2
-C307  func  type_07_v2_start
-C321  func  type_07_v2_move
-C33E  func  type_07_shoot        # an enemy shot
-C36E  func  type_07_hit          # dying: its sound (7818)
-C378  func  type_07_dying_end
+C266  func  magician_start
+C28A  func  magician_alive
+C362  func  magician_dying
+C38D  func  magician_remove
+C27C  func  magician_frames
+C296  func  magician_v0
+C2A2  func  magician_v0_start     # its sound (77CD)
+C2AB  func  magician_v0_move
+C2B8  func  magician_v1
+C2C6  func  magician_v1_start
+C2CD  func  magician_v1_fire
+C2F0  func  magician_v1_end
+C2FB  func  magician_v2
+C307  func  magician_v2_start
+C321  func  magician_v2_move
+C33E  func  magician_shoot       # its spell: an enemy shot of kind 0 (player_hit_check: the player turned, state 4)
+C36E  func  magician_hit          # dying: its sound (7818)
+C378  func  magician_dying_end
 C3AD  func  big_man_start
 C43E  func  big_man_alive
 CAE2  func  big_man_dying

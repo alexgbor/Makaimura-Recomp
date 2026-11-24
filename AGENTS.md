@@ -70,7 +70,7 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `tools/make_release.ps1`, `CHANGELOG.md` | the player's package (`release/`, never committed): the version is CMakeLists.txt's `project(makaimura VERSION)`, its section in CHANGELOG.md |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
 | `tools/youtube_export.py` | a recording made ready for YouTube (ffmpeg): sharp pixels, 4:3 at 1440p, x264 |
-| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/3/4, tower5, satan4, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears: `make_*.py` write them), `resample_check.c` |
+| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/3/4, tower5, satan4, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears, and the scenes of what those never reach: bosses5, red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6, ranking, service_pages: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md`, `docs/decompilation.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ; the readable C (M6): how it is made, what it does differently, how it is checked |
 
 ## Working
@@ -97,7 +97,10 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 - Input scripts are `tests/controls/*.txt`: "FRAME PORT VALUE" (the byte the board reads, active low, from the
   VBLANK after FRAME on); the same file drives `gref --inputs` and MAME. "FRAME mADDR VALUE" writes the work RAM
   (a test's cheat: the stage, the lives, to reach later scenes); gref, gng_headless and makaimura take it, MAME's
-  trace does not (`make_stages.py`'s scripts are for gref against the translation).
+  trace does not (`make_stages.py`'s scripts are for gref against the translation). gref and gng_headless write it
+  as the CPU takes the IRQ after that VBLANK, where the readable C's program is where gref's is (in slowdown a
+  write at the VBLANK's cycle lands a few instructions apart: the C keeps the time a block at a time where the IRQ
+  is masked); makaimura at the VBLANK.
 - The ROM set goes in `rom/`: `makaimurg.zip` (the clone's 5 files) and `gng.zip` (the parent's: the sound
   program, graphics, PROMs). `python tools/makaimura_rom.py` lists what is there.
 - Documentation, comments and commit messages are in English (as the sibling projects). The project owner
