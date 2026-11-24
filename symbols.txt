@@ -258,6 +258,39 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 0046  var  inputs_p1
 0048  var  inputs_p2
 0050  var  dip_lives
+0053  var  cocktail             # DSW2 bit 2 clear: a cocktail cabinet (players_swap flips the screen)
+0054  var  bonus_lives_count    # the first byte of the bonus lives' table (dip2_settings: 61CC by DSW2 bits 3-4)
+006C  var  map_column  count=2  # the map's pointer the background's columns are drawn from (bank 2)
+0091  var  map_position  count=2  # the map's place (stage_start_position; map_event's table by it)
+009A  var  difficulty_level  count=2  # player_rank << 8 at a stage's set-up (0 in the demo), + 6B every 512 frames
+                                 # up to 3F (stage_effect_d); the enemies' tables by its bits 4-5
+00B5  var  big_enemies          # counted in by the big man, the satan, the red arremer, the dragon; read by the spawners
+00EC  var  tile_x  count=2      # background_tile's stage position
+00EE  var  tile_y  count=2
+00FC  var  column_count         # task_background_column's
+00FE  var  column_dest  count=2
+0099  var  player_in_air        # set as a jump starts, cleared on landing; scroll_follow_y reads it
+002A  var  column_copy_kind     # scroll_columns_a/b's, for scroll_layer_copy
+002B  var  row_copy_kind        # scroll_follow_y's, for scroll_rows_c
+00E0  var  loop_count           # the routines' scratch: a loop's count
+00E1  var  temp_E1              # scratch bytes and words (E2-E3 often a saved pointer)
+00E2  var  temp_E2
+00E3  var  temp_E3
+00E4  var  temp_E4
+00E5  var  temp_E5
+00E6  var  temp_E6
+00E7  var  temp_E7
+00E8  var  temp_E8
+00E9  var  temp_E9
+0024  var  credits_seen  count=2  # the credits when the attract mode last looked (attract_credits_check)
+0045  var  coin_input_bits      # read by coin_inputs (67DB)
+00DE  var  irq_job_0_count      # irq_job_0 works while it is not 0
+00DF  var  irq_job_1_flags      # irq_job_1's
+0440  var  other_player  count=48  # the other player's variables (0060-008F's copy: players_swap)
+1595  var  map_screen_step
+15A8  var  map_screen_scroll_x  count=2  # the scroll kept while the map is shown
+15AA  var  map_screen_scroll_y  count=2
+15AC  var  map_screen_timer
 0052  var  demo_sounds
 0057  var  dip_difficulty
 006E  var  random_seed  count=2
@@ -509,6 +542,14 @@ field object 14 frame_low u8
 field object 15 type u8            # the state routine's table (object_state_tables) and the handler (object_handlers)
 local objects_shots 9ACE x object object+10
 instance 0500 object PLAYER       # the player's record (Arthur): the code's X 0510
+instance 0530 object SHOT0        # Arthur's first shot's record (the cut scenes' too: intro_obj0530, stage_map_icon)
+instance 0630 object CAMERA       # the scroll's record (scroll_frame: its state 0633, its step 0634)
+instance 0660 object STAGE_EVENT  # stage_event's record
+instance 0880 object OBJECT0      # the first of the 40 objects (the cut scenes' demon)
+instance 1572 object RECORD_1572  # play_step3's
+instance 15B2 object PRINCESS     # the princess (princess_intro, the ending)
+instance 15D2 object ITEM0        # the items' two records (items_frame)
+instance 1602 object ITEM1
 field object 1 on_screen u8        # object_on_screen: 1 while its box (8CCA, by animation_kind) is in the camera's view
 8CA4  func  object_on_screen     # the object's box (the table 8CCA by its animation_kind) against the camera (<$9C, <$9E)
 9761  func  set_frames           # the animation's frames from D (frames, frame), its timer 0

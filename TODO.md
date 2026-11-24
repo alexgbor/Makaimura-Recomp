@@ -251,7 +251,11 @@ Roughly in order; each milestone is checked against the reference before it is t
             asks for it compared (the beam). Real 70281 runs and plausible 1110268 the same as MAME's; of 2.14 million
             made up 2 differ, made-up pointers onto the stack again. Left out too: reads of <$E2-<$E3 holding the round
             robin's S (the C keeps it in a variable) and, board mode, of 3C00 (it starts the DMA)
-      - [ ] The readable C the game again (`tools/make_release.ps1 -Program readable`) once the names are done
+      - [ ] The readable C the game again (`tools/make_release.ps1 -Program readable`). Every function is named now;
+            kept back because v0.2.3's states (and the replays that start from one) are the translation's, taken at
+            any instruction, and the readable C goes on only from the main loop's idle (617F, S 0300): a release on
+            it would refuse them. To do first: load them by running the translation from the state up to the idle
+            (both CPUs in one program), checked with `tools/check_states.py --load-with`
       - [ ] The conditions still on flags (`(carry == 0u) == 0u`), the per-instruction m6809_block of the code the IRQ
             may interrupt (the main loop's tasks: 745 of them) written shorter
 - [~] Names: routines and RAM in `symbols.txt` as the game is understood (player, enemies, stages, score...): the
