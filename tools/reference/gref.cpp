@@ -25,7 +25,9 @@
  *                        each as the --executed addresses: the jumps through registers and tables, checked
  *      --registers-at ADDR [N]   the registers each time the instruction at ADDR (hex) starts, N times (10)
  *      --inputs FILE     an input script: lines "FRAME PORT VALUE" (PORT system, p1, p2, dsw1, dsw2; VALUE hex,
- *                        active low as the board reads it) applied at that frame's VBLANK, for the frames after
+ *                        active low as the board reads it) applied at that frame's VBLANK, for the frames after;
+ *                        or mADDR: the work RAM's byte at ADDR written as the CPU takes the IRQ after that VBLANK
+ *                        (a test's cheat, AGENTS.md)
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on (as the board reads them, active low; the
  *                        defaults DF and FB: gng/board.h)
  *      --sound FILE      the sound board too (tools/reference/sound: MAME's Z80, ymfm's YM2203s), and at each
@@ -90,8 +92,12 @@ static FILE *irq_hashes, *irq_state, *irq_dumps;
 static FILE *picture_hashes;
 static u64 irqs_taken;
 
+static void apply_ram_cheats();
+
 static void host_acknowledge(int line)
 {
+	if (line == M6809_IRQ_LINE)
+		apply_ram_cheats();
 	if (line == M6809_IRQ_LINE && (irq_state || irq_dumps))
 	{
 		// as the decompiled program is checked: the bus but the stack (gng_stack_byte), the board's time
@@ -249,6 +255,20 @@ static std::vector<input_change> read_inputs(const char *path)
 	return changes;
 }
 
+// A test's cheat (mADDR): the work RAM's byte written as the CPU takes the IRQ after that frame's VBLANK, not at the
+// VBLANK itself: there the program is where the readable C's is too (the IRQ's cycle is compared), while the C keeps
+// the board's time a block at a time where the IRQ is masked, so a write at the VBLANK's cycle would land a few
+// instructions apart from gref's in a frame that runs late (slowdown: tests/controls/bosses5.txt's dragon)
+struct ram_cheat { u16 address; u8 value; };
+static std::vector<ram_cheat> ram_cheats;
+
+static void apply_ram_cheats()
+{
+	for (const auto &cheat : ram_cheats)
+		gng.ram[cheat.address] = cheat.value;
+	ram_cheats.clear();
+}
+
 static void apply_input(const input_change &change)
 {
 	if (change.port == "system") gng.inputs.system = change.value;
@@ -257,7 +277,7 @@ static void apply_input(const input_change &change)
 	else if (change.port == "dsw1") gng.inputs.dsw1 = change.value;
 	else if (change.port == "dsw2") gng.inputs.dsw2 = change.value;
 	else if (change.port[0] == 'm' && std::strtoul(change.port.c_str() + 1, nullptr, 16) < 0x1E00u)
-		gng.ram[std::strtoul(change.port.c_str() + 1, nullptr, 16)] = change.value;    // a test's cheat
+		ram_cheats.push_back({u16(std::strtoul(change.port.c_str() + 1, nullptr, 16)), change.value});    // a test's cheat
 	else std::fprintf(stderr, "gref: unknown port %s\n", change.port.c_str());
 }
 

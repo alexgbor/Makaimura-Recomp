@@ -19,7 +19,8 @@
  *      --irq-hashes FILE as the CPU takes each IRQ (its state pushed): "n hash pc cycle", as gref --irq-hashes
  *      --inputs FILE     an input script: "FRAME PORT VALUE" (system, p1, p2, dsw1, dsw2; hex, active low; or
  *                        mADDR: the work RAM's byte at ADDR, hex, written: a test's cheat, AGENTS.md),
- *                        applied at that frame's VBLANK for the frames after
+ *                        applied at that frame's VBLANK for the frames after (mADDR as the CPU takes the IRQ
+ *                        after it, as gref)
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on
  *      --sound FILE      the sound board too (the translated sound program, runtime/src/sound.c), and at each
  *                        VBLANK "frame hash 0000 time" (the Z80's RAM, its time), as gref --sound
@@ -157,6 +158,18 @@ static void read_inputs(const char *path)
 	fclose(file);
 }
 
+/* a test's cheat (mADDR): the work RAM's byte written as the CPU takes the IRQ after that frame's VBLANK, as gref
+   writes it (tools/reference/gref.cpp, apply_ram_cheats: where the readable C's program is where gref's is) */
+static struct { uint16_t address; uint8_t value; } ram_cheats[256];
+static int ram_cheat_count;
+
+static void apply_ram_cheats(void)
+{
+	for (int i = 0; i < ram_cheat_count; i++)
+		gng.ram[ram_cheats[i].address] = ram_cheats[i].value;
+	ram_cheat_count = 0;
+}
+
 static void apply_input(const input_change *change)
 {
 	if (!strcmp(change->port, "system")) gng.inputs.system = change->value;
@@ -165,7 +178,15 @@ static void apply_input(const input_change *change)
 	else if (!strcmp(change->port, "dsw1")) gng.inputs.dsw1 = change->value;
 	else if (!strcmp(change->port, "dsw2")) gng.inputs.dsw2 = change->value;
 	else if (change->port[0] == 'm' && strtoul(change->port + 1, NULL, 16) < 0x1E00u)
-		gng.ram[strtoul(change->port + 1, NULL, 16)] = change->value;
+	{
+		if (ram_cheat_count < (int)(sizeof(ram_cheats) / sizeof(ram_cheats[0])))
+		{
+			ram_cheats[ram_cheat_count].address = (uint16_t)strtoul(change->port + 1, NULL, 16);
+			ram_cheats[ram_cheat_count++].value = change->value;
+		}
+		else
+			fprintf(stderr, "gng_headless: too many RAM writes at frame %d\n", change->frame);
+	}
 	else fprintf(stderr, "gng_headless: unknown port %s\n", change->port);
 }
 
@@ -391,6 +412,7 @@ static FILE *irq_state, *irq_dumps;
 
 static void on_irq(uint16_t pc, uint64_t cycles)
 {
+	apply_ram_cheats();
 	if (irq_state)
 		fprintf(irq_state, "%llu %08x %llu\n", (unsigned long long)irqs, gng_bus_hash_without_stack(),
 			(unsigned long long)cycles);
