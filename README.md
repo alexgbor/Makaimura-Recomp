@@ -144,7 +144,13 @@ board's time, uncompressed (about 10 MB a second: ffmpeg makes it small). From t
 makaimura --accuracy mame --record mame.avi --record-inputs game.txt     # play; the controls kept too
 makaimura --accuracy board --inputs game.txt --record board.avi          # the same controls, the other mode
 python tools/side_by_side.py mame.avi board.avi comparison.mp4           # side by side (ffmpeg)
+python tools/youtube_export.py game.avi                                  # for YouTube: game_youtube.mp4
 ```
+
+The window's size and the CRT look are not in the recording: it is the board's 256 x 224. YouTube names a video's
+quality by its height and shows 224 lines as 240p, blurred; `tools/youtube_export.py` enlarges it with sharp pixels
+to the monitor's 4:3 at 1440p (`--height 1080` or `2160` too) and encodes it with ffmpeg (10 seconds of the
+attract mode: 104 MB to 3). Without Python, the package's README.txt has the ffmpeg command.
 
 The same controls at the same frames give the same game in the same mode (the same file, byte for byte); in the
 other mode the game can part ways where board mode slows down.

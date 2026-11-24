@@ -87,6 +87,20 @@ FILES THE GAME KEEPS (beside makaimura.exe)
   *.avi           the videos recorded with F12 (uncompressed: about 10 MB a second)
 
 
+VIDEOS FOR YOUTUBE
+------------------
+
+F12 records the board's own picture, 256 x 224, whatever the window's size (the CRT look is not in it), without
+losing anything: about 400 MB for 40 seconds. YouTube names a video's quality by its height, so 224 lines are shown
+as 240p, blurred. Enlarge it before uploading, with ffmpeg (ffmpeg.org; "winget install ffmpeg" on Windows):
+
+  ffmpeg -i IN.avi -vf "scale=1536:1344:flags=neighbor,scale=1920:1440:flags=bilinear,setsar=1" -c:v libx264
+         -crf 16 -preset slow -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart OUT.mp4
+
+(one line). The pixels stay sharp (6 times, nearest), the picture is the arcade monitor's 4:3 at 1440p (YouTube
+gives it many more bits, even watched at 1080p) and the file is some tens of times smaller.
+
+
 CREDITS
 -------
 

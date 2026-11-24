@@ -5,7 +5,9 @@ What changes from one version to the next, for players. The version is set in `C
 
 ## Unreleased
 
-Nothing yet.
+- README.txt says how to make a recording (F12) ready for YouTube: it is the board's 256 x 224 uncompressed, which
+  YouTube shows as 240p; one ffmpeg command enlarges it with sharp pixels to 1440p and makes it some tens of times
+  smaller (`tools/youtube_export.py` does the same from the repository).
 
 ## v0.3.0 (2026-11-24)
 
