@@ -37,6 +37,10 @@ of kind 0, enemy_shot_start_0) turns him (player state 4) for a while.
 stage0_end.txt: Arthur put at the graveyard's end (camera_x_max 0D00), the stage cleared there (E799's <$08 = 2),
 then put on the key (camera_x_max + 0x25): the key taken, the gate, the armour back, the map's marker to stage 1.
 no_cross5.txt: stage 5 cleared with the torch: "THIS WEAPON HAS NOT EFFECT..." (7177), then stage 4 again.
+astaroth6.txt: the second loop's last room (<$7F = 1), the cross, Arthur held in the air at 0A50 throwing: only the
+cross hurts Astaroth (EE91's mask for type 13, 10, is the cross's of EE89), and only within 10 columns and 9 rows of
+his point (EF92's box), his head's height (0A60): standing (0A46) the shots pass below; 10 hits (+0x26), then his
+death and the ending's start.
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -129,6 +133,9 @@ def scenes():
         ram=cleared(2150))
     yield "no_cross5", scene("stage 5 cleared with the torch: the weapon has no effect", 5,
                              [(2050, None, None, 0, "still")], 5000, ram=cleared(2100), weapon=0)
+    yield "astaroth6", scene("stage 6 of the second loop: Astaroth beaten with the cross, thrown at his head's height", 6,
+                             [(2050, 0x1F30, 0x0A50, 2500, "throw_right", "camera")], 5000, ram=[(1410, 0x7F, 1)],
+                             weapon=3)
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 

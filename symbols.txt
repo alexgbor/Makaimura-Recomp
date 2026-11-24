@@ -1090,7 +1090,7 @@ scoped object astaroth 21 turn_time_low u8
 scoped object astaroth 22 turn_way u8
 scoped object astaroth 23 speed_y u8  # 23-24
 scoped object astaroth 24 speed_y_low u8
-scoped object astaroth 26 hits_left u8  # 0A
+scoped object astaroth 26 hits_left u8  # 0A: the cross's hits (object_check_hits: EF7A's counter, +0x16 from X)
 scoped object astaroth 27 fire_ready u8
 scoped object astaroth 28 facing u8
 scoped object astaroth 29 walked u8
@@ -1461,7 +1461,9 @@ CB2F  func  object_skeleton    # type 9; stages 4, 5: a skull on the wall (sprit
 CE20  func  object_window_giant  # type 10; stages 1, 4: the giant who leans out of the town's windows (sprites 1E0-1EF: midway1)
 D221  func  object_zombie      # type 11; every stage, the attract mode (the title's): out of the ground (sprites 0B0-0BF)
 D45C  func  object_dragon      # type 12; stage 5: the flying dragon, each of its 9 segments one (sprites 240-25F: up the tower, Arthur moved there by a RAM write)
-DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's demon (sprites 2C0-2FF)
+DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's demon (sprites 2C0-2FF); only the cross
+                               # hurts him (EE91's mask 10), within 10 columns and 9 rows of his point, his head
+                               # (EF92's box): a shot from the floor passes below (astaroth6.txt)
 DD60  func  object_bridge_flame  # type 14; stage 3: the flames that rise under the bridge (sprites 160-16F: midway3)
 DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode; 17 is the man-eater plant (sprites 0D0-0DF: stages 0, 1)
 DF0F  func  object_pillar      # type 18; stage 2: the caves' grey stone pillars (sprites 090-09F)
@@ -1881,7 +1883,9 @@ BA1F  func  red_arremer_close_in # step 3
 BA31  func  red_arremer_close_in_start
 BA6E  func  red_arremer_closing_in
 BA88  func  red_arremer_face_player
-BA9A  func  red_arremer_action4  # step 4
+BA9A  func  red_arremer_action4  # step 4: it turns white (mode 0, ground_time at 0: B61C's 10-50 counts of 32 frames
+                                 # on the ground, by the difficulty), blinking and unhurt (active * 2) for a while, its
+                                 # animation 4C97, then mode + 1 (red_arremer0.txt, frame 5650)
 BAA8  func  red_arremer_action4_start
 BAB0  func  red_arremer_action4_animation
 BAD2  func  red_arremer_action4_move
@@ -1975,7 +1979,7 @@ scoped object red_arremer 16 fire_time u8
 scoped object red_arremer 17 action6_time u8
 scoped object red_arremer 18 fly_time u8      # counted every 8 frames
 scoped object red_arremer 1C from_step u8
-scoped object red_arremer 1D mode u8
+scoped object red_arremer 1D mode u8  # its variant >> 2; + 1 when it turns white (action4): the tables B742, B810, B89B by it
 scoped object red_arremer 1E player_left u8
 scoped object red_arremer 28 fire_times u8    # 28-29, 2A-2B, 2C-2D: the timers' lists (0: a jump to the word after)
 scoped object red_arremer 29 fire_times_low u8
@@ -1983,7 +1987,7 @@ scoped object red_arremer 2A action6_times u8
 scoped object red_arremer 2B action6_times_low u8
 scoped object red_arremer 2C fly_times u8
 scoped object red_arremer 2D fly_times_low u8
-scoped object red_arremer 19 ground_time u8
+scoped object red_arremer 19 ground_time u8  # mode 0: B61C's, by the difficulty; one down every 32 frames on the ground; at 0 step 4
 scoped object red_arremer 1A move_kind u8  # 1A-1B: the ground walk's (its animation when flying)
 scoped object red_arremer 1B move_count u8
 scoped object red_arremer 1F shots_seen u8  # the player's shots coming (red_arremer_shot_coming, close_check)
