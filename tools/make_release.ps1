@@ -14,10 +14,10 @@
     The version is CMakeLists.txt's (project(makaimura VERSION x.y.z)), the one the game's menu shows: change it
     there, build, then package. -Version, if given, must be the same.
 
-    -Program: which build of the game the package holds, as makaimura.exe: "translated" (build\bin\
-    makaimura_translated.exe, the default since v0.2.3: each instruction checked against MAME's core besides every
-    script) or "readable" (build\bin\makaimura.exe, the readable C: the game again once every function of it is
-    checked against the original, TODO.md M6).
+    -Program: which build of the game the package holds, as makaimura.exe: "readable" (build\bin\makaimura.exe,
+    the readable C: the default from v0.3.0, every function of it checked alone against the original besides every
+    script, TODO.md M6) or "translated" (build\bin\makaimura_translated.exe: v0.2.3's, each instruction checked
+    against MAME's core).
 
     It copies only the files named below (an allow list: nothing else can get in), then checks the folder: no ROM
     set, no settings, high scores, states or replays of yours, and an .exe that needs nothing but SDL2.dll beside it.
@@ -27,7 +27,7 @@
 param(
     [string]$Version = "",
     [ValidateSet("translated", "readable")]
-    [string]$Program = "translated"
+    [string]$Program = "readable"
 )
 
 $ErrorActionPreference = "Stop"

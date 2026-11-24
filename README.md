@@ -16,9 +16,9 @@ board is described in [docs/hardware.md](docs/hardware.md), and [docs/accuracy.m
 the two accuracy modes: MAME's, and the real board's, which is the goal.
 
 The program is also decompiled into readable C (`tools/m6809/decompile.py`, `src/`: functions, variables, no CPU
-left), checked frame by frame like the translation. The releases run the translation (`makaimura_translated`,
-packaged as `makaimura.exe`): the readable C becomes the game again once each of its functions is checked against
-the original program on its own, not only the parts the test scripts play ([TODO.md](TODO.md), M6).
+left, every function and variable named), checked frame by frame like the translation and each function on its
+own against the original program ([TODO.md](TODO.md), M6). The releases run it from v0.3.0 (`makaimura`); the
+translation is kept (`makaimura_translated`). How to make it from your ROM set: below.
 
 ## Download and play
 

@@ -80,10 +80,9 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
   tools/check_translation.py` (the attract mode and every script, in one mode: `--accuracy mame` or `board`; about
   15-20 minutes each) after any change to the runtime, the translators or the decompiler's frontend; `python
   tools/check_states.py --program build/bin/gng_headless_c.exe` for the states. `makaimura` is the game on the
-  readable C; `makaimura_translated` the same window on the translation, which the releases package as makaimura.exe
-  (`tools/make_release.ps1 -Program translated`, the default since v0.2.3) until every function of the readable C
-  is checked against the original (TODO.md M6); `tools/check_states.py --load-with` checks the readable C's states
-  going on in the translation.
+  readable C, which the releases package as makaimura.exe (`tools/make_release.ps1`, `-Program readable` the
+  default from v0.3.0); `makaimura_translated` the same window on the translation (v0.2.3's: `-Program translated`);
+  `tools/check_states.py --load-with` checks the readable C's states going on in the translation.
 - Check the window without disturbing whoever uses the computer: `makaimura --hidden` or `--shot N FILE`, sound
   through `SDL_AUDIODRIVER=disk` (or `volume = 0` in a `--settings` file); never show windows or capture the
   desktop.

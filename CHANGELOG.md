@@ -7,6 +7,17 @@ What changes from one version to the next, for players. The version is set in `C
 
 Nothing yet.
 
+## v0.3.0 (2026-11-24)
+
+- **The game runs on its program decompiled into readable C again**, now that every one of its functions has
+  been checked on its own against the original program (from over a million states each way, besides every test
+  playing the same as MAME's frame for frame, picture for picture and sample for sample). It plays exactly as
+  v0.2.3. Every function and variable of the program has its name; the C is made from your own ROM set (see the
+  project's README: "Reading the game's code").
+- **Save states made by v0.2.3 can't be loaded** (the game says "A STATE OF THE TRANSLATED PROGRAM"), nor the
+  replays that start from one: save again. The practice areas' starts are made again by themselves the first time
+  each one is chosen. High scores and the settings are kept.
+
 ## v0.2.3 (2026-11-23)
 
 - **The game runs on the translation again** (the original program translated an instruction at a time, each one
