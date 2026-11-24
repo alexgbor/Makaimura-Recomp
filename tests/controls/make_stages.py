@@ -32,7 +32,7 @@ right, the lance (its swoops, its fire, action 4) then the torch from the fourth
 satan4_beaten.txt: satan4's place, Arthur held there throwing (Satan beaten at once: its hit, dying, removed;
 the key's message and walk), then left alone.
 magician0.txt: stage 0's first gravestone (0100) shot crouching: 15 hits (a prop's +1A) arm the spawner at 0760,
-whose kind 7 is the magician (object_type_07); Arthur turns to the zombies as it comes and its spell (an enemy shot
+whose kind 7 is the magician (object_magician); Arthur turns to the zombies as it comes and its spell (an enemy shot
 of kind 0, enemy_shot_start_0) turns him (player state 4) for a while.
 stage0_end.txt: Arthur put at the graveyard's end (camera_x_max 0D00), the stage cleared there (E799's <$08 = 2),
 then put on the key (camera_x_max + 0x25): the key taken, the gate, the armour back, the map's marker to stage 1.
@@ -41,11 +41,20 @@ astaroth6.txt: the second loop's last room (<$7F = 1), the cross, Arthur held in
 cross hurts Astaroth (EE91's mask for type 13, 10, is the cross's of EE89), and only within 10 columns and 9 rows of
 his point (EF92's box), his head's height (0A60): standing (0A46) the shots pass below; 10 hits (+0x26), then his
 death and the ending's start.
+window_giant1.txt: stage 1 from its midway point (<$81 = 1), Arthur put left of the town's lowest window (the
+giant at 1500, 0050) throwing at it: 10 hits (+0x26; window_giant_flinch at each), its turn, its death.
+pillar2.txt: stage 2's caves, Arthur held left of the pillar at 0260, 0248 throwing at it, unhurt (<$AD, the blink
+after a hit, written every 60 frames: player_hit_check lets nothing through while it lasts): its second attack, 4
+hits (+0x26), its death.
+magician_beaten0.txt: magician0's gravestone, then Arthur put 0x20 left of the magician (0100, 004E) as it comes,
+unhurt (<$AD as pillar2's): it can be hit only while it casts (+0 = 1, 16 frames; 2 as it comes and goes, which
+object_check_hits passes over) and the gravestone stops the shots thrown standing (003B), so a throw early in a
+jump (its row within 13 of the magician's): hit, dying.
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
 The lines are "FRAME PORT VALUE" (the byte as the board reads it, active low) and "FRAME mADDR VALUE" (the work
-RAM's byte at ADDR written at that frame's VBLANK), for gref and gng_headless (and makaimura --inputs); MAME's
+RAM's byte at ADDR written as the CPU takes the IRQ after that frame's VBLANK), for gref and gng_headless (and makaimura --inputs); MAME's
 tools/mame/trace.lua does not write the RAM, so tools/mame_trace.py does not take them."""
 import os
 
@@ -66,6 +75,8 @@ def pattern(name, step):
             held |= FIRE
         if step % 50 in (20, 21, 22):
             held |= JUMP
+    elif name == "jump_throw":
+        held = (JUMP, JUMP | FIRE, 0)[step] if step < 3 else (FIRE if step % 2 == 0 else 0)
     elif name == "crouch_throw":
         held = DOWN | (FIRE if step % 4 < 2 else 0)
     elif name == "wander":
@@ -136,6 +147,15 @@ def scenes():
     yield "astaroth6", scene("stage 6 of the second loop: Astaroth beaten with the cross, thrown at his head's height", 6,
                              [(2050, 0x1F30, 0x0A50, 2500, "throw_right", "camera")], 5000, ram=[(1410, 0x7F, 1)],
                              weapon=3)
+    unhurt = [(frame, 0xAD, 0x78) for frame in range(2300, 5000, 60)]
+    yield "window_giant1", scene("stage 1 from its midway point: the window giant beaten", 1,
+                                 [(2050, 0x14A0, 0x0047, 60, "throw_right", "camera")], 5000, ram=[(1410, 0x81, 1)])
+    yield "pillar2", scene("stage 2: a pillar beaten", 2, [(2050, 0x0200, 0x023E, 900, "throw_right", "camera")], 5000,
+                           ram=[(frame, 0xAD, 0x78) for frame in range(2050, 5000, 60)])
+    yield "magician_beaten0", scene("stage 0: the magician beaten", 0, [
+        (1960, None, None, 0, "walk"), (2030, None, None, 0, "crouch_throw"), (2340, 0x00E0, 0x003E, 40, "still", "camera"),
+        (2392, None, None, 0, "jump_throw"), (2432, None, None, 0, "still"), (2470, None, None, 0, "wander")], 5000,
+        ram=unhurt)
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 

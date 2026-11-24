@@ -80,8 +80,9 @@ Roughly in order; each milestone is checked against the reference before it is t
       service_pages): Big Man, the dragon, Red Arremer and Satan fought and beaten, the magician (type 7) and its
       spell, a stage's end through the key, the gate and the map, the weapon's and the illusion's messages, the
       ranking's initials (play_name_entry), the test mode's hidden pages (coin 1 held as it starts), Astaroth
-      beaten (astaroth6: only the cross, at his head's height). Left: object type 3 (no stage's list places it), some crows' and the
-      window giant's and the pillars' ways, the dragon's and Satan's last steps; their translation is checked
+      beaten (astaroth6: only the cross, at his head's height), the window giant, a pillar and the magician beaten
+      (window_giant1, pillar2, magician_beaten0). Left: object type 3 (no stage's list places it), some crows' ways,
+      the window giant's throw, the dragon's and Satan's last steps; their translation is checked
       instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of every
       instruction found, 50 states each), not in context
 
