@@ -42,12 +42,75 @@
 62AB  func  task_background_column  # 06: a column of the stage's map into the background layer (bank 2, <$6C)
 3:513B func task_draw_lives      # 07: the lives left, as icons (2390-23A0)
 3:527A func task_08              # 08: (player_hit_start, the state 4's: 0800, 0801)
-3:5336 func task_draw_bonus_lives  # 10: the bonus lives' scores (messages 0D, 0E; <$55)
+3:5336 func task_draw_bonus_lives  # 0A: the bonus lives' scores (messages 0D, 0E; <$55)
 3:5382 func task_draw_credit_count # 09
-3:53DE func task_draw_ranking    # 11: the ranking (message 10, ranking_order)
-3:542F func task_score_add       # 12: the points by B (the table 5492) added to score (BCD), the top score raised
-3:52F4 func task_draw_timer      # 13: the stage's timer (message 26, stage_timer)
-3:551E func task_background_clear  # 14: the background layer cleared (2800-2FFF)
+3:53DE func task_draw_ranking    # 0B: the ranking (message 10, ranking_order)
+3:542F func task_score_add       # 0C: the points by B (the table 5492) added to score (BCD), the top score raised
+3:52F4 func task_draw_timer      # 0D: the stage's timer (message 26, stage_timer)
+3:551E func task_background_clear  # 0E: the background layer cleared (2800-2FFF)
+3:594B func task_0F              # 0F: 1633- set to FF (7 bytes, and 40 on), then 5977
+3:5180 func task_10              # 10: a list of 7 texts (51A3) at 20A6
+3:5975 func task_11              # 11
+3:5977 func task_0F_b
+3:505B func draw_digit           # draw_bcd_byte's: one digit
+3:5064 func draw_number          # task_draw_credits', task_draw_timer's
+3:50A0 func draw_number_digits
+3:5157 func draw_lives_icons
+3:5178 func draw_lives_clear
+3:525E func task_08_a
+3:52A8 func task_08_b            # 4 words from 52D0 at 234E, their colours 0E
+3:534A func draw_bonus_life_1    # message 0D and its score
+3:535A func draw_bonus_life_2    # message 0E
+3:536B func draw_bonus_life_3    # with <$54 bit 0
+3:53C3 func draw_credit_count_digits
+3:541C func draw_ranking_entry
+3:55C6 func ram_test_pattern
+3:55D2 func ram_test_loop
+3:55DE func rom_test
+3:565A func rom_test_result
+3:567D func service_start
+3:5690 func service_pages        # the service mode by page: 0 the settings, 1 the scroll test, 2 the OBJ RAM test
+3:56D3 func service_settings_page
+3:56E7 func service_next_page    # the next page by the input
+3:573A func service_settings_tasks
+3:5747 func service_settings_steps
+3:5759 func service_settings_draw
+3:57C1 func service_dips_draw
+3:5801 func service_bonus_draw
+3:580F func service_bonus_1
+3:581F func service_bonus_2
+3:5830 func service_bonus_3
+3:5847 func service_inputs
+3:5874 func service_input_bits
+3:5883 func service_coin_counters
+3:58A6 func service_sound_test
+3:58F9 func service_sound_test_b
+3:5913 func service_scroll_page
+3:593E func service_scroll_tasks
+3:59B3 func service_scroll_move
+3:59FB func service_obj_page
+3:5A1D func service_obj_tasks
+3:5A2A func service_obj_test_a
+3:5A68 func service_obj_test_b
+3:5AD7 func game_over_0          # play_game_over's steps
+3:5AEC func game_over_ranking    #   the score into the ranking (ranking_order)
+3:5B1E func ranking_find
+3:5B30 func ranking_compare
+3:5B47 func ranking_insert
+3:5B09 func game_over_2
+3:5B88 func play_step3_start
+3:5B9E func play_step3_steps
+3:5BB2 func play_step3_0
+3:5C75 func play_step3_0_draw
+3:5BE1 func play_step3_1         # sounds 26, 2C, 25, 27
+3:5BEC func play_step3_2         # sound 28
+3:5C18 func play_step3_3
+3:5C56 func play_step3_3_a
+3:5D99 func play_step3_3_b
+3:5DB7 func play_step3_3_c
+3:5C2E func play_step3_4
+3:5E18 func play_step3_4_draw
+3:5C45 func play_step3_5
 0068  var  score  count=4        # the player's: 4 BCD bytes
 0055  var  bonus_scores  count=2 # where the bonus lives' scores are (player_start_lives: the DIP's table)
 
@@ -130,6 +193,48 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 7831  func  sound_1B_ff
 77F5  func  sound_0C_ff
 78C9  func  sound_3F
+77A3  func  sound_3A
+77C3  func  sound_01
+77C8  func  sound_02
+77CD  func  sound_03
+77D2  func  sound_04
+77D7  func  sound_05
+77DC  func  sound_06_ff
+77E1  func  sound_07_08
+77EB  func  sound_1D
+77F0  func  sound_0B_ff
+77FA  func  sound_0D
+77FF  func  sound_0E
+7804  func  sound_0F_ff
+7809  func  sound_10
+780E  func  sound_12_ff
+7818  func  sound_14_ff
+781D  func  sound_17_ff
+7827  func  sound_19
+782C  func  sound_1A_ff
+7836  func  sound_1C
+7840  func  sound_1E_ff
+784A  func  sound_20
+784F  func  sound_21_ff
+7854  func  sound_22_ff
+7859  func  sound_23_ff
+785E  func  sound_24
+7863  func  sound_25
+7868  func  sound_26
+786D  func  sound_27
+7872  func  sound_2C
+7877  func  sound_28
+787C  func  sound_3F_00_2F
+7887  func  sound_30
+7897  func  sound_32
+789C  func  sound_36_ff
+78A1  func  sound_37
+78A6  func  sound_38
+78B5  func  sound_3B
+78BA  func  sound_3C_ff
+78BF  func  sound_3D_ff
+78C4  func  sound_3E
+77A8  func  sound_coin           # sound_3F, then 35 and FF straight to the queue (coin_counters)
 788C  func  sound_3F_00_31       # sound_3F, sound_00, then 31
 68F9  func  random               # the random numbers: a shift register at <$6E-<$6F, its low byte in <$70 and B
 68DF  func  clear_sprites        # the sprite RAM's 1E00-1F7F set to F8 (off the screen), 24 PSHU of 16 bytes
@@ -166,6 +271,48 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 # ======== the game's steps (game_step, <$05: game_state_play's table 6F30) and their screens ========
 # (what each one shows: draw_message's numbers its queue_task(0x02NN) asks for)
 6C05  func  game_init            # a game's variables (the attract mode's demo too)
+6309  func  background_column_draw   # task_background_column's: the column B of the map (bank 2's 4200) at X
+633F  func  background_column_tiles  # (bank 0) its tiles and colours
+6378  func  background_column_source # X = 4000 + 40 * B
+6381  func  background_column_place  # U = its place in the background layer (280F, by <$FF)
+63AC  func  map_screen_wait          # stage_start_ready's map screen (stages' map: 1595-15AC), by its steps
+63B3  func  map_screen_start         #   the scroll kept (15A8), the screen drawn
+6400  func  map_marker_sprite        # the marker's sprite (1E14-1E17: the table 6481 by midway)
+6424  func  map_screen_scroll_wait
+6430  func  map_screen_scroll        #   scroll_x up to 8F
+6449  func  map_screen_marker
+6455  func  map_screen_end           #   the scroll back, the sprites cleared, tasks_busy
+6471  func  map_marker_blink         # its sprite blank every other 8 frames
+6619  func  irq_job_0                # the IRQ's round robin jobs (irq_round_robin_jobs)
+6693  func  irq_job_1
+6716  func  irq_job_palette_38C0     # 8 colours from 04C0 (through 0480) to the palette at 38C0
+671C  func  irq_job_palette_3880     # the same to 3880
+6793  func  coin_slot                # coin_counters' for each slot (X its record)
+67DB  func  coin_inputs              # the coin inputs (<$45) into 1591
+6812  func  coin_count               # a coin: the credits by its slot's setting (6839), the sound (sound_coin)
+6810  func  coin_count_x
+6839  func  coin_credit_step
+685F  func  start_clear              # game_state_start's steps: the sprites, the scroll, game_on 0
+6883  func  start_text_colours       #   the text layer's colours (2400-)
+689D  func  start_tasks              #   task 04 04 twice
+68BC  func  start_end                #   the variables cleared once tasks_busy is clear; the attract mode
+69A3  func  attract_demo_inputs
+69CB  func  attract_credits_check    # credits changed (<$24): to the credits' screen
+6A40  func  attract_title_wait       # attract_timer, then the next step
+6A5B  func  attract_ranking_credits  # attract_ranking's steps: task 01 15
+6A68  func  attract_ranking_draw     #   tasks 05, 0B
+6A80  func  attract_ranking_wait
+6AAD  func  attract_demo_setup_0
+6AFA  func  attract_demo_setup_1
+6B16  func  attract_demo_setup_2
+6B46  func  phase_next_if_zero       # stage_phase + 1 if Z
+6B4B  func  attract_demo_end         # then the title (or the credits' screen with credits or free play)
+6B6E  func  attract_credits_screen
+6BF8  func  attract_credits_wait
+6C55  func  rank_up                  # midway 0, player_rank + 4 (up to 3F)
+6CC8  func  stage_colours            # 4 colours from the table 6CAC by the stage
+6EFF  func  stage_enemy_settings     # bank 4's 4240 by the stage and the difficulty (<$9A), 8 entries
+0006  var  attract_timer            # 16 bits
 6C67  func  stage_setup          # a stage's start: its position (stage_start_position), the pools, its objects and
                                  # props from its lists, the timer
 6C9D  func  stage_reset          # the same where the stage is already set (the demo, 70E8): the pools, the lists, the timer
@@ -187,10 +334,60 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 76B3  func  continue_prompt
 6F64  func  stage_start          # stage_phase 0: "PLAYER ONE READY", the stage's start (player_states_6F86...)
 7097  func  stage_play           # stage_phase 1: a stage played
+6F98  func  stage_start_clear    # stage_start's steps: the screen cleared (tasks 01 1A, 0E), the sprites, the player's
+                                 # state 0; its sound (36)
+6FBF  func  stage_start_intro    #   the princess's intro (78CE) until stage_state is set
+6FD6  func  stage_start_music    #   the music (30)
+6FEE  func  stage_start_background_clear
+7009  func  stage_start_ready    #   "PLAYER ONE/TWO READY" (task 02: 23 + current_player) blinking every 32 frames
+703C  func  stage_start_ready_2  #   for phase_timer frames
+707C  func  stage_start_final    #   the last stage's (stage_state 2: the scroll set, the map at 415F)
+70A3  func  stage_play_restart   # stage_play by stage_substep: a stage set up again
+70B1  func  stage_play_setup
+70C0  func  stage_play_map
+70E8  func  stage_play_reset
+70D5  func  map_queue_clear      # 32 entries of 4 bytes down from 16B2
+75E0  func  player_died_wait     # player_died's steps, by stage_substep:
+75EC  func  player_died_wait_start
+75F3  func  player_died_count    #   death_timer, then a life less; none left: task 02 0B + current_player
+7616  func  player_died_pause    #   phase_timer
+7622  func  player_died_next     #   no lives: the game over (game_step 2); two players: swap them
+7642  func  players_swap         # current_player the other, its variables (0060-008F) swapped with 0440's; the
+                                 # screen flipped in a cocktail cabinet (<$53)
+7677  func  continue_start       # play_continue's steps:
+7689  func  tasks_wait           #   until tasks_busy is clear
+7690  func  continue_clear       #   the sprites, the sounds off, the text cleared (task 01 1A)
+76A6  func  continue_background_clear
+76F7  func  continue_choose      #   continue_accept, continue_countdown
+7723  func  continue_end
+7731  func  continue_end_clear
+773E  func  continue_end_swap
+0009  var  phase_timer          # a 16-bit wait of the stage's phases (stage_start, the ending's)
+000C  var  death_timer          # 16 bits: player_died's wait
+0026  var  two_players
+0027  var  current_player       # 0 the first, 1 the second (players_swap)
+00F0  var  tasks_busy           # set as the screen's tasks are asked for (cleared by them); tasks_wait waits for it
 75D2  func  player_died          # stage_phase 3: after a death, by <$0B (75DA)
 6A08  func  attract_title_coin   # the title: "PLEASE DEPOSIT COIN", the copyright, the title's logo
 6B90  func  attract_title_start  # the title with credits: "PRESS START BUTTON"
 7177  func  weapon_no_effect     # stage 5 cleared without the cross: "THIS WEAPON HAS NOT EFFECT..."
+71B0  func  weapon_no_effect_wait  # phase_timer, then stage 4 again
+7241  func  ending_restart       # phase_timer, then the first loop's first stage
+728E  func  illusion_wait        # phase_timer, then the second loop's first stage
+72A5  func  stage_key            # a boss beaten (stages 0-4), by stage_step: the key's message (key_message), Arthur
+72CC  func  stage_key_walk       #   walked by the demo's inputs (demo_controls) to the gate
+7307  func  stage_key_walk_on
+7341  func  stage_key_gate       #   the gate: timer 32
+7350  func  stage_key_gate_open  #   its sound (3B), the music off
+7379  func  stage_key_armour     #   Arthur's armour back (player_naked 0)
+738B  func  stage_key_next       #   the next stage (0 after 6), the rank up (6C55)
+73AD  func  stage_map            # the map between stages, by stage_substep:
+73C1  func  stage_map_start
+73D0  func  stage_map_icon       #   the record at 0530 moved
+747B  func  stage_map_marker     #   the map's marker (15A2: the table 7492 by the stage)
+749E  func  stage_map_marker_move
+750B  func  stage_map_wait       #   death_timer, the text at 2292 (stages 0-3) or its other place
+7559  func  stage_map_return     # (an RTS)
 7272  func  illusion_message     # the first loop's last stage: "THIS ROOM IS AN ILLUSION..."
 72BB  func  key_message          # "TAKE A KEY FOR COMING IN !"
 7D1A  func  final_battle_message # "RESOLVE YOUR BATTLE !"
@@ -219,6 +416,53 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 9ED4  func  armour_piece_flight
 9EDE  func  armour_piece_end
 9E14  func  player_on_props      # the props (the 30 at 1000) the player stands on or runs into (the table 9EB8 by type)
+91EC  func  player_ladder_frames     # by player_naked (the table 922F)
+931A  func  player_transformed       # state 4 (the magician's spell), by its steps; its sound every 32 frames
+934A  func  player_transformed_move
+9373  func  player_transformed_sound
+97E7  func  player_transform_start   # task 08 01, sound 02
+9801  func  player_transform_blink
+982B  func  player_transformed_wait
+984B  func  player_transform_end     # task 08 00, sound 02
+9854  func  player_transform_back_blink
+9871  func  player_transform_back
+9768  func  player_transformed_frames
+9770  func  player_transformed_frames_b
+93A5  func  player_state_5_start     # sound 1E, the frames 97AD
+9415  func  player_jump_start        # its frames, sound 04
+942B  func  player_jump_up_way       # facing Astaroth or turned in the air, then up
+9436  func  player_jump_rise
+9442  func  player_jump_rise_left
+946A  func  player_jump_down_way
+9475  func  player_jump_fall
+988E  func  player_rest_frames       # standing or crouching (player_crouching)
+9895  func  player_face_right_frames # facing right, standing (the cut scenes' Arthur)
+9899  func  player_stand_frames      # the frames 989F
+9901  func  player_crouch_frames     # the frames 9907
+98AB  func  player_crouch_input
+98F0  func  player_crouch_start      # timer 0F
+98F7  func  player_crouch_timer
+99ED  func  player_hit_bounce        # the hit's speeds
+9A78  func  player_death_animation
+9AB4  func  player_death_frames
+9B1B  func  shot_set_moves
+9B3A  func  shot_move                # x and y by its moves, animated (every weapon's flight)
+9B71  func  shot_speeds
+9B7A  func  torch_fall
+9B81  func  torch_fall_move
+9BA8  func  torch_burn_start         # on the ground: its fire (sound 0E)
+9BB5  func  torch_burning
+9BD2  func  shot_hit_end
+9BEB  func  shot_free
+9BF3  func  shot_hit_enemy           # sound 0D, a spark
+9C0D  func  shot_hit_other
+9C25  func  shot_spark
+9C2B  func  shot_spark_b
+9CE9  func  axe_fall
+9D0E  func  cross_dagger_far
+9D17  func  cross_dagger_move
+9D1E  func  shot_flight_end
+9D26  func  cross_dagger_end
 9F0C  func  objects_handlers     # each object's handler by its type (4:4712), and one of two by the frame's parity
 691C  func  demo_controls        # with no game on (<$28 = 0): the attract demo's controls, from a list in bank 2 (<$4E:
                                  # a byte of inputs, then how many frames it lasts)
@@ -277,6 +521,43 @@ field object D moves_low u8
 A2A1  func  move_by_animation    # the object moved by its animation's step, from its own table (U = moves: move_by_table)
 A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += the one at U+2
 8E47  func  towards_player       # the distance to the player (player_x, player_y) by x and y, their signs in <$E1, the direction
+# the scroll: the camera's record at 0630 (X 0640), by its state (0633) and step (0634)
+7E84  func  scroll_frame         # each frame (objects_frame, stage_cleared)
+7F03  func  scroll_set_up        # the same at a stage's set-up (its flags back)
+7F0E  func  scroll_start         # state 0, by step:
+7F1A  func  scroll_start_0
+7E8F  func  scroll_start_0_a
+7ECC  func  scroll_start_0_b
+7EE1  func  scroll_start_0_c
+7F7C  func  scroll_start_1       #   the columns (scroll_columns_a), 0647 frames
+7F95  func  scroll_start_2       #   the columns (scroll_columns_b), then state 1
+7FB9  func  scroll_follow        # state 1: the camera from the record's x and y (camera_x, scroll_x, camera_y, scroll_y)
+7FD5  func  scroll_keep          # the scroll's last values kept (064C-, <$6C, <$B8-<$C7)
+8001  func  scroll_follow_x
+8033  func  scroll_columns_a     # the map's columns into the background layer as it scrolls one way
+804A  func  scroll_columns_a_draw
+80C5  func  map_column_tiles
+80F1  func  map_column_a
+818B  func  map_column_colours
+82BA  func  scroll_columns_b     # the other way
+82D1  func  scroll_columns_b_draw
+8351  func  map_column_b
+8366  func  map_column_b_draw
+84DA  func  scroll_layer_copy    # a column from the buffer at 0388 (to 03B0) into the layer
+8514  func  scroll_layer_copy_loop
+8527  func  scroll_follow_y      # the rows as it scrolls up or down
+85E6  func  scroll_rows_a
+8666  func  scroll_rows_a_draw
+8703  func  scroll_rows_b
+87DD  func  map_row_tiles
+880F  func  map_row_b
+882F  func  map_row_b_draw
+891F  func  map_row_colours
+8955  func  scroll_rows_c
+898F  func  scroll_rows_c_draw
+8DE7  func  map_event            # bank 2's map events (4300 by <$91): its sounds (sound_request)
+8B7D  func  background_wall_right  # the background's tile right of the player (player_walk, player_wall_right)
+8BAF  func  background_wall_left
 8B0A  func  background_check     # the background's tile under the object (background_tile, offset by the table 8C09 by -$1,X)
                                  # and what the table 448E says of it (the stage's ground, walls, ladders)
 8C35  func  background_tile      # Y = the background layer's tile (2800-2BFF) at the stage's position <$EC (x), <$EE (y)
@@ -299,6 +580,170 @@ A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += 
 # 170-17F), type 3 the moving platforms (160-162); type 0 the holes in the walls and trees things come out of
 # (sprites 078-08F, 030). The enemy shots (13C0-147F) by type: 5 the pillars' balls (090-09F), 6 the man-eater
 # plant's eyes (1B0-1BF)
+# E000-FFFF: the props' and items' states (by state, step, type: numbered by their switches), the enemies'
+# bursts, the stage's checks (the event record at 0660, the 16 spawners 0x20 apart at 0680), the collisions,
+# the sprites, the enemy shots
+E25D  func  prop_states
+E26D  func  prop_states_0
+E2A8  func  prop_alive
+E2B4  func  prop_alive_0
+E2CA  func  prop_alive_1
+E2D2  func  prop_by_type
+E2F0  func  prop_by_type_4
+E2FC  func  prop_by_type_4_0
+E307  func  prop_by_type_0
+E341  func  prop_by_type_1
+E34A  func  prop_by_type_0_0
+E36D  func  prop_by_type_0_1
+E390  func  prop_by_type_0_2
+E3CA  func  prop_by_type_2
+E3E5  func  prop_by_type_3
+E3F1  func  prop_by_type_3_0
+E417  func  prop_by_type_2_0
+E453  func  prop_by_type_5
+E45F  func  prop_by_type_5_0
+E464  func  prop_by_type_5_1
+E536  func  prop_states_2
+E540  func  prop_states_2_0
+E546  func  prop_states_2_1
+E54F  func  prop_states_3
+E57B  func  item_states
+E58B  func  item_states_0
+E5B8  func  item_alive
+E5CE  func  item_alive_0
+E5F4  func  item_alive_0_0
+E613  func  item_alive_0_1
+E624  func  item_alive_1
+E630  func  item_alive_1_0
+E63F  func  item_alive_1_1
+E678  func  item_alive_2
+E684  func  item_alive_2_0
+E68A  func  item_alive_2_1
+E6AB  func  item_alive_3
+E6E6  func  item_alive_3_0
+E6FA  func  item_alive_3_1
+E70A  func  item_alive_3_2
+E731  func  item_alive_3_3
+E76A  func  item_states_2
+E774  func  item_states_2_0
+E77A  func  item_states_2_1
+E783  func  item_states_3
+E7A3  func  burst_small
+E7AF  func  burst_small_0
+E7CE  func  burst_medium
+E7DA  func  burst_medium_0
+E7EF  func  burst_large
+E7FD  func  burst_large_1
+E818  func  burst_astaroth
+E826  func  burst_astaroth_0
+E83B  func  burst_astaroth_1
+E855  func  burst_astaroth_2
+E8B7  func  stage_event
+E976  func  spawners_frame
+E997  func  spawners_frame_0
+E9C3  func  spawner_alive
+E9D0  func  spawner_alive_0
+E9FB  func  spawner_alive_1
+EA50  func  spawner_alive_0_1
+EA7C  func  spawner_alive_0_0
+EA7D  func  spawner_alive_1_3
+EA8B  func  spawner_alive_1_0
+EAB8  func  spawner_alive_2
+EBCB  func  spawner_alive_1_1
+EBF1  func  spawner_alive_1_2
+EC2A  func  spawners_frame_2
+EC36  func  spawners_frame_2_0
+EC46  func  spawners_frame_2_1
+EC5B  func  spawners_frame_2_2
+ECF2  func  stage_effect_a
+ED12  func  stage_effect_a_0
+ED21  func  stage_effect_a_1
+ED2A  func  stage_effect_a_2
+ED33  func  stage_effect_a_1_0
+ED46  func  stage_effect_a_0_0
+ED5C  func  stage_effect_b
+ED9F  func  stage_effect_b_1
+EE2C  func  stage_effect_c
+EE42  func  stage_effect_c_0
+EE53  func  stage_effect_c_2
+EE54  func  stage_effect_c_4
+EE73  func  collisions_frame
+F6F2  func  sprites_frame
+FBD4  func  enemy_shot_states
+FBE4  func  enemy_shot_start
+FC04  func  enemy_shot_start_1
+FC11  func  enemy_shot_start_11
+FC21  func  enemy_shot_start_0
+FC28  func  enemy_shot_start_4
+FC73  func  enemy_shot_start_8
+FC89  func  enemy_shot_start_6
+FC91  func  enemy_shot_start_7
+FC99  func  enemy_shot_start_0_0
+FDDF  func  enemy_shot_flight
+FDFF  func  enemy_shot_flight_4
+FE1A  func  enemy_shot_flight_0
+FE26  func  enemy_shot_states_2
+FE29  func  enemy_shot_states_3
+E21D  func  prop_alive_move       # (prop_alive_1, prop_alive_2)
+EE15  func  stage_effect_d
+EE63  func  player_blink_tick     # player_blink_on counted down, the frames back at its end
+F057  func  player_touch_check    # the player against the objects (not while blinking)
+F32A  func  shots_hit_check       # Arthur's shots against the objects (the weapon's tables F3EA, F3AE)
+F48C  func  player_hit_check      # the player against the enemy shots
+F6BE  func  player_fell_check     # the player below the camera's bottom: player_dead
+FBB3  func  enemy_shots_frame     # the 6 enemy shots (13C0, X 13D0): on screen every 4 frames, by state
+FE34  func  divide                # A:B by 8 steps of shift and subtract
+FE4C  func  divide_16
+EEA6  func  object_check_hits     # (objects_handlers) an object on screen against Arthur's shots
+E898  func  stage_checks          # stage_frame's: the stage's event (0660), the spawners (0680), the timer, effects
+73EA  func  stage_map_icon_0
+743B  func  stage_map_icon_1
+744E  func  stage_map_icon_2
+746C  func  stage_map_icon_3
+7AB7  func  princess_intro_0
+7ACA  func  princess_intro_1
+7AF1  func  princess_intro_2
+7AFE  func  princess_intro_3
+7BBF  func  intro_demon_4_0
+7BE3  func  princess_carried     # the princess moved with the demon (princess_intro, intro_demon_4)
+E3FD  func  prop_by_type_3_0_0
+E408  func  prop_by_type_3_0_1
+E438  func  prop_by_type_2_0_0
+E445  func  prop_by_type_2_0_1
+E653  func  item_alive_1_1_0
+E660  func  item_alive_1_1_1
+E8CA  func  stage_event_0
+E8D4  func  stage_event_0_0
+E8F0  func  stage_event_0_1
+E934  func  stage_event_0_1_0
+E93F  func  stage_event_1
+E949  func  stage_event_1_0
+E94F  func  stage_event_1_1
+EB42  func  enemy_killed_0
+EB51  func  enemy_killed_1
+EB76  func  enemy_killed_2
+EB7B  func  enemy_killed_1_0
+ECA3  func  return_ECA3          # an RTS (key_message, midway_check, stage_timer_tick...)
+ECB0  func  midway_reached       # the stage's midway (the table ECE4): the music, its sound
+ED7D  func  stage_effect_b_0
+ED8E  func  stage_effect_b_2
+F71F  func  sprites_draw_player  # sprites_frame's groups: the player (0500)
+F725  func  sprites_draw_princess  # 15B2
+F72B  func  sprites_draw_objects # the 40 objects (0880)
+F741  func  sprites_draw_shots   # Arthur's shots (0530)
+F757  func  sprites_draw_enemy_shots  # 13C0
+F76D  func  sprites_draw_props   # the 30 props (1000)
+F7EC  func  draw_kind_0        # object_draw_sprites by the animation_kind (-1,X; its offsets at F7C0): its sprites
+F806  func  draw_kind_1
+F82E  func  draw_kind_2
+F85D  func  draw_kind_3
+F8A1  func  draw_kind_4
+F936  func  draw_kind_5
+F97A  func  draw_kind_6
+FA7D  func  draw_kind_7
+FAD7  func  draw_kind_8
+FB09  func  draw_kind_9
+FB76  func  draw_kind_10
 E1FC  func  props_frame          # each of the 30 props in use (-$10,X): its routine by its state (E25D)
 8F0E  func  player_frame         # the player's routine (player_states), its blink, then player_x, player_y
 8F1E  func  player_states        # by the player's state (-$D,X: 8F2A)
@@ -429,6 +874,68 @@ EAEC  func  enemy_killed         # the record at Y (what is left of it) set up a
 007D  var  item_next             # 0-6, one up an item
 E55A  func  items_frame          # the two records at 15D2 and 1602 (0x30 apart), each one's routine
 F783  func  items_draw
+# the princess's intro (stage 0's start: intro by stage_substep) and the ending (ending_frame), their records:
+# the player (0500, X 0510), the princess (15B2), the first object (0880: the demon), the record at 0530; by step numbers
+78CE  func  intro
+78E1  func  intro_clear
+7907  func  intro_frame
+793F  func  intro_arthur
+7B29  func  intro_demon
+7B03  func  intro_obj0530
+792A  func  intro_draw
+7AA0  func  intro_done
+794F  func  intro_arthur_0
+797F  func  record_appear
+7993  func  intro_arthur_1
+79AD  func  intro_arthur_1_0
+79C7  func  intro_arthur_1_1
+79D1  func  intro_arthur_1_2
+79E0  func  intro_arthur_1_3
+79EB  func  intro_arthur_2
+79F7  func  intro_arthur_2_0
+7A12  func  intro_arthur_2_2
+7A35  func  intro_arthur_3
+7A45  func  intro_arthur_3_0
+7A55  func  intro_arthur_3_1
+7A73  func  intro_arthur_3_2
+7A7C  func  intro_arthur_3_3
+7A91  func  intro_arthur_3_4
+7B0F  func  intro_obj0530_0
+7B1D  func  intro_obj0530_1
+7B4D  func  intro_demon_0
+7B6C  func  intro_demon_1
+7B83  func  intro_demon_2
+7B9C  func  intro_demon_3
+7BFC  func  intro_demon_5
+7C0D  func  intro_demon_6
+7C3F  func  ending_frame
+7C56  func  ending_arthur
+7C64  func  ending_arthur_0
+7C9B  func  ending_arthur_1
+7CA4  func  ending_arthur_2
+7CA5  func  ending_princess
+7CB3  func  ending_princess_0
+7CD8  func  ending_princess_1
+7CE5  func  ending_princess_2
+7D0C  func  ending_demon
+7D3B  func  ending_demon_1
+7D3E  func  ending_demon_2
+7D5C  func  ending_walk
+7D68  func  ending_walk_0
+7D72  func  ending_walk_1
+7D84  func  ending_walk_1_0
+7DA8  func  ending_walk_1_1
+7DC4  func  ending_walk_1_2
+7DF8  func  ending_walk_1_3
+7E18  func  ending_walk_1_4
+7E1F  func  ending_scene
+7E2F  func  ending_scene_0
+7E3F  func  ending_scene_1
+7E5B  func  ending_scene_2
+7E6A  func  ending_scene_3
+797B  func  record_appear_flag   # -1,X = 1, then record_appear
+7BB5  func  intro_demon_4
+7C1F  func  demon_record_clear  # 0884-088F cleared
 7AA5  func  princess_intro       # the princess's record (15B2) at the first stage's start: carried away (by its state)
 
 # ======== the sprites: each frame from sprites_begin, the objects' through object_draw, the rest hidden ========
@@ -468,19 +975,335 @@ DA21  func  object_astaroth    # type 13; stage 6, the ending: the last room's d
 DD60  func  object_bridge_flame  # type 14; stage 3: the flames that rise under the bridge (sprites 160-16F: midway3)
 DDF8  func  object_type_16     # types 16 and 17 (15 unused: 0000); every stage, the attract mode; 17 is the man-eater plant (sprites 0D0-0DF: stages 0, 1)
 DF0F  func  object_pillar      # type 18; stage 2: the caves' grey stone pillars (sprites 090-09F)
+# types 16-17 (17 the man-eater plant): wait to be on screen, face the player, pause (a list of pauses), an eye
+DE52  func  type_16_wait         # alive's step 0: until on screen
+DE59  func  type_16_watch        # step 1: facing the player, the next pause from its list (pause, sequence)
+DE65  func  type_16_face_player
+DE7D  func  type_16_pause
+DEA1  func  type_16_shoot        # step 2: 18 frames, then an eye (an enemy shot of type 6)
+DEAD  func  type_16_shoot_start
+DEB9  func  type_16_shooting
+DEF3  func  type_16_hit          # dying: sound 1B
+DEFC  func  type_16_dying_end
+param type_16_start x type_16 object.type_16+10
+param type_16_alive x type_16 object.type_16+10
+param type_16_wait x type_16 object.type_16+10
+param type_16_watch x type_16 object.type_16+10
+param type_16_face_player x type_16 object.type_16+10
+param type_16_pause x type_16 object.type_16+10
+param type_16_shoot x type_16 object.type_16+10
+param type_16_shoot_start x type_16 object.type_16+10
+param type_16_shooting x type_16 object.type_16+10
+param type_16_dying x type_16 object.type_16+10
+param type_16_hit x type_16 object.type_16+10
+param type_16_dying_end x type_16 object.type_16+10
+param type_16_remove x type_16 object.type_16+10
+scoped object type_16 16 pause u8          # the frames to the next eye (its list: sequence)
+scoped object type_16 18 sequence u8       # 18-19: the list of pauses (bit 7: a jump to the word after)
+scoped object type_16 19 sequence_low u8
+scoped object type_16 1D shoot_timer u8
+# the pillar: wait to be on screen, watch (two counters by two lists, the player within 30 rows), then one of three
+# attacks (the table E012 by which counters ran out), each: aim, open, fire, wait, close
+DF7F  func  pillar_wait          # alive's step 0: until on screen
+DF86  func  pillar_watch         # step 1, by its substep:
+DFA0  func  pillar_face_player
+DFCB  func  pillar_count_a       #   counter_a from list_a: run out, ready bit 2
+DFE6  func  pillar_count_b       #   counter_b from list_b: run out, ready bit 1
+E001  func  pillar_choose        #   the attack (step and substep) by ready (the table E012)
+E01A  func  pillar_attack_1      # step 2
+E12A  func  pillar_attack_2      # step 3
+E171  func  pillar_attack_3      # step 4 (both shots)
+E02C  func  pillar_aim           #   the attacks' substeps: timer 1E
+E033  func  pillar_open
+E093  func  pillar_close
+E061  func  pillar_attack_1_fire
+E070  func  pillar_attack_1_wait
+E13C  func  pillar_attack_2_fire
+E14B  func  pillar_attack_2_wait
+E183  func  pillar_attack_3_fire
+E198  func  pillar_attack_3_wait
+E0D4  func  pillar_shoot_a       # an enemy shot (type 5: a ball)
+E0FF  func  pillar_shoot_b
+E1CF  func  pillar_hit           # dying: sound 1B
+E1DC  func  pillar_dying_end
+param pillar_start x pillar object.pillar+10
+param pillar_alive x pillar object.pillar+10
+param pillar_wait x pillar object.pillar+10
+param pillar_watch x pillar object.pillar+10
+param pillar_face_player x pillar object.pillar+10
+param pillar_count_a x pillar object.pillar+10
+param pillar_count_b x pillar object.pillar+10
+param pillar_choose x pillar object.pillar+10
+param pillar_attack_1 x pillar object.pillar+10
+param pillar_aim x pillar object.pillar+10
+param pillar_open x pillar object.pillar+10
+param pillar_attack_1_fire x pillar object.pillar+10
+param pillar_attack_1_wait x pillar object.pillar+10
+param pillar_close x pillar object.pillar+10
+param pillar_shoot_a x pillar object.pillar+10
+param pillar_shoot_b x pillar object.pillar+10
+param pillar_attack_2 x pillar object.pillar+10
+param pillar_attack_2_fire x pillar object.pillar+10
+param pillar_attack_2_wait x pillar object.pillar+10
+param pillar_attack_3 x pillar object.pillar+10
+param pillar_attack_3_fire x pillar object.pillar+10
+param pillar_attack_3_wait x pillar object.pillar+10
+param pillar_dying x pillar object.pillar+10
+param pillar_hit x pillar object.pillar+10
+param pillar_dying_end x pillar object.pillar+10
+param pillar_remove x pillar object.pillar+10
+scoped object pillar 16 counter_a u8
+scoped object pillar 17 counter_b u8
+scoped object pillar 18 list_a u8         # 18-19, 1A-1B: the counters' lists (bit 7: a jump to the word after)
+scoped object pillar 19 list_a_low u8
+scoped object pillar 1A list_b u8
+scoped object pillar 1B list_b_low u8
+scoped object pillar 1C ready u8           # bit 1: counter_b ran out, bit 2: counter_a
+scoped object pillar 1D timer u8
 # each type's handler by the object's state (-$D,X), as Arthur's shots: 0 its start, 1 alive (by its variant, -$E,X),
 # 2 dying (hit), 3 removed (one more of its type may come: type_room; its record free)
 9F51  func  type_00_start
 A039  func  type_00_alive
 A25B  func  type_00_dying
 A285  func  type_00_remove
+# type 0 by variant: 0 the stage 4-5 walls' flier (out, at the player, firing), 1, 2 (the points: 030)
+9F5F  func  type_00_init
+9FB3  func  type_00_start_1
+9FBF  func  type_00_start_1_begin
+9FC7  func  type_00_start_1_move
+9FE5  func  type_00_start_2
+9FF1  func  type_00_start_2_begin
+A008  func  type_00_start_2_wait
+A045  func  type_00_flier        # alive's variant 0: its sound (7827), its moves, its shots (by the record at -20)
+A05F  func  type_00_flier_start
+A072  func  type_00_flying
+A07D  func  type_00_flier_turn   #   by the player's x
+A1F9  func  type_00_flier_aim
+A22E  func  type_00_flier_shoot  #   an enemy shot
+A0B8  func  type_00_v1           # variant 1, by substep
+A0C0  func  type_00_v1_frames
+A0DE  func  type_00_v1_aim       #   by the player's y
+A124  func  type_00_v1_move
+A14D  func  type_00_v1_next
+A167  func  type_00_v1_end
+A16C  func  type_00_v2           # variant 2, by substep
+A17C  func  type_00_v2_start
+A1A6  func  type_00_v2_move
+A1C6  func  type_00_v2_follow
+A1E1  func  type_00_v2_end
+A267  func  type_00_hit          # dying: sound 1B
+A27D  func  type_00_dying_end
 A2D4  func  crow_start
 A347  func  crow_alive
 A6E9  func  crow_dying
+# the crow (type 1) by its variant: 0 flies in on a wave towards the player and past him (maybe turning back),
+# 1 the same after blinking in, 2 the caves' bat (hangs, dives, flies off on a wave), 3 perches facing the player,
+# cawing, then flies at him, 4 flies in from a side on a wave, 5 the graveyard's (perches, then the wave)
+A35B  func  crow_flier           # variant 0, by step:
+A367  func  crow_enter           #   into the screen at double speed
+A380  func  crow_wave_flight     #   by substep: to the player, turn or not, wait, turn, straight on
+A392  func  crow_wave_to_player
+A3A0  func  crow_passed_player
+A3B8  func  crow_wave            # y on the sine table (bank 4's 4140) by wave_phase, wave_height (the table 4B64 at random)
+A413  func  crow_turn_or_not     #   at random: on, or turn after a while
+A423  func  crow_turn_wait_start
+A43B  func  crow_turn_wait       #   then the other way (moves 4B14)
+A45F  func  crow_straight_on
+A468  func  crow_fly_away        #   step 2: on the wave until off the screen
+A474  func  crow_blinker         # variant 1: blinking in (30 frames), then as variant 0
+A480  func  crow_appear
+A48C  func  crow_appear_start
+A492  func  crow_appearing
+A4CA  func  crow_bat_hang        # variant 2's steps: hanging until on screen and a random wait
+A4D6  func  crow_bat_hang_start
+A4DB  func  crow_bat_hanging
+A4E9  func  crow_random_wait     # timer from its list (waits) at random
+A4F6  func  crow_bat_wake
+A50B  func  crow_bat_dive        # a half sine down and up (dive_depth at random, the table A517)
+A527  func  crow_bat_dive_start
+A54F  func  crow_bat_diving
+A57B  func  crow_bat_fly_off     # on a wave (moves 4B0C)
+A587  func  crow_bat_fly_off_start
+A593  func  crow_bat_flying_off
+A59F  func  crow_percher         # variant 3:
+A5CF  func  crow_perch           #   by substep: on screen, a pose and a wait at random, facing the player
+A5E5  func  crow_perch_start
+A5EF  func  crow_perch_pose
+A61E  func  crow_return          # (an RTS)
+A61F  func  crow_perched         #   turning to the player's side, a caw (sound) every 64 frames
+A658  func  crow_take_off        #   step 1: at the player (moves 4B24)
+A664  func  crow_take_off_start
+A674  func  crow_flying
+A67D  func  crow_player_side     # A: 0 the player to the right, 1 to the left (towards_player)
+A68C  func  crow_side_flier      # variant 4: in from a side, then on a wave
+A5A9  func  crow_enter_side
+A696  func  crow_wave_off
+A6A2  func  crow_wave_start      # moves 4B1C
+A6AD  func  crow_waving
+A6C3  func  crow_graveyard_fly   # variant 5's step 1
+A6CF  func  crow_flight_frames
+A6D1  func  crow_frames_by_side  # the frames by A (the side) and the variant (tables A5DD, A5E1)
+A6E2  func  crow_set_frames
+A6F5  func  crow_hit             # dying: its sound (7818)
+A6FE  func  crow_dying_end
+param crow_start x crow object.crow+10
+param crow_alive x crow object.crow+10
+param crow_flier x crow object.crow+10
+param crow_enter x crow object.crow+10
+param crow_wave_flight x crow object.crow+10
+param crow_wave_to_player x crow object.crow+10
+param crow_passed_player x crow object.crow+10
+param crow_wave x crow object.crow+10
+param crow_turn_or_not x crow object.crow+10
+param crow_turn_wait_start x crow object.crow+10
+param crow_turn_wait x crow object.crow+10
+param crow_straight_on x crow object.crow+10
+param crow_fly_away x crow object.crow+10
+param crow_blinker x crow object.crow+10
+param crow_appear x crow object.crow+10
+param crow_appear_start x crow object.crow+10
+param crow_appearing x crow object.crow+10
+param crow_bat x crow object.crow+10
+param crow_bat_hang x crow object.crow+10
+param crow_bat_hang_start x crow object.crow+10
+param crow_bat_hanging x crow object.crow+10
+param crow_random_wait x crow object.crow+10
+param crow_bat_wake x crow object.crow+10
+param crow_bat_dive x crow object.crow+10
+param crow_bat_dive_start x crow object.crow+10
+param crow_bat_diving x crow object.crow+10
+param crow_bat_fly_off x crow object.crow+10
+param crow_bat_fly_off_start x crow object.crow+10
+param crow_bat_flying_off x crow object.crow+10
+param crow_percher x crow object.crow+10
+param crow_enter_side x crow object.crow+10
+param crow_perch x crow object.crow+10
+param crow_perch_start x crow object.crow+10
+param crow_perch_pose x crow object.crow+10
+param crow_perched x crow object.crow+10
+param crow_take_off x crow object.crow+10
+param crow_take_off_start x crow object.crow+10
+param crow_flying x crow object.crow+10
+param crow_player_side x crow object.crow+10
+param crow_side_flier x crow object.crow+10
+param crow_wave_off x crow object.crow+10
+param crow_wave_start x crow object.crow+10
+param crow_waving x crow object.crow+10
+param crow_graveyard x crow object.crow+10
+param crow_graveyard_fly x crow object.crow+10
+param crow_flight_frames x crow object.crow+10
+param crow_frames_by_side x crow object.crow+10
+param crow_set_frames x crow object.crow+10
+param crow_dying x crow object.crow+10
+param crow_hit x crow object.crow+10
+param crow_dying_end x crow object.crow+10
+param crow_remove x crow object.crow+10
+scoped object crow 16 dive_y u8          # 16-17: the bat's y before its dive
+scoped object crow 17 dive_y_low u8
+scoped object crow 18 wave_count u8      # the wave's turns (19-1A its phase)
+scoped object crow 19 wave_phase u8
+scoped object crow 1A wave_phase_low u8
+scoped object crow 1B blink_time u8
+scoped object crow 1C wave_height u8     # the bat's dive depth too
+scoped object crow 1D wave_speed u8      # (the table 4B74 by it, unless wave_fixed)
+scoped object crow 1E perch_time u8
+scoped object crow 1F timer u8
+scoped object crow 20 wave_fixed u8
+scoped object crow 2C waits u8           # 2C-2D: its list of waits
+scoped object crow 2D waits_low u8
 A4BC  func  crow_bat             # variant 2: the caves' bats (stage 2: sprites 0E0-0EF)
 A6B9  func  crow_graveyard       # variant 5: the graveyard's crows (stage 0: sprites 0C0-0CF)
-A9E9  func  petite_devil_stage1  # variant 0 (stage 1's towers), variant 2 (AAC0) stage 4's
-AAC0  func  petite_devil_stage4
+# the petite devil: its start by variant (0 stage 1's towers: out of a window; 1; 2 stage 4's: a random timer),
+# then alive by step: 0 flies out, 1 swoops at the player's height (swoops_left times, shooting), 2 turns, 3 leaves
+A734  func  petite_devil_start_window   # variant 0: hidden, out of a window (its list ADF3), then facing the player
+AD48  func  petite_devil_window
+AD54  func  petite_devil_window_start
+AD76  func  petite_devil_window_list
+AD8C  func  petite_devil_window_out
+A740  func  petite_devil_face_player
+A773  func  petite_devil_start_1
+A796  func  petite_devil_start_random   # variant 2 (stage 4)
+A7DB  func  petite_devil_init    # alive (state 1): moves A8ED, 4 swoops, the player's height its target
+A7FF  func  petite_devil_move    # not above row 36; past the stage's x 11ED behind the player, leaves (step 3)
+A9E9  func  petite_devil_fly_out # alive's step 0
+A9F5  func  petite_devil_fly_out_start
+A9FF  func  petite_devil_flying_out
+AA38  func  petite_devil_fly
+AA49  func  petite_devil_swoop   # step 1, by substep:
+AA59  func  petite_devil_swoop_start
+AA87  func  petite_devil_swooping
+AA9F  func  petite_devil_hover_start
+AAAD  func  petite_devil_hovering
+AAC0  func  petite_devil_turn    # step 2: its animation (way) turned a step at a time
+AAD0  func  petite_devil_turn_start
+AB06  func  petite_devil_turn_down
+AB21  func  petite_devil_turn_up
+AB36  func  petite_devil_turn_back
+AB4D  func  petite_devil_leave   # step 3: off its way (the table AB6A)
+AB59  func  petite_devil_leave_start
+AB6E  func  petite_devil_turn_right   # animation + 1 every turn_rate frames, up to turn_to
+AB83  func  petite_devil_turn_left
+AB98  func  petite_devil_random_timer # timer 50-6F
+ABA2  func  petite_devil_swoop_timer  # by <$9A (the table ABB9) and at random
+ABCD  func  petite_devil_aim     # the way to the target (towards_player)
+AC58  func  petite_devil_aim_way
+AC78  func  petite_devil_shoot_check  # shot_timer run out: shot_ready
+AC88  func  petite_devil_shoot   # an enemy shot
+AD27  func  petite_devil_hit     # dying: its sound (7818)
+AD30  func  petite_devil_dying_end
+param petite_devil_start x petite_devil object.petite_devil+10
+param petite_devil_start_window x petite_devil object.petite_devil+10
+param petite_devil_face_player x petite_devil object.petite_devil+10
+param petite_devil_start_1 x petite_devil object.petite_devil+10
+param petite_devil_start_random x petite_devil object.petite_devil+10
+param petite_devil_init x petite_devil object.petite_devil+10
+param petite_devil_move x petite_devil object.petite_devil+10
+param petite_devil_alive x petite_devil object.petite_devil+10
+param petite_devil_fly_out x petite_devil object.petite_devil+10
+param petite_devil_fly_out_start x petite_devil object.petite_devil+10
+param petite_devil_flying_out x petite_devil object.petite_devil+10
+param petite_devil_fly x petite_devil object.petite_devil+10
+param petite_devil_swoop x petite_devil object.petite_devil+10
+param petite_devil_swoop_start x petite_devil object.petite_devil+10
+param petite_devil_swooping x petite_devil object.petite_devil+10
+param petite_devil_hover_start x petite_devil object.petite_devil+10
+param petite_devil_hovering x petite_devil object.petite_devil+10
+param petite_devil_turn x petite_devil object.petite_devil+10
+param petite_devil_turn_start x petite_devil object.petite_devil+10
+param petite_devil_turn_down x petite_devil object.petite_devil+10
+param petite_devil_turn_up x petite_devil object.petite_devil+10
+param petite_devil_turn_back x petite_devil object.petite_devil+10
+param petite_devil_leave x petite_devil object.petite_devil+10
+param petite_devil_leave_start x petite_devil object.petite_devil+10
+param petite_devil_turn_right x petite_devil object.petite_devil+10
+param petite_devil_turn_left x petite_devil object.petite_devil+10
+param petite_devil_random_timer x petite_devil object.petite_devil+10
+param petite_devil_swoop_timer x petite_devil object.petite_devil+10
+param petite_devil_aim x petite_devil object.petite_devil+10
+param petite_devil_aim_way x petite_devil object.petite_devil+10
+param petite_devil_shoot_check x petite_devil object.petite_devil+10
+param petite_devil_shoot x petite_devil object.petite_devil+10
+param petite_devil_dying x petite_devil object.petite_devil+10
+param petite_devil_hit x petite_devil object.petite_devil+10
+param petite_devil_dying_end x petite_devil object.petite_devil+10
+param petite_devil_remove x petite_devil object.petite_devil+10
+param petite_devil_window x petite_devil object.petite_devil+10
+param petite_devil_window_start x petite_devil object.petite_devil+10
+param petite_devil_window_list x petite_devil object.petite_devil+10
+param petite_devil_window_out x petite_devil object.petite_devil+10
+scoped object petite_devil 16 timer u8      # (variant 0's start: the window's side)
+scoped object petite_devil 17 turn_wait u8
+scoped object petite_devil 18 turn_rate u8
+scoped object petite_devil 1D shot_ready u8
+scoped object petite_devil 1E shot_timer u8
+scoped object petite_devil 20 turn_timer u8
+scoped object petite_devil 22 turn_to u8
+scoped object petite_devil 23 target_y u8   # 23-24: the player's y when it swooped
+scoped object petite_devil 24 target_y_low u8
+scoped object petite_devil 25 swoops_left u8
+scoped object petite_devil 28 timer_start u8
+scoped object petite_devil 29 moves_next u8 # 29-2A
+scoped object petite_devil 2A moves_next_low u8
 A706  func  crow_remove
 A726  func  petite_devil_start
 A9C5  func  petite_devil_alive
@@ -490,37 +1313,611 @@ AE86  func  type_03_start
 AEF1  func  type_03_alive
 AF91  func  type_03_dying
 AFAE  func  type_03_remove
+AF09  func  type_03_v0
+AF2D  func  type_03_v1
+AF47  func  type_03_move
+AF75  func  type_03_v2
+AF9D  func  type_03_hit          # dying: sound 1B
+AFA6  func  type_03_dying_end
 B4D8  func  red_arremer_start
 B650  func  red_arremer_alive
 BD10  func  red_arremer_dying
 BD3E  func  red_arremer_remove
+# the red arremer (type 5), alive by step: 0 on the ground, 1 flies, 2 fires, 3 closes in (the player farther
+# than its range: the table B810 by the difficulty and its mode), 4, 5 dodges (one of Arthur's shots, 0540-, at
+# its height coming at it: the table B742), 6; three timers each from its list (fire, fly, action 6) move it to
+# their step, back to the one it was in (from_step)
+B4E6  func  red_arremer_init     # its step by its variant
+B4F7  func  red_arremer_perch    # start's step 1: until the player is within 30 rows and 60
+B505  func  red_arremer_perch_start
+B51F  func  red_arremer_perch_watch
+B542  func  red_arremer_perch_rise
+B54F  func  red_arremer_wait     # start's step 2
+B561  func  red_arremer_wait_start
+B56D  func  red_arremer_waiting
+B590  func  red_arremer_wait_rise
+B5A4  func  red_arremer_wait_end
+B5AE  func  red_arremer_start_3
+B624  func  red_arremer_move     # by its moves, animated
+B644  func  red_arremer_animation  # an animation by its way
+B67C  func  red_arremer_ground   # step 0, then its timers and checks
+B69A  func  red_arremer_ground_start
+B6B7  func  red_arremer_walking
+B6D4  func  red_arremer_walk_ground
+B6E9  func  red_arremer_dodge_check  # a shot coming at it: step 5
+B6F8  func  red_arremer_shot_coming
+B76A  func  red_arremer_dodge_range
+B77B  func  red_arremer_flinch
+B789  func  red_arremer_flinch_start # sound 782C
+B7A9  func  red_arremer_flinch_end
+B7AF  func  red_arremer_return   # (an RTS)
+B7B0  func  red_arremer_fire_timer   # fire_time from fire_times: step 2
+B7D1  func  red_arremer_action6_timer
+B7EF  func  red_arremer_fly_timer    # every 8 frames: step 1
+B830  func  red_arremer_range
+B841  func  red_arremer_close_check  # the player farther than its range: step 3
+B876  func  red_arremer_fly      # step 1, by substep
+B8AF  func  red_arremer_fly_start
+B8E9  func  red_arremer_fly_move
+B8EF  func  red_arremer_fly_turn
+B91B  func  red_arremer_fly_near #   within 50 of the player
+B932  func  red_arremer_fly_pause
+B93F  func  red_arremer_land
+B947  func  red_arremer_landing
+B964  func  red_arremer_land_2
+B96C  func  red_arremer_landing_2
+B98D  func  red_arremer_landed
+B9A4  func  red_arremer_fire     # step 2, by substep:
+B9B4  func  red_arremer_fire_start
+B9C8  func  red_arremer_fire_aim
+B9D1  func  red_arremer_fire_shot   #   an enemy shot, its sound (7859)
+B9F7  func  red_arremer_fire_end    #   back to from_step
+BA1F  func  red_arremer_close_in # step 3
+BA31  func  red_arremer_close_in_start
+BA6E  func  red_arremer_closing_in
+BA88  func  red_arremer_face_player
+BA9A  func  red_arremer_action4  # step 4
+BAA8  func  red_arremer_action4_start
+BAB0  func  red_arremer_action4_animation
+BAD2  func  red_arremer_action4_move
+BAF0  func  red_arremer_dodge    # step 5
+BB13  func  red_arremer_dodge_start
+BB53  func  red_arremer_dodge_move
+BB6A  func  red_arremer_dodging
+BB7A  func  red_arremer_dodge_end
+BBA0  func  red_arremer_ground_below
+BBC7  func  red_arremer_action6  # step 6
+BBDB  func  red_arremer_action6_start
+BC00  func  red_arremer_action6_move
+BC13  func  red_arremer_action6_turn
+BC2E  func  red_arremer_action6_aim
+BC67  func  red_arremer_action6_swoop
+BCC1  func  red_arremer_action6_end
+BD1C  func  red_arremer_hit      # dying: sound 1B
+BD29  func  red_arremer_dying_end
+param red_arremer_start x red_arremer object.red_arremer+10
+param red_arremer_alive x red_arremer object.red_arremer+10
+param red_arremer_dying x red_arremer object.red_arremer+10
+param red_arremer_remove x red_arremer object.red_arremer+10
+param red_arremer_init x red_arremer object.red_arremer+10
+param red_arremer_perch x red_arremer object.red_arremer+10
+param red_arremer_perch_start x red_arremer object.red_arremer+10
+param red_arremer_perch_watch x red_arremer object.red_arremer+10
+param red_arremer_perch_rise x red_arremer object.red_arremer+10
+param red_arremer_wait x red_arremer object.red_arremer+10
+param red_arremer_wait_start x red_arremer object.red_arremer+10
+param red_arremer_waiting x red_arremer object.red_arremer+10
+param red_arremer_wait_rise x red_arremer object.red_arremer+10
+param red_arremer_wait_end x red_arremer object.red_arremer+10
+param red_arremer_start_3 x red_arremer object.red_arremer+10
+param red_arremer_move x red_arremer object.red_arremer+10
+param red_arremer_animation x red_arremer object.red_arremer+10
+param red_arremer_ground x red_arremer object.red_arremer+10
+param red_arremer_ground_start x red_arremer object.red_arremer+10
+param red_arremer_walking x red_arremer object.red_arremer+10
+param red_arremer_walk_ground x red_arremer object.red_arremer+10
+param red_arremer_dodge_check x red_arremer object.red_arremer+10
+param red_arremer_shot_coming x red_arremer object.red_arremer+10
+param red_arremer_dodge_range x red_arremer object.red_arremer+10
+param red_arremer_flinch x red_arremer object.red_arremer+10
+param red_arremer_flinch_start x red_arremer object.red_arremer+10
+param red_arremer_flinch_end x red_arremer object.red_arremer+10
+param red_arremer_fire_timer x red_arremer object.red_arremer+10
+param red_arremer_action6_timer x red_arremer object.red_arremer+10
+param red_arremer_fly_timer x red_arremer object.red_arremer+10
+param red_arremer_range x red_arremer object.red_arremer+10
+param red_arremer_close_check x red_arremer object.red_arremer+10
+param red_arremer_fly x red_arremer object.red_arremer+10
+param red_arremer_fly_start x red_arremer object.red_arremer+10
+param red_arremer_fly_move x red_arremer object.red_arremer+10
+param red_arremer_fly_turn x red_arremer object.red_arremer+10
+param red_arremer_fly_near x red_arremer object.red_arremer+10
+param red_arremer_fly_pause x red_arremer object.red_arremer+10
+param red_arremer_land x red_arremer object.red_arremer+10
+param red_arremer_landing x red_arremer object.red_arremer+10
+param red_arremer_land_2 x red_arremer object.red_arremer+10
+param red_arremer_landing_2 x red_arremer object.red_arremer+10
+param red_arremer_landed x red_arremer object.red_arremer+10
+param red_arremer_fire x red_arremer object.red_arremer+10
+param red_arremer_fire_start x red_arremer object.red_arremer+10
+param red_arremer_fire_aim x red_arremer object.red_arremer+10
+param red_arremer_fire_shot x red_arremer object.red_arremer+10
+param red_arremer_fire_end x red_arremer object.red_arremer+10
+param red_arremer_close_in x red_arremer object.red_arremer+10
+param red_arremer_close_in_start x red_arremer object.red_arremer+10
+param red_arremer_closing_in x red_arremer object.red_arremer+10
+param red_arremer_face_player x red_arremer object.red_arremer+10
+param red_arremer_action4 x red_arremer object.red_arremer+10
+param red_arremer_action4_start x red_arremer object.red_arremer+10
+param red_arremer_action4_animation x red_arremer object.red_arremer+10
+param red_arremer_action4_move x red_arremer object.red_arremer+10
+param red_arremer_dodge x red_arremer object.red_arremer+10
+param red_arremer_dodge_start x red_arremer object.red_arremer+10
+param red_arremer_dodge_move x red_arremer object.red_arremer+10
+param red_arremer_dodging x red_arremer object.red_arremer+10
+param red_arremer_dodge_end x red_arremer object.red_arremer+10
+param red_arremer_ground_below x red_arremer object.red_arremer+10
+param red_arremer_action6 x red_arremer object.red_arremer+10
+param red_arremer_action6_start x red_arremer object.red_arremer+10
+param red_arremer_action6_move x red_arremer object.red_arremer+10
+param red_arremer_action6_turn x red_arremer object.red_arremer+10
+param red_arremer_action6_aim x red_arremer object.red_arremer+10
+param red_arremer_action6_swoop x red_arremer object.red_arremer+10
+param red_arremer_action6_end x red_arremer object.red_arremer+10
+param red_arremer_hit x red_arremer object.red_arremer+10
+param red_arremer_dying_end x red_arremer object.red_arremer+10
+scoped object red_arremer 16 fire_time u8
+scoped object red_arremer 17 action6_time u8
+scoped object red_arremer 18 fly_time u8      # counted every 8 frames
+scoped object red_arremer 1C from_step u8
+scoped object red_arremer 1D mode u8
+scoped object red_arremer 1E player_left u8
+scoped object red_arremer 28 fire_times u8    # 28-29, 2A-2B, 2C-2D: the timers' lists (0: a jump to the word after)
+scoped object red_arremer 29 fire_times_low u8
+scoped object red_arremer 2A action6_times u8
+scoped object red_arremer 2B action6_times_low u8
+scoped object red_arremer 2C fly_times u8
+scoped object red_arremer 2D fly_times_low u8
 BD5F  func  satan_start
 C20F  func  satan_dying
 C23D  func  satan_remove
+# the satan (type 6), alive by step: 0 stands (facing the player, walking a little, firing), 1 flies at him;
+# kept on the screen's left side (satan_keep_on_screen) and at the top of the climb (satan_keep_height)
+BD6B  func  satan_init
+BD9D  func  satan_wait           # start's step 1
+BDEC  func  satan_stand          # step 0, by substep:
+BDFF  func  satan_stand_begin    #   <$B5 counts it in
+BE04  func  satan_stand_start    #   stand_time (the table BE31), its fire's wait at random
+BE35  func  satan_stand_turn
+BE3D  func  satan_standing       #   stand_time out: step 1
+BE9F  func  satan_face_player
+BEB4  func  satan_fire_check
+BF16  func  satan_random_fire_wait
+BF19  func  satan_random         # a byte of U's 4 at random
+BF29  func  satan_fly_frames     # by its way (the table 4E87)
+BF3C  func  satan_set_frames
+BF43  func  satan_move_x         # x by the table at U and its animation
+BF68  func  satan_fly            # step 1, by substep (none while it is held: held)
+BF8D  func  satan_fly_start      #   at the player (towards_player, FE4C)
+C08E  func  satan_flying
+C0DA  func  satan_fly_end
+C0F5  func  satan_fly_back       #   move_by_table
+C0FF  func  satan_fire           # an enemy shot at the player
+C121  func  satan_keep_height
+C138  func  satan_keep_on_screen # not left of the camera's x - 20
+C1A4  func  satan_walk           # x by the table at U (B: 0 or 1)
+C1C3  func  satan_walking
+C21B  func  satan_hit            # dying: its sound (7804)
+C228  func  satan_dying_end
+param satan_start x satan object.satan+10
+param satan_alive x satan object.satan+10
+param satan_dying x satan object.satan+10
+param satan_remove x satan object.satan+10
+param satan_init x satan object.satan+10
+param satan_wait x satan object.satan+10
+param satan_stand x satan object.satan+10
+param satan_stand_begin x satan object.satan+10
+param satan_stand_start x satan object.satan+10
+param satan_stand_turn x satan object.satan+10
+param satan_standing x satan object.satan+10
+param satan_face_player x satan object.satan+10
+param satan_fire_check x satan object.satan+10
+param satan_fly_frames x satan object.satan+10
+param satan_set_frames x satan object.satan+10
+param satan_move_x x satan object.satan+10
+param satan_fly x satan object.satan+10
+param satan_fly_start x satan object.satan+10
+param satan_flying x satan object.satan+10
+param satan_fly_end x satan object.satan+10
+param satan_fly_back x satan object.satan+10
+param satan_fire x satan object.satan+10
+param satan_keep_height x satan object.satan+10
+param satan_keep_on_screen x satan object.satan+10
+param satan_walk x satan object.satan+10
+param satan_walking x satan object.satan+10
+param satan_hit x satan object.satan+10
+param satan_dying_end x satan object.satan+10
+scoped object satan 1E walking u8
+scoped object satan 1F walk_way u8
+scoped object satan 23 stand_time u8
+scoped object satan 27 walk_time u8
+scoped object satan 2A fire_wait u8
+scoped object satan 2F held u8
 C266  func  type_07_start
 C28A  func  type_07_alive
 C362  func  type_07_dying
 C38D  func  type_07_remove
+C27C  func  type_07_frames
+C296  func  type_07_v0
+C2A2  func  type_07_v0_start     # its sound (77CD)
+C2AB  func  type_07_v0_move
+C2B8  func  type_07_v1
+C2C6  func  type_07_v1_start
+C2CD  func  type_07_v1_fire
+C2F0  func  type_07_v1_end
+C2FB  func  type_07_v2
+C307  func  type_07_v2_start
+C321  func  type_07_v2_move
+C33E  func  type_07_shoot        # an enemy shot
+C36E  func  type_07_hit          # dying: its sound (7818)
+C378  func  type_07_dying_end
 C3AD  func  big_man_start
 C43E  func  big_man_alive
 CAE2  func  big_man_dying
 CB0D  func  big_man_remove
+# the big man (type 8), alive by step: 0 lands and waits (stage 5: for the player at its height), 1 walks (a list
+# of actions by time: actions, action_time), 2 jumps over a shot coming at it, 3 charges past the player,
+# 4 keeps its distance (closer than 70, back off to 60), 5 throws
+C3B7  func  big_man_init
+C432  func  big_man_wait
+C464  func  big_man_appear       # step 0:
+C470  func  big_man_land
+C47D  func  big_man_waiting      #   wait every 16 frames; <$B5 counts the big men out
+C4A7  func  big_man_walk         # step 1, by substep; then the shots (big_man_watch_shots) and its actions' list
+C580  func  big_man_walk_start
+C5DA  func  big_man_walking      #   a sound every 16 frames
+C63E  func  big_man_walk_timer
+C647  func  big_man_walk_way
+CA24  func  big_man_watch_shots  # Arthur's shots: one coming within 38 of it, step 2
+CA77  func  big_man_shot_coming
+C6AF  func  big_man_jump         # step 2, by substep:
+C6C7  func  big_man_jump_start
+C773  func  big_man_jump_up
+C790  func  big_man_jump_move
+C7D6  func  big_man_jump_top
+C7EC  func  big_man_jump_down
+C7F8  func  big_man_fall_move
+C82A  func  big_man_jump_check
+C841  func  big_man_jump_land_check
+C858  func  big_man_jump_land
+C8A0  func  big_man_jump_pause
+C8B5  func  big_man_jump_end
+C904  func  big_man_charge       # step 3: to the player's x and 10 past (target_x), moves C910
+C91C  func  big_man_charge_start
+C942  func  big_man_charging
+C976  func  big_man_keep_distance  # step 4, by substep:
+C994  func  big_man_keep_distance_start  # facing the player (player_side)
+C9E2  func  big_man_approach     #   until within 70
+C9FB  func  big_man_back_off     #   until 60 away, or the screen's edge
+CA99  func  big_man_throw        # step 5: an enemy shot
+CAEE  func  big_man_hit          # dying: its sound (7804)
+CAF8  func  big_man_dying_end
+param big_man_start x big_man object.big_man+10
+param big_man_alive x big_man object.big_man+10
+param big_man_dying x big_man object.big_man+10
+param big_man_remove x big_man object.big_man+10
+param big_man_init x big_man object.big_man+10
+param big_man_wait x big_man object.big_man+10
+param big_man_appear x big_man object.big_man+10
+param big_man_land x big_man object.big_man+10
+param big_man_waiting x big_man object.big_man+10
+param big_man_walk x big_man object.big_man+10
+param big_man_walk_start x big_man object.big_man+10
+param big_man_walking x big_man object.big_man+10
+param big_man_walk_timer x big_man object.big_man+10
+param big_man_walk_way x big_man object.big_man+10
+param big_man_jump x big_man object.big_man+10
+param big_man_jump_start x big_man object.big_man+10
+param big_man_jump_up x big_man object.big_man+10
+param big_man_jump_move x big_man object.big_man+10
+param big_man_jump_top x big_man object.big_man+10
+param big_man_jump_down x big_man object.big_man+10
+param big_man_fall_move x big_man object.big_man+10
+param big_man_jump_check x big_man object.big_man+10
+param big_man_jump_land_check x big_man object.big_man+10
+param big_man_jump_land x big_man object.big_man+10
+param big_man_jump_pause x big_man object.big_man+10
+param big_man_jump_end x big_man object.big_man+10
+param big_man_charge x big_man object.big_man+10
+param big_man_charge_start x big_man object.big_man+10
+param big_man_charging x big_man object.big_man+10
+param big_man_keep_distance x big_man object.big_man+10
+param big_man_keep_distance_start x big_man object.big_man+10
+param big_man_approach x big_man object.big_man+10
+param big_man_back_off x big_man object.big_man+10
+param big_man_watch_shots x big_man object.big_man+10
+param big_man_shot_coming x big_man object.big_man+10
+param big_man_throw x big_man object.big_man+10
+param big_man_hit x big_man object.big_man+10
+param big_man_dying_end x big_man object.big_man+10
+scoped object big_man 16 walk_time u8
+scoped object big_man 1A walk_done u8
+scoped object big_man 21 wait u8
+scoped object big_man 23 player_side u8       # 1 the player to the right, 2 to the left
+scoped object big_man 27 action_time u8
+scoped object big_man 28 actions u8           # 28-29: its list of actions
+scoped object big_man 29 actions_low u8
+scoped object big_man 2B acting u8
+scoped object big_man 2C target_x u8          # 2C-2D
+scoped object big_man 2D target_x_low u8
 CB3F  func  skeleton_start
 CB85  func  skeleton_alive
 CDF1  func  skeleton_dying
 CE0E  func  skeleton_remove
+# the skeleton: a skull on the wall until the player is within 20 of it, then it rises (step 0), hops at him
+# twice (step 1: up, down to the ground, a pause facing him), then leaps at him on a half sine (step 2)
+CB49  func  skeleton_skull       # start: the skull's frames
+CB5A  func  skeleton_wait        # start: the player within 20 (x and y), alive
+CB94  func  skeleton_rise        # alive's step 0, by substep:
+CBA2  func  skeleton_rise_start
+CBCD  func  skeleton_rising
+CBD7  func  skeleton_risen
+CBF2  func  skeleton_move_y      # y += speed_y, speed_y less 2985 (its gravity)
+CC00  func  skeleton_gravity
+CC1A  func  skeleton_hop         # step 1, by substep:
+CC42  func  skeleton_hop_begin   #   its sound (784A), 2 hops
+CC51  func  skeleton_hop_start
+CC67  func  skeleton_hop_up      #   gravity 2A16 until speed_y is 0
+CC7E  func  skeleton_hop_down    #   to the ground
+CC91  func  skeleton_fall_speed  #   speed_y not below -3
+CCA9  func  skeleton_land
+CCAF  func  skeleton_landed      #   6 frames, facing the player; hops_left 0: step 2
+CCC5  func  skeleton_face_player # unless the player is within 40
+CCE0  func  skeleton_move        # x by its moves and animation, y by speed_y
+CD24  func  skeleton_leap        # step 2, by substep:
+CD36  func  skeleton_leap_start  #   the way and the speed to the player (FE34: a division), arc_height 50
+CD7D  func  skeleton_leap_up     #   arc_phase + 6 a frame: y on the sine table (4140)
+CD9E  func  skeleton_leap_down   #   to the ground, or the leap's start y
+CDC8  func  skeleton_leap_land
+CDCE  func  skeleton_leap_landed #   6 frames, then the hops again
+CDDD  func  skeleton_arc_y       # y = arc_y + arc_height * sin(arc_phase)
+CDFD  func  skeleton_hit         # dying: its sound (7818)
+CE06  func  skeleton_dying_end
+param skeleton_start x skeleton object.skeleton+10
+param skeleton_alive x skeleton object.skeleton+10
+param skeleton_dying x skeleton object.skeleton+10
+param skeleton_remove x skeleton object.skeleton+10
+param skeleton_skull x skeleton object.skeleton+10
+param skeleton_wait x skeleton object.skeleton+10
+param skeleton_rise x skeleton object.skeleton+10
+param skeleton_rise_start x skeleton object.skeleton+10
+param skeleton_rising x skeleton object.skeleton+10
+param skeleton_risen x skeleton object.skeleton+10
+param skeleton_move_y x skeleton object.skeleton+10
+param skeleton_gravity x skeleton object.skeleton+10
+param skeleton_hop x skeleton object.skeleton+10
+param skeleton_hop_begin x skeleton object.skeleton+10
+param skeleton_hop_start x skeleton object.skeleton+10
+param skeleton_hop_up x skeleton object.skeleton+10
+param skeleton_hop_down x skeleton object.skeleton+10
+param skeleton_fall_speed x skeleton object.skeleton+10
+param skeleton_land x skeleton object.skeleton+10
+param skeleton_landed x skeleton object.skeleton+10
+param skeleton_face_player x skeleton object.skeleton+10
+param skeleton_move x skeleton object.skeleton+10
+param skeleton_leap x skeleton object.skeleton+10
+param skeleton_leap_start x skeleton object.skeleton+10
+param skeleton_leap_up x skeleton object.skeleton+10
+param skeleton_leap_down x skeleton object.skeleton+10
+param skeleton_leap_land x skeleton object.skeleton+10
+param skeleton_leap_landed x skeleton object.skeleton+10
+param skeleton_arc_y x skeleton object.skeleton+10
+param skeleton_hit x skeleton object.skeleton+10
+param skeleton_dying_end x skeleton object.skeleton+10
+scoped object skeleton 18 wait u8
+scoped object skeleton 19 hops_left u8
+scoped object skeleton 1A speed_y u8         # 1A-1D: y's speed (1A-1B the rows, 1C-1D the fraction)
+scoped object skeleton 1B speed_y_low u8
+scoped object skeleton 1C speed_y_fraction u8
+scoped object skeleton 1D speed_y_fraction_low u8
+scoped object skeleton 26 arc_phase u8
+scoped object skeleton 27 arc_height u8
+scoped object skeleton 28 arc_y u8           # 28-29: the leap's start y
+scoped object skeleton 29 arc_y_low u8
+scoped object skeleton 2A arc_speed_x u8     # 2A-2C: x's speed in the leap
+scoped object skeleton 2B arc_speed_x_low u8
+scoped object skeleton 2C arc_speed_x_fraction u8
+scoped object skeleton 2D arc_left u8        # 1: the player to the left
 CE30  func  window_giant_start
 CEA2  func  window_giant_alive
 D1E4  func  window_giant_dying
 D20F  func  window_giant_remove
+# the window giant (type 10), alive only on screen, by step: 0 walks its ledge (turning at random, a sound every
+# 32 frames), 1 the player at its height (within 37 rows): faces him and throws, 2 the player just below: throws
+# down, 3 a pause after it is hit (sound 782C); the variant (2D) a start that pauses at first
+CE3A  func  window_giant_init    # its lists by the difficulty (<$9A: the tables 51FC, 51C4), moves 50D0
+CE96  func  window_giant_wait    # start's step 1: until on screen
+CEC6  func  window_giant_flinch  # step 3
+CED2  func  window_giant_flinch_start
+CEDC  func  window_giant_flinching
+CEEA  func  window_giant_walk    # step 0, by substep:
+CEFC  func  window_giant_walk_start
+CF29  func  window_giant_walking #   the player at its height: step 1; just below: step 2
+CFB8  func  window_giant_turn    #   after wait, a way at random
+CFC8  func  window_giant_on_ledge  # down onto the ground; past its end, edge (and the way it was going)
+CFF4  func  window_giant_pause   #   until the player is within 10 rows
+D004  func  window_giant_pausing #   pause_time every 64 frames
+D014  func  window_giant_chase   # step 1, by substep:
+D026  func  window_giant_chase_start
+D041  func  window_giant_face    #   facing the player (28 away), the player out of its height: step 0
+D088  func  window_giant_chasing
+D0FB  func  window_giant_throw_start  # shot_timer, then its throw (animation 5170)
+D10C  func  window_giant_throwing
+D119  func  window_giant_drop    # step 2, by substep:
+D129  func  window_giant_drop_start
+D141  func  window_giant_shoot   # an enemy shot: ahead of it (step 1), or down (step 2)
+D189  func  window_giant_above   #   the player still just below: shot_timer 1E
+D1C5  func  window_giant_dropping
+D1DB  func  window_giant_drop_end
+D1F0  func  window_giant_hit     # dying: sound 1B
+D1FA  func  window_giant_dying_end
+param window_giant_start x window_giant object.window_giant+10
+param window_giant_alive x window_giant object.window_giant+10
+param window_giant_dying x window_giant object.window_giant+10
+param window_giant_remove x window_giant object.window_giant+10
+param window_giant_init x window_giant object.window_giant+10
+param window_giant_wait x window_giant object.window_giant+10
+param window_giant_flinch x window_giant object.window_giant+10
+param window_giant_flinch_start x window_giant object.window_giant+10
+param window_giant_flinching x window_giant object.window_giant+10
+param window_giant_walk x window_giant object.window_giant+10
+param window_giant_walk_start x window_giant object.window_giant+10
+param window_giant_walking x window_giant object.window_giant+10
+param window_giant_turn x window_giant object.window_giant+10
+param window_giant_on_ledge x window_giant object.window_giant+10
+param window_giant_pause x window_giant object.window_giant+10
+param window_giant_pausing x window_giant object.window_giant+10
+param window_giant_chase x window_giant object.window_giant+10
+param window_giant_chase_start x window_giant object.window_giant+10
+param window_giant_face x window_giant object.window_giant+10
+param window_giant_chasing x window_giant object.window_giant+10
+param window_giant_throw_start x window_giant object.window_giant+10
+param window_giant_throwing x window_giant object.window_giant+10
+param window_giant_drop x window_giant object.window_giant+10
+param window_giant_drop_start x window_giant object.window_giant+10
+param window_giant_shoot x window_giant object.window_giant+10
+param window_giant_above x window_giant object.window_giant+10
+param window_giant_dropping x window_giant object.window_giant+10
+param window_giant_drop_end x window_giant object.window_giant+10
+param window_giant_hit x window_giant object.window_giant+10
+param window_giant_dying_end x window_giant object.window_giant+10
+scoped object window_giant 1D wait u8
+scoped object window_giant 1E shot_timer u8
+scoped object window_giant 1F edge u8          # 1: past the ledge's end
+scoped object window_giant 23 flinch_time u8
+scoped object window_giant 24 edge_way u8
+scoped object window_giant 25 turned u8
+scoped object window_giant 2C pause_time u8
+scoped object window_giant 2D start_variant u8
 D231  func  zombie_start
 D314  func  zombie_alive
 D42D  func  zombie_dying
 D44A  func  zombie_remove
+# the zombie (type 11): under the ground (its frame blank) for a random time, out facing the player, then by its
+# variant: 0 walks (towards the player, on past him for a while, stopping where the ground ends), 1 sinks back
+D23B  func  zombie_under         # start's step 0, by its substep:
+D24B  func  zombie_hide          #   its frame blank (A4AB)
+D25A  func  zombie_onto_ground   #   down onto the ground; variant 0 waits a random time (the table D28B)
+D29B  func  zombie_wait
+D2A2  func  zombie_face_player
+D2BE  func  zombie_rise          # start's step 1: out of the ground (its animation kinds one by one, the table 5231)
+D2CA  func  zombie_rise_start    #   with no ground under it, removed
+D2F8  func  zombie_rising        #   at the end alive (state 1)
+D321  func  zombie_walk          # variant 0, by its substep:
+D32F  func  zombie_walk_start    #   towards the player, how long (walk_time) and how far past him (timer) at random
+D37A  func  zombie_walking       #   to the ground's end, or walk_time; past the player, on (zombie_walk_on)
+D39B  func  zombie_passed_player
+D3C2  func  zombie_walk_on       #   timer's frames more
+D3D3  func  zombie_keep_on_ground
+D3EB  func  zombie_sink          # variant 1: back into the ground, then removed
+D3F7  func  zombie_sink_start
+D412  func  zombie_sinking
+D439  func  zombie_hit           # dying: sound 1B
+D442  func  zombie_dying_end
+param zombie_start x zombie object.zombie+10
+param zombie_under x zombie object.zombie+10
+param zombie_hide x zombie object.zombie+10
+param zombie_onto_ground x zombie object.zombie+10
+param zombie_wait x zombie object.zombie+10
+param zombie_face_player x zombie object.zombie+10
+param zombie_rise x zombie object.zombie+10
+param zombie_rise_start x zombie object.zombie+10
+param zombie_rising x zombie object.zombie+10
+param zombie_alive x zombie object.zombie+10
+param zombie_walk x zombie object.zombie+10
+param zombie_walk_start x zombie object.zombie+10
+param zombie_walking x zombie object.zombie+10
+param zombie_passed_player x zombie object.zombie+10
+param zombie_walk_on x zombie object.zombie+10
+param zombie_keep_on_ground x zombie object.zombie+10
+param zombie_sink x zombie object.zombie+10
+param zombie_sink_start x zombie object.zombie+10
+param zombie_sinking x zombie object.zombie+10
+param zombie_dying x zombie object.zombie+10
+param zombie_hit x zombie object.zombie+10
+param zombie_dying_end x zombie object.zombie+10
+param zombie_remove x zombie object.zombie+10
+scoped object zombie 16 frames_left u8   # the rising's and the sinking's animation kinds left
+scoped object zombie 17 timer u8         # the wait under the ground; the frames on past the player
+scoped object zombie 18 sequence u8      # a pointer (18-19) to the next animation kind
+scoped object zombie 19 sequence_low u8
+scoped object zombie 1A walk_time u8     # counted down every other frame while walking
 D46C  func  dragon_start
 D61A  func  dragon_alive
 D949  func  dragon_dying
 D9FF  func  dragon_remove
+# the dragon (type 12): a head (variant 0) that makes its 8 body segments (1) and its tail (2), linked by next;
+# the head follows its path (a list of moves and times), then turns at the player breathing fire; the segments
+# follow the one before them. Far from the camera (but in stages 2 and 3) it is removed
+D47A  func  dragon_head_start    # start's steps:
+D486  func  dragon_head_init     #   facing the player, its path (D6D3), its time by the difficulty (D4E9)
+D4ED  func  dragon_body_new      #   its segments (object_new), linked from the head by next
+D577  func  dragon_head_ready    #   alive when the chain is done
+D58F  func  dragon_segment_init
+D5D4  func  dragon_tail_init
+D622  func  dragon_off_range
+D654  func  dragon_head          # the head (part 0), by step:
+D65E  func  dragon_path          #   0: along its path, by substep
+D670  func  dragon_path_start
+D685  func  dragon_path_step     #   the next move when path_time runs out; its end: the chain's moves (53D0)
+D6DF  func  dragon_path_wait_start  # a random wait (the tables D6F9, stage 5's D6FD)
+D701  func  dragon_path_wait
+D708  func  dragon_path_next
+D736  func  dragon_chase         #   1: turning at the player, its fire (D8C9), its sound (784F)
+D760  func  dragon_turn          # its way a step towards the player (towards_player)
+D893  func  dragon_follow        # the body and the tail (parts 1, 2): where the one before was
+D89D  func  dragon_follow_position
+D8C9  func  dragon_fire          # an enemy shot from its mouth
+D95D  func  dragon_dying_chain   # dying: the segments one by one
+D9B5  func  dragon_segment_hit   # its sound (7804)
+D9C3  func  dragon_hit           # sound 1B
+D9CF  func  dragon_killed        # the points (queue_task)
+D9EA  func  dragon_dying_end
+param dragon_start x dragon object.dragon+10
+param dragon_alive x dragon object.dragon+10
+param dragon_dying x dragon object.dragon+10
+param dragon_remove x dragon object.dragon+10
+param dragon_head_start x dragon object.dragon+10
+param dragon_head_init x dragon object.dragon+10
+param dragon_body_new x dragon object.dragon+10
+param dragon_head_ready x dragon object.dragon+10
+param dragon_segment_init x dragon object.dragon+10
+param dragon_tail_init x dragon object.dragon+10
+param dragon_off_range x dragon object.dragon+10
+param dragon_head x dragon object.dragon+10
+param dragon_path x dragon object.dragon+10
+param dragon_path_start x dragon object.dragon+10
+param dragon_path_step x dragon object.dragon+10
+param dragon_path_wait_start x dragon object.dragon+10
+param dragon_path_wait x dragon object.dragon+10
+param dragon_path_next x dragon object.dragon+10
+param dragon_chase x dragon object.dragon+10
+param dragon_turn x dragon object.dragon+10
+param dragon_follow x dragon object.dragon+10
+param dragon_follow_position x dragon object.dragon+10
+param dragon_fire x dragon object.dragon+10
+param dragon_dying_chain x dragon object.dragon+10
+param dragon_segment_hit x dragon object.dragon+10
+param dragon_hit x dragon object.dragon+10
+param dragon_killed x dragon object.dragon+10
+param dragon_dying_end x dragon object.dragon+10
+scoped object dragon 18 path u8           # 18-19: its path's next move
+scoped object dragon 19 path_low u8
+scoped object dragon 1A path_time u8
+scoped object dragon 1D part u8           # 0 the head, 1 a body segment, 2 the tail
+scoped object dragon 24 facing_left u8
+scoped object dragon 2E next u8           # 2E-2F: the next segment's record (+10)
+scoped object dragon 2F next_low u8
 DE13  func  type_16_start
 DF04  func  type_16_remove
 DF2A  func  pillar_start
@@ -529,6 +1926,44 @@ AFD0  func  window_flier_start
 B0B2  func  window_flier_alive
 B47D  func  window_flier_dying
 B49A  func  window_flier_remove
+# the window flier, alive by step (B0B2's switch)
+AFDE  func  window_flier_start_0
+AFEA  func  window_flier_animation
+B00D  func  window_flier_start_0_wait
+B023  func  window_flier_start_check
+B03F  func  window_flier_start_1
+B066  func  window_flier_start_1_wait
+B09C  func  window_flier_frames
+B0BF  func  window_flier_step_0
+B0D8  func  enemy_held           # (the petite devil's too)
+B0F0  func  window_flier_step_1
+B13D  func  window_flier_step_1_start
+B158  func  window_flier_step_1_move
+B183  func  window_flier_step_2
+B1C6  func  window_flier_step_2_start
+B1DA  func  window_flier_step_2_move
+B1E9  func  window_flier_step_3
+B1F9  func  window_flier_step_3_start
+B21B  func  window_flier_step_3_move
+B230  func  window_flier_turn
+B247  func  window_flier_step_4
+B255  func  window_flier_step_4_start
+B25D  func  window_flier_step_4_move
+B27C  func  window_flier_step_4_end
+B298  func  window_flier_step_5
+B2AC  func  window_flier_step_5_start  # by the background's tile; its sound (780E)
+B2D1  func  window_flier_step_5_aim
+B337  func  window_flier_step_5_move
+B38A  func  window_flier_step_5_next
+B395  func  window_flier_step_5_again
+B39B  func  window_flier_fly
+B3BF  func  window_flier_fly_x
+B3DE  func  window_flier_fly_y
+B3FD  func  window_flier_fly_end
+B471  func  window_flier_step_6
+B489  func  window_flier_hit     # dying: its sound (7818)
+B492  func  window_flier_dying_end
+B4AA  func  window_flier_dodge_check  # one of Arthur's shots coming (red_arremer_shot_coming)
 BDE2  func  satan_alive
 DE46  func  type_16_alive
 DEE7  func  type_16_dying
@@ -543,3 +1978,26 @@ DA31  func  astaroth_start
 DAB6  func  astaroth_alive
 DCAF  func  astaroth_dying
 DCEB  func  astaroth_remove      # one more may come (type_room), its record free, then the stage's end (stage_end_countdown)
+# Astaroth: walks to and fro within its range (from 60 past the camera, 80 wide), pausing and turning, firing
+DA3B  func  astaroth_init        # astaroth, astaroth_on
+DA51  func  astaroth_set_up      # by the difficulty (<$9A), moves 55AC
+DA71  func  astaroth_wait        # start's step 1: on screen, its range
+DAC2  func  astaroth_walk_start  # alive's step 0: a walk of random time
+DAD6  func  astaroth_walking     # step 1: then a pause (the table DB0F, at random)
+DA8A  func  astaroth_walk_move   # its sound
+DB13  func  astaroth_pause       # step 2: then the other way
+DB26  func  astaroth_random_fire_time
+DB4E  func  astaroth_attack
+DB68  func  astaroth_random_1
+DB81  func  astaroth_random_2
+DB8F  func  astaroth_range_check
+DBB9  func  astaroth_range_turn
+DBE7  func  astaroth_fire
+DBF2  func  astaroth_fire_timer
+DC08  func  astaroth_face
+DC26  func  astaroth_animation
+DC42  func  astaroth_fire_wait
+DC5A  func  astaroth_shot        # an enemy shot
+DCBB  func  astaroth_hit         # dying: its sounds, the music off (sound_3F)
+DCD4  func  astaroth_dying_end
+DD01  func  object_type_13       # type 13 (the ending: sprites 2C0-2FF): one of Arthur's shots within 20 of it, sound 782C
