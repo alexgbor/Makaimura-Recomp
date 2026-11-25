@@ -82,8 +82,9 @@ Roughly in order; each milestone is checked against the reference before it is t
       the gate and the map, the weapon's and the illusion's messages, the ranking's initials (play_name_entry), the
       test mode's hidden pages (coin 1 held as it starts), Astaroth beaten (only the cross, at his head's height),
       the window giant, a pillar and the magician beaten, the perched crows' take off, the flying knights (object
-      type 3: spawner 3, armed by stage 0's map at the water). Left: the crows' variants 0-1 (never in the game:
-      only spawner 1's lists 4-5 hold them, and no map event chooses those), the window giant's throw, Red
+      type 3: spawner 3, armed by stage 0's map at the water). The crows' variants 0-1 never in the game (only
+      spawner 1's lists 4-5 hold them, and no map event chooses those): crows_forced1 makes some by a RAM write
+      to run their code. Left: the window giant's throw, Red
       Arremer's wait, the dragon's, Big Man's and Satan's last steps; their translation is checked
       instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of every
       instruction found, 50 states each), not in context

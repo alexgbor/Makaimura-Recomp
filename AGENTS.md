@@ -70,7 +70,7 @@ a sound latch from the 6809, and two YM2203 at 1.5 MHz. Screen 256x224 visible o
 | `tools/make_release.ps1`, `CHANGELOG.md` | the player's package (`release/`, never committed): the version is CMakeLists.txt's `project(makaimura VERSION)`, its section in CHANGELOG.md |
 | `tools/side_by_side.py` | two recordings side by side (ffmpeg), for the modes' comparison |
 | `tools/youtube_export.py` | a recording made ready for YouTube (ffmpeg): sharp pixels, 4:3 at 1440p, x264 |
-| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/3/4, tower5, satan4, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears, and the scenes of what those never reach: bosses5, red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2, magician_beaten0, crows1, flying_knights0, ranking, service_pages: `make_*.py` write them), `resample_check.c` |
+| `tests/` | `controls/*.txt` input scripts (walk_right, long_play, stage1-6, midway1/3/4, tower5, satan4, loop2_stage0/6, ending, service_mode, weapons, cocktail, dips, clears, and the scenes of what those never reach: bosses5, red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2, magician_beaten0, crows1, flying_knights0, crows_forced1, ranking, service_pages: `make_*.py` write them), `resample_check.c` |
 | `docs/hardware.md`, `docs/accuracy.md`, `docs/decompilation.md` | the board as MAME describes it and what the program was found to do; the two accuracy modes and where MAME and the board differ; the readable C (M6): how it is made, what it does differently, how it is checked |
 
 ## Working

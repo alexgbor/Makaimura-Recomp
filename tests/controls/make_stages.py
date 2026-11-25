@@ -55,6 +55,10 @@ list) and left standing, then walking about, unhurt: they take off at him; one f
 flying_knights0.txt: stage 0 from x 0720, Arthur unhurt running right (jumping, throwing) then walking about: the
 map's event at the water arms spawner 3, the shielded flying knights (object type 3, in no stage's list) come in
 waves, fly their three ways (variants 0-2) and leave.
+crows_forced1.txt: stage 1 from its midway point, Arthur running to the map's event 17 (spawner 1: the crows in from
+the side, variant 4) and staying there, unhurt; four of those crows made variants 0 and 1 as they come in (their
+variant written, their state, step and substep cleared): the code of crows the game never makes (only spawner 1's
+lists 4-5 hold them, and no map event chooses those), run for the translation's check.
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -93,6 +97,11 @@ def pattern(name, step):
         if step % 30 in (5, 6, 7):
             held |= JUMP
     return 0xFF & ~held
+
+
+def forced(frame, record, variant):
+    """the object at record (0880 + 0x30 n) made that variant, started again (state, step, substep 0)"""
+    return [(frame, record + 2, variant)] + [(frame, record + offset, 0) for offset in (3, 4, 5)]
 
 
 def scene(title, stage, places, frames, ram=(), weapon=None):
@@ -169,6 +178,10 @@ def scenes():
     yield "flying_knights0", scene("stage 0 from x 0720: the flying knights over the water", 0, [
         (2050, 0x0720, 0x003E, 30, "run", "camera"), (4000, None, None, 0, "wander")], 6000,
         ram=[(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)])
+    yield "crows_forced1", scene("stage 1: crows of variants 0 and 1, which the game never makes", 1, [
+        (2050, 0x1800, 0x0047, 30, "run", "camera"), (2650, None, None, 0, "throw_right")], 7000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)]
+        + forced(2700, 0x0CA0, 0) + forced(2780, 0x0D60, 1) + forced(3300, 0x0CA0, 0) + forced(3380, 0x0D00, 0))
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
