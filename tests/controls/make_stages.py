@@ -95,6 +95,51 @@ state 2 (dying) and then 3 (removed): no weapon hurts them (EE91's mask 0) and t
 game never kills one; their code run for the translation's check.
 astaroth_first6.txt: astaroth6's place and inputs in the first loop (no <$7F write): Astaroth's hit sound is 1C
 there (astaroth_hit: 32 in the second loop).
+stage_end_forced0.txt: stage0_end's, the stage written 6 (and the cross given) as the key's wait runs: stage 6's
+end by a key in the first loop, the stage back to 0 (71CE; stage 6 has no key, Astaroth's end goes on to the
+illusion). stage_key_next's stage after 6 (0) is never run: the stage's end goes that way first.
+rank_top0.txt: stage0_end's, the rank (<$61) written 3C as the key's wait runs: its +4 kept at 3F (rank_up; a rank
+the game reaches after many stages without a death).
+transformed0.txt: magician0's spell, Arthur transformed running and jumping right (player_state_5: the transformed
+jump; player_transformed_move), unhurt a while; then his armour gone (<$AC written 1) and killed while still
+transformed (player_death_start: the transformation's end with the death).
+transformed_forced0.txt: magician0's spell, the transformation (0528) written back as a hit takes Arthur's armour
+(player_hit_start clears it, player_hit_bounce looks at it a frame later) and as his next life starts
+(player_state_start): neither ever finds it set in the game.
+midway_hurry0.txt: stage 0, Arthur walking right past its midway point (camera_x over 0700: midway_reached) with
+9 seconds left (stage_timer written): the hurry's music.
+stage_map4.txt: stage0_end's, the stage written 4 as its map shows (stage_map_wait): the map's text at its place for
+stages 4-6, as after stage 4's end.
+big_man_end0.txt: stage 0's end reached walking (from x 0C40, the map's place and the camera's record with him: the
+map's event 0C brings its big man), Arthur standing still before it, unhurt: the big man walks, jumps, keeps its
+distance and throws (big_man_*). The map's cell 0D (its sound AB with the high bit: map_event's 8E27) is never
+entered: the camera stops at 0C00.
+big_man_edges5.txt: stage 5's Big Man fought a long while from its arena's right side (x 1E30, throwing left), so
+that it jumps at its edges (big_man_jump_start: a jump its way turned back there).
+play0.txt, play1.txt, play2a.txt, play2b.txt, play2c.txt, play3.txt, play4.txt, play6.txt: stages 0-6 from their
+start played at random (long_play's moves, a seed each), Arthur unhurt, for 20000 frames: what is rare in a game
+(the climb's corners, Red Arremer landing on a ledge, the zombies' and the props' odd cases, Astaroth's walk...); the
+seeds chosen from many for what they run that the other scripts do not.
+dragon3.txt: stage 3's end (from x 1700, the map's place and the camera's record with Arthur): its dragon, which
+turns and aims otherwise than stage 5's (dragon_turn: by the stage), waited for still on the bridge's end (a flame's
+timing table run through: bridge_flame_alive), then fought wandering and killed, unhurt.
+satans5.txt: stage 5's top (Arthur put at 1E70, 0A80, falling to the floor below): its two Satans waiting
+(satan_wait: variant 1's), the dragon and a Red Arremer out of range there (dragon_off_range, red_arremer_alive),
+Arthur wandering unhurt.
+satan4_crouch.txt: satan4_flight's place, Arthur crouching and throwing: Satan's flights aimed at a crouching player
+(satan_fly_start).
+window_giants4.txt: stage 4's window giants on their ledges (1A90-1C50, 0420-0510), Arthur put on a ledge beside
+them: wandering there a while (window_giant_walking: its table run through), then (the camera's record put with him)
+standing below one, which drops at him, and moved up to its height (window_giant_above, window_giant_chasing).
+run1.txt: stage 1 from its start, Arthur running right (jumping, throwing), unhurt: its props hit while he jumps
+past them (prop_by_type_3_0_1).
+difficulty_top0.txt: stage 0 with the rank at its top (3C, written before the stage's set-up), Arthur standing unhurt:
+difficulty_level (rank << 8, + 6B every 512 frames) reaches its cap 3F (stage_effect_d).
+big_man_play0.txt: stage 0's big man, Arthur moving at random around it, unhurt: its back off, its walk's other way.
+big_men_left1.txt: big_men1's big men, then Arthur put back left at 1A60 (the camera with him): they follow him
+left and jump there (big_man_jump_start's stage 1 test, x 1A60 or less), and walk the other way.
+fliers_play1.txt: stage 1 from 1300 (the brick house's window fliers), Arthur moving at random, unhurt: a flier
+falling onto the ground (window_flier_step_4_move).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -141,11 +186,12 @@ def forced(frame, record, variant):
 
 
 def in_map(frame, x):
-    """the map's place (<$91: the 256-pixel cell, row 0 here) and the camera's record (0630: its x at 0636, which
-    scroll_follow_x moves camera_x from, a byte's difference at a time) put with Arthur at x, so that the map's events
-    come at their columns and the camera follows him from 0x80 to his left"""
+    """the map's place (<$91: the camera's 256-pixel cell, row 0 here) and the camera's record (0630: its x at 0636,
+    which scroll_follow_x moves camera_x from, a byte's difference at a time) put with Arthur at x, so that the map's
+    events come at their columns and the camera follows him from 0x80 to his left"""
     camera_x = x - 0x80
-    return [(frame, 0x91, 0), (frame, 0x92, x >> 8), (frame, 0x636, camera_x >> 8), (frame, 0x637, camera_x & 0xFF)]
+    return [(frame, 0x91, 0), (frame, 0x92, camera_x >> 8), (frame, 0x636, camera_x >> 8),
+            (frame, 0x637, camera_x & 0xFF)]
 
 
 def camera_at(frame, x, y):
@@ -186,6 +232,34 @@ def scene(title, stage, places, frames, ram=(), weapon=None):
     for frame in sorted(events):
         lines += [f"{frame} {event}" for event in events[frame]]
     return "\n".join(lines) + "\n"
+
+
+def played_from(title, stage, places, frames, ram, seed, start):
+    """A scene whose player's inputs from start on are make_features' random moves (seed)."""
+    from make_features import Script
+    text = scene(title, stage, places, frames, ram=ram)
+    moves = Script(title, seed)
+    moves.moves(start, frames - 100)
+    lines = text.splitlines()
+    events = [line for line in lines[1:] if line.split()[1] != "p1" or int(line.split()[0]) < start]
+    events += [f"{frame} {port} {value:02x}" for frame, ports in moves.changes.items() for port, value in ports.items()]
+    events.sort(key=lambda line: int(line.split()[0]))
+    return "\n".join([lines[0]] + events) + "\n"
+
+
+def played(title, stage, frames, seed):
+    """the stage from its start played by long_play's random moves (make_features.Script.moves, from that seed),
+    Arthur unhurt (<$AD written every 60 frames)"""
+    from make_features import Script
+    text = scene(title, stage, [(2050, None, None, 0, "still")], frames,
+                 ram=[(frame, 0xAD, 0x78) for frame in range(2050, frames, 60)])
+    moves = Script(title, seed)
+    moves.moves(2100, frames - 100)
+    lines = text.splitlines()
+    events = [line for line in lines[1:] if line.split()[1] != "p1"]
+    events += [f"{frame} {port} {value:02x}" for frame, ports in moves.changes.items() for port, value in ports.items()]
+    events.sort(key=lambda line: int(line.split()[0]))
+    return "\n".join([lines[0]] + events) + "\n"
 
 
 def cleared(frame):
@@ -270,6 +344,64 @@ def scenes():
         + [(frame, 0xAD, 0x78) for frame in range(2050, 3000, 60)])
     yield "astaroth_first6", scene("stage 6, the first loop: Astaroth beaten", 6,
                                    [(2050, 0x1F30, 0x0A50, 2500, "throw_right", "camera")], 5000, weapon=3)
+    yield "stage_end_forced0", scene("stage 0's end as stage 6's", 0, [
+        (2050, 0x0D10, 0x003E, 30, "still", "camera"), (2400, 0x0D25, 0x003E, 20, "still", "camera")], 8000,
+        ram=cleared(2150) + [(2550, 0x72, 6), (2550, 0x73, 3)])
+    yield "rank_top0", scene("stage 0's end, the rank at its top", 0, [
+        (2050, 0x0D10, 0x003E, 30, "still", "camera"), (2400, 0x0D25, 0x003E, 20, "still", "camera")], 8000,
+        ram=cleared(2150) + [(2550, 0x61, 0x3C)])
+    spell = [(1960, None, None, 0, "walk"), (2030, None, None, 0, "crouch_throw"), (2340, None, None, 0, "throw_left")]
+    yield "transformed0", scene("stage 0: Arthur transformed, jumping right, killed so", 0,
+                                spell + [(2460, None, None, 0, "run"), (2650, None, None, 0, "wander")], 6000,
+                                ram=[(2460, 0xAD, 0x78), (2520, 0xAD, 0x78), (2640, 0xAC, 1)])
+    yield "transformed_forced0", scene("stage 0: the transformation written back in a hit and a new life", 0,
+                                       spell + [(2460, None, None, 0, "walk"), (2700, None, None, 0, "wander")], 6000,
+                                       ram=[(2522, 0x528, 8), (3550, 0x528, 8)])
+    yield "midway_hurry0", scene("stage 0: its midway point passed with 9 seconds left", 0,
+                                 [(2050, 0x0740, 0x003E, 30, "walk", "camera")], 3000,
+                                 ram=[(2050, 0xAA, 0), (2050, 0xAB, 9)]
+                                 + [(frame, 0xAD, 0x78) for frame in range(2050, 3000, 60)])
+    yield "stage_map4", scene("stage 0's end, the map as stage 4's", 0, [
+        (2050, 0x0D10, 0x003E, 30, "still", "camera"), (2400, 0x0D25, 0x003E, 20, "still", "camera")], 8000,
+        ram=cleared(2150) + [(2520, 0x72, 4)])
+    yield "big_man_end0", scene("stage 0's end: its big man, Arthur standing still", 0, [
+        (2050, 0x0C40, 0x003E, 30, "walk", "camera"), (2300, None, None, 0, "still")], 7000,
+        ram=in_map(2050, 0x0C40) + [(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)])
+    yield "big_man_edges5", scene("stage 5: Big Man fought from its arena's right side", 5,
+                                  [(2050, 0x1E30, big_man, 0, "throw_left", "camera")], 8000,
+                                  ram=[(frame, 0xAD, 0x78) for frame in range(2050, 8000, 60)])
+    for name, stage, seed in (("play0", 0, 23), ("play1", 1, 112), ("play2a", 2, 221), ("play2b", 2, 223),
+                              ("play2c", 2, 222), ("play3", 3, 321), ("play4", 4, 411), ("play6", 6, 611)):
+        yield name, played(f"stage {stage} played at random, unhurt (seed {seed})", stage, 20000, seed)
+    yield "dragon3", scene("stage 3's end: its dragon", 3, [
+        (2050, 0x1700, 0x023F, 30, "walk", "camera"), (3700, None, None, 0, "still"), (8000, None, None, 0, "wander")],
+        12000, ram=in_map(2050, 0x1700) + [(frame, 0xAD, 0x78) for frame in range(2050, 12000, 60)])
+    yield "satans5", scene("stage 5's top: its Satans waiting", 5, [(2050, 0x1E70, 0x0A80, 60, "wander", "camera")],
+                           9000, ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)])
+    yield "satan4_crouch", scene("stage 4: Satan's flights at a crouching Arthur", 4,
+                                 [(2050, 0x1C40, 0x0680, 2500, "crouch_throw", "camera")], 7000,
+                                 ram=[(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)]
+                                 + camera_at(2050, 0x1C40, 0x0680))
+    yield "window_giants4", scene("stage 4: the window giants on their ledges", 4, [
+        (2050, 0x1B00, 0x04D0, 40, "wander", "camera"), (4000, 0x1B00, 0x04D0, 40, "still", "camera"),
+        (4450, 0x1AE0, 0x0520, 40, "still")], 9000,
+        ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)] + camera_at(4000, 0x1B00, 0x04D0))
+    yield "run1", scene("stage 1: run through, unhurt", 1, [(2050, None, None, 0, "still"), (2600, None, None, 0, "run")],
+                        7000, ram=[(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)])
+    yield "difficulty_top0", scene("stage 0: the difficulty at its cap", 0, [(2050, None, None, 0, "still")], 9000,
+                                   ram=[(1410, 0x61, 0x3C)] + [(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)])
+    yield "big_man_play0", played_from("stage 0's end: its big man, Arthur moving at random (seed 900)", 0,
+                                       [(2050, 0x0C40, 0x003E, 30, "walk", "camera")], 9000,
+                                       in_map(2050, 0x0C40) + [(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)],
+                                       900, 2300)
+    yield "big_men_left1", scene("stage 1's end: the big men followed left", 1, [
+        (2050, 0x1940, 0x0047, 30, "run", "camera"), (2800, None, None, 0, "throw_right"),
+        (3100, 0x1A60, 0x0047, 30, "still", "camera")], 10000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 10000, 60)] + in_map(2050, 0x1940))
+    yield "fliers_play1", played_from("stage 1: the window fliers, Arthur moving at random (seed 1000)", 1,
+                                      [(2050, 0x1300, 0x004F, 40, "still", "camera")], 16000,
+                                      [(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 16000, 60)]
+                                      + camera_at(2050, 0x1300, 0x004F), 1000, 2200)
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
