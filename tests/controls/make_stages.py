@@ -63,6 +63,38 @@ big_men1.txt: stage 1 from its midway point, Arthur put at x 1940 with the map's
 there too (in_map()), running right: the map's event 23 (column 1A) brings the two big men of spawner 8's list 1
 (variants 1 and 4, kinds 1 and 0: the kinds that jump back at random when their walk is done, big_man_jump_end,
 where stage 5's kind 2 always charges); Arthur stays there throwing, unhurt.
+arremer_forced1.txt: stage 1 from its midway point, Arthur walking under the brick house's windows, unhurt; one of
+the window fliers (spawner 4: variants 1 and 2 only) made variant 0 as it comes out, its wait (start_wait: 3600
+frames at the default difficulty, B037's table) cut to 16 frames: it turns into a red arremer of variant 2, whose
+start waits (red_arremer_wait): the code of what the game never makes, run for the translation's check.
+window_giants5.txt: stage 5's tower, Arthur put on the dragon's floor at 1D40 (the camera's climb crosses into the
+map's cell FD: event 62, spawner 10's list 1, four window giants of variants 0 and 1 on the ledges above), then put
+up at 1DA0, 0920 walking right, unhurt: they come out, the variant 1 ones pause first (window_giant_pause), they chase
+him along their ledge and throw (window_giant_throw_start).
+dragon5.txt: stage 5's tower, Arthur on the dragon's floor (07D8) at 1E60 throwing left the whole time, unhurt: the
+flying dragon beaten segment by segment to its head, its last hit (dragon_segment_hit), its points (dragon_killed).
+satan4_flight.txt: satan4's place, Arthur held at 1C40, 0680 (Satan's height) a while, unhurt, with the camera's
+record put there too (camera_at(): camera_x and camera_y alone are written back from it): Satan is on screen at once
+(satan_wait) and flies at him, its flight's end (satan_fly_end) and its way back (satan_fly_back).
+flying_knights_hit0.txt: stage 0 from its midway point, put at x 0D40 (over the water), Arthur unhurt running right then walking about and
+throwing: the flying knights hit (flying_knight_hit, their dying).
+magician_spell0.txt: magician0's inputs, Arthur unhurt from just after the spell turns him (frame 2448; the
+spell itself is a hit, which <$AD would stop): he walks about transformed (player_transformed: its sound, its jump,
+state 5) until the spell runs out (8 steps of 64 frames) and turns back (player_transform_end, its blink).
+fliers0.txt: stage 0 from its midway point, Arthur put at x 0880 with the map's place and the camera's record there
+(in_map()), running right then throwing, unhurt: the map's events 09 and 0A (spawner 0's lists 1-2) bring object
+type 0 of variant 0, whose start is type_00_start_1.
+armour0.txt: stage 0, Arthur without his armour (<$AC player_naked = 1, as a hit leaves it) put with the camera's
+record on the prop of type 0, variant 0 at 05A0, 0060: touched, it drops the armour (prop_by_type_0_0: only to a
+naked player), which Arthur, put on it, takes (item_alive_3_0).
+flier2_forced1.txt: arremer_forced1's start, the window flier made variant 2 instead (stage 2's climb has them, from
+the map's events 37-3C, which no placed scene crosses in order): its start after the wait goes to step 5
+(window_flier_step_6).
+flame_forced3.txt: stage 3 from its midway point, Arthur walking over the bridge; one of its flames (0F40) put in
+state 2 (dying) and then 3 (removed): no weapon hurts them (EE91's mask 0) and touching Arthur hurts him only, so the
+game never kills one; their code run for the translation's check.
+astaroth_first6.txt: astaroth6's place and inputs in the first loop (no <$7F write): Astaroth's hit sound is 1C
+there (astaroth_hit: 32 in the second loop).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -114,6 +146,14 @@ def in_map(frame, x):
     come at their columns and the camera follows him from 0x80 to his left"""
     camera_x = x - 0x80
     return [(frame, 0x91, 0), (frame, 0x92, x >> 8), (frame, 0x636, camera_x >> 8), (frame, 0x637, camera_x & 0xFF)]
+
+
+def camera_at(frame, x, y):
+    """the camera's record (0630: x at 0636, y at 0639) put 0x80 left of and 0x47 below x, y, as scene()'s "camera"
+    puts camera_x and camera_y, which scroll_follow writes back from the record"""
+    camera_x, camera_y = x - 0x80, y - 0x47
+    return [(frame, 0x636, camera_x >> 8), (frame, 0x637, camera_x & 0xFF), (frame, 0x639, camera_y >> 8),
+            (frame, 0x63A, camera_y & 0xFF)]
 
 
 def scene(title, stage, places, frames, ram=(), weapon=None):
@@ -197,6 +237,39 @@ def scenes():
     yield "big_men1", scene("stage 1's end: the big men of the map's event 23", 1, [
         (2050, 0x1940, 0x0047, 30, "run", "camera"), (2800, None, None, 0, "throw_right")], 9000,
         ram=[(1410, 0x81, 1)] + in_map(2050, 0x1940) + [(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)])
+    yield "arremer_forced1", scene("stage 1: a window flier of variant 0 turned red arremer", 1, [
+        (2050, None, None, 0, "walk"), (2200, None, None, 0, "throw_right")], 7000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)]
+        + forced(2362, 0x0C40, 0) + [(2400, 0x0C40 + 0x2E, 0), (2400, 0x0C40 + 0x2F, 0x10)])
+    yield "window_giants5", scene("stage 5's tower: the window giants of the map's event 62", 5, [
+        (2050, 0x1D40, 0x07D8, 60, "wander", "camera"), (2300, 0x1DA0, 0x0920, 60, "walk", "camera")], 6000,
+        ram=[(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)])
+    yield "dragon5", scene("stage 5's tower: the flying dragon beaten", 5, [
+        (2050, 0x1E60, 0x07D8, 60, "throw_left", "camera")], 9000,
+        ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)])
+    yield "satan4_flight", scene("stage 4: Satan's flights", 4, [(2050, 0x1C40, 0x0680, 2500, "still", "camera")],
+        5000, ram=[(frame, 0xAD, 0x78) for frame in range(2050, 5000, 60)] + camera_at(2050, 0x1C40, 0x0680))
+    yield "flying_knights_hit0", scene("stage 0 from x 0D40: the flying knights hit", 0, [
+        (2050, 0x0D40, 0x003E, 30, "run", "camera"), (2400, None, None, 0, "wander")], 7000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)])
+    yield "magician_spell0", scene("stage 0: Arthur transformed by the magician's spell, and back", 0, [
+        (1960, None, None, 0, "walk"), (2030, None, None, 0, "crouch_throw"), (2340, None, None, 0, "throw_left"),
+        (3200, None, None, 0, "wander")], 6000, ram=[(frame, 0xAD, 0x78) for frame in range(2460, 6000, 60)])
+    yield "fliers0", scene("stage 0: the map's events 09-0A, object type 0 of variant 0", 0, [
+        (2050, 0x0880, 0x003E, 30, "run", "camera"), (2500, None, None, 0, "throw_right")], 7000,
+        ram=[(1410, 0x81, 1)] + in_map(2050, 0x0880) + [(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)])
+    yield "armour0", scene("stage 0: the armour from the prop at 05A0, taken", 0, [
+        (2050, 0x05A0, 0x0060, 120, "still", "camera"), (2200, 0x0604, 0x0060, 200, "still")], 4000,
+        ram=[(2050, 0xAC, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 4000, 60)]
+        + camera_at(2050, 0x05A0, 0x0060))
+    yield "flier2_forced1", scene("stage 1: a window flier of variant 2", 1, [
+        (2050, None, None, 0, "walk"), (2200, None, None, 0, "throw_right")], 6000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)] + forced(2362, 0x0C40, 2))
+    yield "flame_forced3", scene("stage 3: a bridge flame's dying and removal", 3, [(2050, None, None, 0, "walk")],
+        3000, ram=[(1410, 0x81, 1), (2300, 0x0F43, 2), (2310, 0x0F43, 3)]
+        + [(frame, 0xAD, 0x78) for frame in range(2050, 3000, 60)])
+    yield "astaroth_first6", scene("stage 6, the first loop: Astaroth beaten", 6,
+                                   [(2050, 0x1F30, 0x0A50, 2500, "throw_right", "camera")], 5000, weapon=3)
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
