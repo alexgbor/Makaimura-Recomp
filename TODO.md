@@ -72,18 +72,19 @@ Roughly in order; each milestone is checked against the reference before it is t
       instructions run in every script
 - [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
 - [x] Coverage of the program ROM (`tools/coverage.py`: gref on the attract mode and every script): every address
-      run is an instruction the analyses found (6809 and Z80); 91.6% of the 16823 instructions found are run by
-      the scripts (the Z80's: 94.8%); the fixed ROM is 73% code run, 6.7% code never run, 19% data, banks 0-2 and 4
+      run is an instruction the analyses found (6809 and Z80); 93.9% of the 16823 instructions found are run by
+      the scripts (the Z80's: 95.8%); the fixed ROM is 75% code run, 4.8% code never run, 19% data, banks 0-2 and 4
       data only (graphics' tables, the stages' maps), bank 3 code (the boot, the test mode, the ranking) and data
-- [~] The code never run: 249 routines (6.7 KB) down to 99 (1.5 KB) by the scenes (`make_stages.py`: bosses5,
-      red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6; `make_features.py`: ranking,
-      service_pages): Big Man, the dragon, Red Arremer and Satan fought and beaten, the magician (type 7) and its
-      spell, a stage's end through the key, the gate and the map, the weapon's and the illusion's messages, the
-      ranking's initials (play_name_entry), the test mode's hidden pages (coin 1 held as it starts), Astaroth
-      beaten (astaroth6: only the cross, at his head's height), the window giant, a pillar and the magician beaten
-      (window_giant1, pillar2, magician_beaten0), the perched crows' take off (crows1). Left: object type 3 and the
-      crows' variants 0, 1 (no stage's list places them: spawners 3 and 1, which no script's stage events arm),
-      the window giant's throw, the dragon's and Satan's last steps; their translation is checked
+- [~] The code never run: 249 routines (6.7 KB) down to 56 (0.8 KB) by the scenes (`make_stages.py`: bosses5,
+      red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2,
+      magician_beaten0, crows1, flying_knights0; `make_features.py`: ranking, service_pages): Big Man, the dragon,
+      Red Arremer and Satan fought and beaten, the magician (type 7) and its spell, a stage's end through the key,
+      the gate and the map, the weapon's and the illusion's messages, the ranking's initials (play_name_entry), the
+      test mode's hidden pages (coin 1 held as it starts), Astaroth beaten (only the cross, at his head's height),
+      the window giant, a pillar and the magician beaten, the perched crows' take off, the flying knights (object
+      type 3: spawner 3, armed by stage 0's map at the water). Left: the crows' variants 0-1 (never in the game:
+      only spawner 1's lists 4-5 hold them, and no map event chooses those), the window giant's throw, Red
+      Arremer's wait, the dragon's, Big Man's and Satan's last steps; their translation is checked
       instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of every
       instruction found, 50 states each), not in context
 

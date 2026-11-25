@@ -52,6 +52,9 @@ object_check_hits passes over) and the gravestone stops the shots thrown standin
 jump (its row within 13 of the magician's): hit, dying.
 crows1.txt: stage 1 from its midway point, Arthur put before the perched crows (variant 3, 1840-19B0 in the stage's
 list) and left standing, then walking about, unhurt: they take off at him; one flies in from the side (variant 4).
+flying_knights0.txt: stage 0 from x 0720, Arthur unhurt running right (jumping, throwing) then walking about: the
+map's event at the water arms spawner 3, the shielded flying knights (object type 3, in no stage's list) come in
+waves, fly their three ways (variants 0-2) and leave.
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -70,6 +73,8 @@ def pattern(name, step):
     held = 0
     if name == "walk":
         held = RIGHT
+    elif name == "run":
+        held = RIGHT | (JUMP if step % 8 < 2 else 0) | (FIRE if step % 4 == 1 else 0)    # jumping, throwing
     elif name in ("throw_left", "throw_right"):
         if step % 60 < 3:
             held |= LEFT if name == "throw_left" else RIGHT        # turned that way now and then
@@ -161,6 +166,9 @@ def scenes():
     yield "crows1", scene("stage 1 from its midway point: the perched crows take off", 1, [
         (2050, 0x1800, 0x0047, 60, "still", "camera"), (3000, None, None, 0, "wander")], 6000,
         ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)])
+    yield "flying_knights0", scene("stage 0 from x 0720: the flying knights over the water", 0, [
+        (2050, 0x0720, 0x003E, 30, "run", "camera"), (4000, None, None, 0, "wander")], 6000,
+        ram=[(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)])
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 

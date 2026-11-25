@@ -1169,22 +1169,22 @@ scoped object type_00 1F wait_list_low u8
 scoped object type_00 20 flier_step u8  # the flier's dispatch (type_00_flier), one on as it aims
 scoped object type_00 2E leader u8  # 2E-2F: the record it follows (variant 2)
 scoped object type_00 2F leader_low u8
-param type_03_start x type_03 object.type_03+10
-param type_03_alive x type_03 object.type_03+10
-param type_03_v0 x type_03 object.type_03+10
-param type_03_v1 x type_03 object.type_03+10
-param type_03_move x type_03 object.type_03+10
-param type_03_v2 x type_03 object.type_03+10
-param type_03_dying x type_03 object.type_03+10
-param type_03_hit x type_03 object.type_03+10
-param type_03_dying_end x type_03 object.type_03+10
-param type_03_remove x type_03 object.type_03+10
-scoped object type_03 16 radius u8  # the sine's (4140) scale: 32
-scoped object type_03 17 centre_y u8  # 17-18
-scoped object type_03 18 centre_y_low u8
-scoped object type_03 19 angle u8
-scoped object type_03 1A offset_y u8  # 1A-1B
-scoped object type_03 1B offset_y_low u8
+param flying_knight_start x flying_knight object.flying_knight+10
+param flying_knight_alive x flying_knight object.flying_knight+10
+param flying_knight_v0 x flying_knight object.flying_knight+10
+param flying_knight_v1 x flying_knight object.flying_knight+10
+param flying_knight_move x flying_knight object.flying_knight+10
+param flying_knight_v2 x flying_knight object.flying_knight+10
+param flying_knight_dying x flying_knight object.flying_knight+10
+param flying_knight_hit x flying_knight object.flying_knight+10
+param flying_knight_dying_end x flying_knight object.flying_knight+10
+param flying_knight_remove x flying_knight object.flying_knight+10
+scoped object flying_knight 16 radius u8  # the sine's (4140) scale: 32
+scoped object flying_knight 17 centre_y u8  # 17-18
+scoped object flying_knight 18 centre_y_low u8
+scoped object flying_knight 19 angle u8
+scoped object flying_knight 1A offset_y u8  # 1A-1B
+scoped object flying_knight 1B offset_y_low u8
 param magician_start x magician object.magician+10
 param magician_frames x magician object.magician+10
 param magician_alive x magician object.magician+10
@@ -1451,7 +1451,7 @@ local objects_handlers 9F11 x object object+10
 9F41  func  object_type_00     # stages 4, 5; the attract mode's demo; several things: a small flier out of stage 4-5's walls (sprites 060-07F), the points (030)
 A2C4  func  object_crow        # type 1; every stage, the attract mode: the graveyard's crows (sprites 0C0-0CF), the caves' bats (0E0-0EF)
 A716  func  object_petite_devil  # type 2; stages 1, 4: the small blue devils out of the towers' windows (sprites 0F0-0FF)
-AE76  func  object_type_03     # no stage's list places it (bank 2's 4B00); no script reaches it
+AE76  func  object_flying_knight  # the shielded flying knights over stage 0's water: no stage's list places them, spawner 3 does (the map's event there; flying_knights0.txt)
 AFC0  func  object_window_flier  # type 4; stage 1 from its midway point (midway1): out of the brick house's windows (sprites 080-08F)
 B4C8  func  object_red_arremer  # type 5; every stage, the attract mode: the red winged demon (sprites 180-1BF)
 BD4F  func  object_satan       # type 6; stages 4, 5: the large red demon with purple wings at the top of their last climb (sprites 280-2BF: satan4)
@@ -1598,7 +1598,7 @@ A6E9  func  crow_dying
 # the crow (type 1) by its variant: 0 flies in on a wave towards the player and past him (maybe turning back),
 # 1 the same after blinking in, 2 the caves' bat (hangs, dives, flies off on a wave), 3 perches facing the player,
 # cawing, then flies at him, 4 flies in from a side on a wave, 5 the graveyard's (perches, then the wave)
-A35B  func  crow_flier           # variant 0, by step:
+A35B  func  crow_flier           # variant 0, by step:  -- never in the game: only spawner 1's lists 4-5 (bank 2 5397, 53B0) hold variants 0-1, and the map's events that arm it (17-1A) all choose list 0
 A367  func  crow_enter           #   into the screen at double speed
 A380  func  crow_wave_flight     #   by substep: to the player, turn or not, wait, turn, straight on
 A392  func  crow_wave_to_player
@@ -1816,16 +1816,16 @@ A726  func  petite_devil_start
 A9C5  func  petite_devil_alive
 AD1B  func  petite_devil_dying
 AD38  func  petite_devil_remove
-AE86  func  type_03_start
-AEF1  func  type_03_alive
-AF91  func  type_03_dying
-AFAE  func  type_03_remove
-AF09  func  type_03_v0
-AF2D  func  type_03_v1
-AF47  func  type_03_move
-AF75  func  type_03_v2
-AF9D  func  type_03_hit          # dying: sound 1B
-AFA6  func  type_03_dying_end
+AE86  func  flying_knight_start
+AEF1  func  flying_knight_alive
+AF91  func  flying_knight_dying
+AFAE  func  flying_knight_remove
+AF09  func  flying_knight_v0
+AF2D  func  flying_knight_v1
+AF47  func  flying_knight_move
+AF75  func  flying_knight_v2
+AF9D  func  flying_knight_hit          # dying: sound 1B
+AFA6  func  flying_knight_dying_end
 B4D8  func  red_arremer_start
 B650  func  red_arremer_alive
 BD10  func  red_arremer_dying
