@@ -161,6 +161,8 @@ satan_wait5.txt: stage 5's top, Arthur hopping unhurt between the two Satans: on
 (satan_wait's timer).
 big_man_left5.txt: stage 5's Big Man, Arthur standing unhurt at its arena's left (1D90), the camera's record put with
 him: it walks to the left end (big_man_walk_way, x 1D98 or less).
+red_arremer_fly0.txt: stage 0's Red Arremer fought unhurt with weapon 4 thrown right: its flight's timer run out
+another way (red_arremer_fly_timer).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -460,6 +462,9 @@ def scenes():
                                  [(2050, 0x1D90, big_man, 0, "still", "camera")], 9000,
                                  ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)]
                                  + camera_at(2050, 0x1D90, big_man))
+    yield "red_arremer_fly0", scene("stage 0: Red Arremer fought with weapon 4, unhurt", 0,
+                                    [(2050, 0x0560, 0x0040, 0, "throw_right", "camera")], 9000,
+                                    ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)], weapon=4)
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
