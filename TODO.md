@@ -72,20 +72,23 @@ Roughly in order; each milestone is checked against the reference before it is t
       instructions run in every script
 - [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
 - [x] Coverage of the program ROM (`tools/coverage.py`: gref on the attract mode and every script): every address
-      run is an instruction the analyses found (6809 and Z80); 93.9% of the 16823 instructions found are run by
-      the scripts (the Z80's: 95.8%); the fixed ROM is 75% code run, 4.8% code never run, 19% data, banks 0-2 and 4
+      run is an instruction the analyses found (6809 and Z80); 97.5% of the 16823 instructions found are run by
+      the scripts (the Z80's: 97.6%); the fixed ROM is 78% code run, 1.5% code never run, 19% data, banks 0-2 and 4
       data only (graphics' tables, the stages' maps), bank 3 code (the boot, the test mode, the ranking) and data
-- [~] The code never run: 249 routines (6.7 KB) down to 56 (0.8 KB) by the scenes (`make_stages.py`: bosses5,
-      red_arremer0, satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2,
-      magician_beaten0, crows1, flying_knights0; `make_features.py`: ranking, service_pages): Big Man, the dragon,
-      Red Arremer and Satan fought and beaten, the magician (type 7) and its spell, a stage's end through the key,
-      the gate and the map, the weapon's and the illusion's messages, the ranking's initials (play_name_entry), the
-      test mode's hidden pages (coin 1 held as it starts), Astaroth beaten (only the cross, at his head's height),
-      the window giant, a pillar and the magician beaten, the perched crows' take off, the flying knights (object
-      type 3: spawner 3, armed by stage 0's map at the water). The crows' variants 0-1 never in the game (no
-      stage's list nor spawner 1's holds them): crows_forced1 makes some by a RAM write
-      to run their code. Left: the window giant's throw, Red
-      Arremer's wait, the dragon's, Big Man's and Satan's last steps; their translation is checked
+- [x] The code never run: 249 routines (6.7 KB) down to none (`make_stages.py`: bosses5, red_arremer0,
+      satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2,
+      magician_beaten0, crows1, flying_knights0, big_men1, window_giants5, dragon5, satan4_flight,
+      flying_knights_hit0, magician_spell0, fliers0, armour0, astaroth_first6; `make_features.py`: ranking,
+      service_pages): Big Man, the dragon, Red Arremer and Satan fought and beaten, the magician (type 7) and its
+      spell, a stage's end through the key, the gate and the map, the weapon's and the illusion's messages, the
+      ranking's initials in its three places (play_name_entry), the test mode's hidden pages (coin 1 held as it
+      starts), Astaroth beaten in both loops, the window giants, a pillar, the perched crows, the flying knights,
+      the armour taken back, the object type 0's fliers. Placed scenes write the camera's record (0630) and the
+      map's place (<$91) as well, so that the map's events come where they belong. What the game never does is run
+      by RAM writes (`*_forced*`): the crows of variants 0-1 (crows_forced1: no list holds them), Red Arremer's
+      wait (arremer_forced1: only from a window flier of variant 0, which no list holds), a window flier of variant
+      2 (flier2_forced1), a bridge flame's death (flame_forced3: nothing can kill one). Left: 93 routines partly
+      run (897 bytes: branches such as the RAM test's failures, the climb's corners); their translation is checked
       instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of every
       instruction found, 50 states each), not in context
 
