@@ -1598,7 +1598,7 @@ A6E9  func  crow_dying
 # the crow (type 1) by its variant: 0 flies in on a wave towards the player and past him (maybe turning back),
 # 1 the same after blinking in, 2 the caves' bat (hangs, dives, flies off on a wave), 3 perches facing the player,
 # cawing, then flies at him, 4 flies in from a side on a wave, 5 the graveyard's (perches, then the wave)
-A35B  func  crow_flier           # variant 0, by step:  -- never in the game: only spawner 1's lists 4-5 (bank 2 5397, 53B0) hold variants 0-1, and the map's events that arm it (17-1A) all choose list 0 (crows_forced1.txt makes some by a RAM write)
+A35B  func  crow_flier           # variant 0, by step:  -- never in the game: no stage's list (bank 2's 4B00) nor spawner 1's (51C6: variants 4 and 5 only) holds variants 0-1 (crows_forced1.txt makes some by a RAM write)
 A367  func  crow_enter           #   into the screen at double speed
 A380  func  crow_wave_flight     #   by substep: to the player, turn or not, wait, turn, straight on
 A392  func  crow_wave_to_player

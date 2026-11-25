@@ -57,8 +57,12 @@ map's event at the water arms spawner 3, the shielded flying knights (object typ
 waves, fly their three ways (variants 0-2) and leave.
 crows_forced1.txt: stage 1 from its midway point, Arthur running to the map's event 17 (spawner 1: the crows in from
 the side, variant 4) and staying there, unhurt; four of those crows made variants 0 and 1 as they come in (their
-variant written, their state, step and substep cleared): the code of crows the game never makes (only spawner 1's
-lists 4-5 hold them, and no map event chooses those), run for the translation's check.
+variant written, their state, step and substep cleared): the code of crows the game never makes (no stage's list nor
+spawner 1's holds those variants), run for the translation's check.
+big_men1.txt: stage 1 from its midway point, Arthur put at x 1940 with the map's place and the camera's record
+there too (in_map()), running right: the map's event 23 (column 1A) brings the two big men of spawner 8's list 1
+(variants 1 and 4, kinds 1 and 0: the kinds that jump back at random when their walk is done, big_man_jump_end,
+where stage 5's kind 2 always charges); Arthur stays there throwing, unhurt.
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -102,6 +106,14 @@ def pattern(name, step):
 def forced(frame, record, variant):
     """the object at record (0880 + 0x30 n) made that variant, started again (state, step, substep 0)"""
     return [(frame, record + 2, variant)] + [(frame, record + offset, 0) for offset in (3, 4, 5)]
+
+
+def in_map(frame, x):
+    """the map's place (<$91: the 256-pixel cell, row 0 here) and the camera's record (0630: its x at 0636, which
+    scroll_follow_x moves camera_x from, a byte's difference at a time) put with Arthur at x, so that the map's events
+    come at their columns and the camera follows him from 0x80 to his left"""
+    camera_x = x - 0x80
+    return [(frame, 0x91, 0), (frame, 0x92, x >> 8), (frame, 0x636, camera_x >> 8), (frame, 0x637, camera_x & 0xFF)]
 
 
 def scene(title, stage, places, frames, ram=(), weapon=None):
@@ -182,6 +194,9 @@ def scenes():
         (2050, 0x1800, 0x0047, 30, "run", "camera"), (2650, None, None, 0, "throw_right")], 7000,
         ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 7000, 60)]
         + forced(2700, 0x0CA0, 0) + forced(2780, 0x0D60, 1) + forced(3300, 0x0CA0, 0) + forced(3380, 0x0D00, 0))
+    yield "big_men1", scene("stage 1's end: the big men of the map's event 23", 1, [
+        (2050, 0x1940, 0x0047, 30, "run", "camera"), (2800, None, None, 0, "throw_right")], 9000,
+        ram=[(1410, 0x81, 1)] + in_map(2050, 0x1940) + [(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)])
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
