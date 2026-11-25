@@ -25,7 +25,7 @@
                                                       # cannot do under itself
 
 # ======== the boot's continuation ========
-3:553A  func  ram_rom_test  return=Y   # the boot's RAM and ROM test, entered by JMP from 607A with its return address
+3:553A  func  ram_rom_test  return=Y   # the boot's RAM and ROM test, entered by JMP from 607A with its return address; its failures need a faulty board
                                        # (607D) in Y: stack at 2000, PSHS Y at 557A, the RTS at 558B returns through it
 607D  code  reset_after_ram_test   # where bank 3's RAM and ROM test (553A) returns: PSHS Y there, RTS
 6134  code  main_loop_start        # the main loop's setup: the frame counters, the DSWs, sound off, then IRQs on
@@ -35,7 +35,7 @@
 6188  data  main_tasks             # (the words read by LDX A,X at 6174)
 # the main loop's tasks by number (queue_task's A; B their argument), bank 3 but 6 and 18:
 3:4800 func task_text_clear      # 00: the text layer cleared (its codes 20, its colours 0)
-3:485C func task_text_clear_row  # 01: a row of the text layer (B: 80 + the row)
+3:485C func task_text_clear_row       # 01: B rows of the text layer from the top cleared; B 80 + a row: that row only, never asked (every task 01 the program queues has B 15-1B)
 3:48BD func task_draw_texts      # 03: a list of texts (the table 48DD by B)
 3:5022 func task_score_kind      # 04: <$F1 = B
 3:511E func task_draw_credits    # 05: "FREE PLAY" or the credits
@@ -50,8 +50,8 @@
 3:551E func task_background_clear  # 0E: the background layer cleared (2800-2FFF)
 3:594B func task_0F              # 0F: 1633- set to FF (7 bytes, and 40 on), then 5977
 3:5180 func task_10              # 10: a list of 7 texts (51A3) at 20A6
-3:5975 func task_11              # 11
-3:5977 func task_0F_b
+3:5975 func task_11                   # 11: never queued; its entry falls inside task_0F's CLR <$F0 (5974), the bytes from there a misaligned decode
+3:5977 func task_0F_b                 # (5978-5983 as task_11's decode: never run)
 3:505B func draw_digit           # draw_bcd_byte's: one digit
 3:5064 func draw_number          # task_draw_credits', task_draw_timer's
 3:50A0 func draw_number_digits
@@ -66,7 +66,7 @@
 3:541C func draw_ranking_entry
 3:55C6 func ram_test_pattern
 3:55D2 func ram_test_loop
-3:55DE func rom_test
+3:55DE func rom_test                  # a bad checksum's branch: a faulty board
 3:565A func rom_test_result
 3:567D func service_start
 3:5690 func service_pages        # the service mode by page: 0 the settings, 1 the scroll test, 2 the OBJ RAM test
@@ -375,7 +375,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 6793  func  coin_meter               # coin_counters' for each slot (X its record): a pulse of its coin counter (U)
 67DB  func  coin_inputs              # the coin inputs (<$45) into 1591
 6812  func  coin_count               # a coin: the credits by its slot's setting (6839), the sound (sound_coin)
-6810  func  coin_count_x
+6810  func  coin_count_x              # window_flier_start_1's jump table's second entry (B049: the bytes of B066's first instruction), for a step 1 in state 0 that no window flier has: never run
 6839  func  coin_credit_step
 685F  func  start_clear              # game_state_start's steps: the sprites, the scroll, game_on 0
 6883  func  start_text_colours       #   the text layer's colours (2400-)
@@ -465,7 +465,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 7341  func  stage_key_gate       #   the gate: timer 32
 7350  func  stage_key_gate_open  #   its sound (3B), the music off
 7379  func  stage_key_armour     #   Arthur's armour back (player_naked 0)
-738B  func  stage_key_next       #   the next stage (0 after 6), the rank up (6C55)
+738B  func  stage_key_next       #   the next stage (0 after 6), the rank up (6C55); stage 6 never gets here (no key; the stage's end goes 71C3's way first): the stage after 6 never computed
 73AD  func  stage_map            # the map between stages, by stage_substep:
 73C1  func  stage_map_start
 73D0  func  stage_map_icon       #   the record at 0530 moved
@@ -527,7 +527,7 @@ B196  table  table_B189          count=2   # JMP/JSR through U at B189; B19E and
 98AB  func  player_crouch_input
 98F0  func  player_crouch_start      # timer 0F
 98F7  func  player_crouch_timer
-99ED  func  player_hit_bounce        # the hit's speeds
+99ED  func  player_hit_bounce        # the hit's speeds; the transformation's test (99F2): player_hit_start has cleared it a frame before (transformed_forced0.txt)
 9A78  func  player_death_animation
 9AB4  func  player_death_frames
 9B1B  func  shot_set_moves
@@ -647,7 +647,7 @@ A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += 
 7F0E  func  scroll_start         # state 0, by step:
 7F1A  func  scroll_start_0
 7E8F  func  scroll_start_0_a
-7ECC  func  scroll_start_0_b
+7ECC  func  scroll_start_0_b          # map_column (<$6C) with bit 5 (an odd map row) at a scroll's start: no start position has one (6CEA, 6B88, 415F...)
 7EE1  func  scroll_start_0_c
 7F7C  func  scroll_start_1       #   the columns (scroll_columns_a), 0647 frames
 7F95  func  scroll_start_2       #   the columns (scroll_columns_b), then state 1
@@ -675,7 +675,7 @@ A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += 
 891F  func  map_row_colours
 8955  func  scroll_rows_c
 898F  func  scroll_rows_c_draw
-8DE7  func  map_event            # bank 2's map events (4300 by <$91): its sounds (sound_request)
+8DE7  func  map_event            # bank 2's map events (4300 by <$91): its sounds (sound_request); a sound with the high bit (8E27) only in cell 0D (stage 0's last), which the camera (stopped at 0C00) never enters
 8B7D  func  background_wall_right  # the background's tile right of the player (player_walk, player_wall_right)
 8BAF  func  background_wall_left
 8B0A  func  background_check     # the background's tile under the object (background_tile, offset by the table 8C09 by -$1,X)
@@ -840,7 +840,7 @@ E93F  func  stage_event_1
 E949  func  stage_event_1_0
 E94F  func  stage_event_1_1
 EB42  func  enemy_killed_0
-EB51  func  enemy_killed_1
+EB51  func  enemy_killed_1            # the drop's weapon: the random bits (enemy_killed_1_0) are the weapons' 5 only, so a bit is always found (EB71 never)
 EB76  func  enemy_killed_2
 EB7B  func  enemy_killed_1_0
 ECA3  func  return_ECA3          # an RTS (key_message, midway_check, stage_timer_tick...)
@@ -874,7 +874,7 @@ E1FC  func  props_frame          # each of the 30 props in use (-$10,X): its rou
 # the player's states (player_states, by -$D,X: the scripts' bus dumps, the pictures around Arthur): 0 the start, 1 on
 # foot, 2 a jump, 3 hit (steps 0-4 the knock back, then the armour lost; without it, step 5 and the death); 4 and 5
 # never reached in the scripts
-8F36  func  player_state_start
+8F36  func  player_state_start        # transformed at a life's start (8F5C): never (a death clears it; transformed_forced0.txt)
 8FD3  func  player_on_foot
 93CA  func  player_jump          # -$2,X (animation) its way: 0 up, 1 right, 2 left
 995F  func  player_hit           # armoured (player_naked 0): steps 0-4 (997F...), the last player_armour_lost
@@ -1603,7 +1603,7 @@ A367  func  crow_enter           #   into the screen at double speed
 A380  func  crow_wave_flight     #   by substep: to the player, turn or not, wait, turn, straight on
 A392  func  crow_wave_to_player
 A3A0  func  crow_passed_player
-A3B8  func  crow_wave            # y on the sine table (bank 4's 4140) by wave_phase, wave_height (the table 4B64 at random)
+A3B8  func  crow_wave            # y on the sine table (bank 4's 4140) by wave_phase, wave_height (the table 4B64 at random); the sine table has no negative value (A3F1 never)
 A413  func  crow_turn_or_not     #   at random: on, or turn after a while
 A423  func  crow_turn_wait_start
 A43B  func  crow_turn_wait       #   then the other way (moves 4B14)
@@ -2026,7 +2026,7 @@ C08E  func  satan_flying
 C0DA  func  satan_fly_end             # substep 2: the flight started with the player straight along its way (towards_player & 7 = 0), back to fly_start_x
 C0F5  func  satan_fly_back       #   move_by_table; substep 3: the player above it when the flight starts
 C0FF  func  satan_fire           # an enemy shot at the player
-C121  func  satan_keep_height
+C121  func  satan_keep_height         # camera_y 2E or less: never in Satan's stages 4-5 (their rooms at 0600 and above)
 C138  func  satan_keep_on_screen # not left of the camera's x - 20
 C1A4  func  satan_walk           # x by the table at U (B: 0 or 1)
 C1C3  func  satan_walking
@@ -2441,7 +2441,7 @@ D6DF  func  dragon_path_wait_start  # a random wait (the tables D6F9, stage 5's 
 D701  func  dragon_path_wait
 D708  func  dragon_path_next
 D736  func  dragon_chase         #   1: turning at the player, its fire (D8C9), its sound (784F)
-D760  func  dragon_turn          # its way a step towards the player (towards_player)
+D760  func  dragon_turn          # its way a step towards the player (towards_player); stage 3's dragon (not stage 5's) turns at the player (D780: dragon3.txt)
 D893  func  dragon_follow        # the body and the tail (parts 1, 2): where the one before was
 D89D  func  dragon_follow_position
 D8C9  func  dragon_fire          # an enemy shot from its mouth
@@ -2526,7 +2526,7 @@ B1DA  func  window_flier_step_2_move
 B1E9  func  window_flier_step_3
 B1F9  func  window_flier_step_3_start
 B21B  func  window_flier_step_3_move
-B230  func  window_flier_turn
+B230  func  window_flier_turn         # the sine table (bank 4's 4140: the objects' loop selects bank 4, E8A2) has no negative value (B23A never)
 B247  func  window_flier_step_4
 B255  func  window_flier_step_4_start
 B25D  func  window_flier_step_4_move
