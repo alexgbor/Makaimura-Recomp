@@ -173,6 +173,18 @@ forced0.txt: stage 0 walked unhurt; map_column's bit 5 set as the stage's scroll
 start has one) and task 01 queued with the argument 9B (task_text_clear_row's bit 7: no caller sets it).
 satan_forced0.txt: stage 0 walked unhurt; a zombie (0DC0) made a Satan (type 6): the camera is low there, as
 nowhere Satan is (satan_keep_height).
+satan_high_forced4.txt: satan4, its Satan put at 0400 (above the camera's top, 0481) as it flies: kept on the screen
+from above (satan_keep_on_screen's C177).
+red_arremer_aim_forced0.txt: red_arremer_fly0, its Red Arremer (0EB0's record) put at 0020, below Arthur, as it aims:
+the aim's height turned (red_arremer_action6_aim's BC50).
+petite_devils_forced1.txt: petite_devils1, a petite devil put at 0010 (under the floor's 0036: put back on it) and
+another at 1200 with Arthur at 13xx (petite_devil_move: right of 11ED and left of the player, it turns back).
+dragon_turn_forced5.txt: dragon5, the dragon (0C40's record) put at 0700 with its aim's height 0500 as it turns: far
+from Arthur's height and below him (dragon_turn's D886).
+big_man_jump_forced5.txt: big_man_edges5, Big Man (0C70's record) put at 1E40 with its jump count 1 and pattern 1 as
+a jump starts (big_man_jump_start's C6FB, and its arena's right end, C765-C76E).
+big_man_forced0.txt: big_man_end0, its big man (0DF0's record) started again as variant 3 (big_man_init's C416: no
+map event makes one), then put 0x400 right of the camera (big_man_walk's removal, C4C1).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -495,6 +507,31 @@ def scenes():
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
 
+def with_writes(text, title, ram):
+    """another scene's script with work RAM writes added (frame, address, value): the forced scenes"""
+    lines = text.splitlines()
+    events = lines[1:] + [f"{frame} m{address:04x} {value:02x}" for frame, address, value in ram]
+    events.sort(key=lambda line: int(line.split()[0]))
+    return "\n".join([f"# {title} (a test's cheat: the RAM written; tests/controls/make_stages.py)"] + events) + "\n"
+
+
+def forced_from(made):
+    """the forced scenes made from others' scripts (made: name to text)"""
+    yield "satan_high_forced4", with_writes(made["satan4"], "stage 4: Satan put above the camera", [
+        (2600, 0xD39, 0x04), (2600, 0xD3A, 0x00)])
+    yield "red_arremer_aim_forced0", with_writes(made["red_arremer_fly0"], "stage 0: Red Arremer aiming from below", [
+        (3656, 0xEB9, 0x00), (3656, 0xEBA, 0x20)])
+    yield "petite_devils_forced1", with_writes(made["petite_devils1"], "stage 1: petite devils put low and far right", [
+        (2882, 0xC79, 0x00), (2882, 0xC7A, 0x10), (3054, 0xCA6, 0x12), (3054, 0xCA7, 0x00), (3054, 0xCCC, 0x00),
+        (3054, 0x506, 0x13)])
+    yield "dragon_turn_forced5", with_writes(made["dragon5"], "stage 5: the dragon turning far below Arthur", [
+        (2645, 0xC69, 0x05), (2645, 0xC6A, 0x00), (2645, 0xC49, 0x07), (2645, 0xC4A, 0x00)])
+    yield "big_man_jump_forced5", with_writes(made["big_man_edges5"], "stage 5: Big Man jumping at its arena's end", [
+        (2131, 0xC92, 1), (2131, 0xC93, 1), (2131, 0xC76, 0x1E), (2131, 0xC77, 0x40)])
+    yield "big_man_forced0", with_writes(made["big_man_end0"], "stage 0: a big man of variant 3, then far away", [
+        (4000, 0xDF2, 3), (4000, 0xDF3, 0), (4000, 0xDF4, 0), (4000, 0xDF5, 0), (6500, 0xDF6, 0x08)])
+
+
 def script(stage, loop2=False, weapon=None, cleared_at=None, midway=False, moved_to=None, held=False):
     what = f"stage {stage}" + (", from its midway point" if midway else "") + (", the second loop" if loop2 else "") + (f", weapon {weapon}" if weapon is not None else "")
     lines = [f"# {what}: coin, start, the RAM written, the lives kept (a test's cheat; tests/controls/make_stages.py)"]
@@ -556,6 +593,11 @@ if __name__ == "__main__":
                        ("ending", script(6, loop2=True, weapon=3, cleared_at=2100))):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:
             out.write(text)
+    made = {"satan4": script(4, moved_to=(0x1C40, 0x0680), held=True)}
     for name, text in scenes():
+        made[name] = text
+        with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:
+            out.write(text)
+    for name, text in forced_from(made):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:
             out.write(text)

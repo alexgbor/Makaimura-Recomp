@@ -72,8 +72,8 @@ Roughly in order; each milestone is checked against the reference before it is t
       instructions run in every script
 - [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
 - [x] Coverage of the program ROM (`tools/coverage.py`: gref on the attract mode and every script): every address
-      run is an instruction the analyses found (6809 and Z80); 99.4% of the 16823 instructions found are run by
-      the scripts (the Z80's: 98.0%); the fixed ROM is 79.5% code run, 0.2% code never run, 19% data, banks 0-2 and 4
+      run is an instruction the analyses found (6809 and Z80); 99.9% of the 16823 instructions found are run by
+      the scripts (the Z80's: 98.0%); the fixed ROM is 79.6% code run, 9 bytes of code never run, 19% data, banks 0-2 and 4
       data only (graphics' tables, the stages' maps), bank 3 code (the boot, the test mode, the ranking) and data
 - [x] The code never run: 249 routines (6.7 KB) down to none (`make_stages.py`: bosses5, red_arremer0,
       satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2,
@@ -88,26 +88,32 @@ Roughly in order; each milestone is checked against the reference before it is t
       by RAM writes (`*_forced*`): the crows of variants 0-1 (crows_forced1: no list holds them), Red Arremer's
       wait (arremer_forced1: only from a window flier of variant 0, which no list holds), a window flier of variant
       2 (flier2_forced1), a bridge flame's death (flame_forced3: nothing can kill one).
-- [x] The routines partly run: 93 (897 bytes) down to 25 (205 bytes). The branches taken by scenes
+- [x] The routines partly run: 93 (897 bytes) down to 9 (27 bytes). The branches taken by scenes
       (`make_stages.py`: transformed0, dragon3, satans5, satan4_crouch, window_giants4, big_man_end0,
       big_man_play0, big_man_edges5, big_men_left1, midway_hurry0, stage_map4, rank_top0, difficulty_top0, run1,
       fliers_play1, zombie_ledge2, skeleton_leap4, big_man_wake0, pillar_wait2, petite_devils1, red_arremer_dodge0,
-      red_arremer_fly0, satan_wait5, big_man_left5, and random unhurt play: play0-6; `make_features.py`: service_dips, coinage, ranking's name
-      entry by a fixed path) and forced (stage_end_forced0: stage 6 cleared with the cross; transformed_forced0: a
-      life started transformed; ending_walk_forced6: the ending's walk from left of the room). Placed scenes need
-      the camera's record written (camera_at) for their objects to come on screen. Found dead (`symbols.txt`): task_text_clear_row's single row (B 80+), task_11
-      (its entry inside task_0F's CLR), coin_count_x (a jump table's phantom entry), the stage after 6
-      (stage_key_next), map_event's cell 0D (the camera stops at 0C00), enemy_killed_1's loop, the negative sines
-      of crow_wave and window_flier_turn (bank 4's table has none), satan_keep_height (camera_y 2E or less), an odd
-      map row at a scroll's start (scroll_start_0_b), the transformation's tests at a hit and a life's start, the
-      object pools found full (the spawners test the count first), a wave's 4th zombie (its index always even),
-      ending_demon_2's state; the RAM and ROM tests' failures need a faulty board
-- [ ] The 25 left (about 60 bytes perhaps reachable): Red Arremer's aim with Arthur above it, the petite devils'
-      floor (row 36) and leaving behind the player past x 11ED, Satan below the camera, Big Man's jumps' other
-      kinds and its removal far from the camera, stage 3's dragon turning down (D886), a variant 0 window flier
-      off the screen (B01A: forced only). Their translation is checked instruction by instruction against
-      MAME's core (`compare_lift_with_mame.py`: the 3983 forms of every instruction found, 50 states each), not in
-      context
+      red_arremer_fly0, satan_wait5, big_man_left5, and random unhurt play: play0-6; `make_features.py`:
+      service_dips, coinage, ranking's name entry by a fixed path). Placed scenes need the camera's record written
+      (camera_at) for their objects to come on screen.
+- [x] What the game never does, forced by RAM writes (`*_forced*`, `forced0`): stage_end_forced0 (stage 6 cleared
+      with the cross), transformed_forced0 (a life started transformed), ending_walk_forced6 (the ending's walk from
+      left of the room), ending_demon_forced6 (ending_demon_2's state), zombie4_forced0 (a wave's 4th zombie),
+      flier0_wait_forced1 (a variant 0 flier's wait), forced0 (an odd map row at a scroll's start, a text row's
+      bit 7), satan_forced0 (a Satan in stage 0, the camera low), satan_high_forced4 (Satan above the camera),
+      red_arremer_aim_forced0 (Red Arremer aiming from below Arthur), petite_devils_forced1 (under the floor, past
+      11ED), dragon_turn_forced5 (stage 5's dragon turning down), big_man_jump_forced5 (Big Man's jump kinds at
+      its arena's end), big_man_forced0 (a big man of variant 3, removed far from the camera). The boot's RAM and
+      ROM tests' failures on a faulty board (`make_features.py`: faulty_sprite_ram, faulty_text_ram, bad_rom,
+      bad_bank: the script's "0 faulty ADDR" and "0 rOFFSET VALUE", gref and gng_headless only). The 6809: 99.9%
+      (16806 of 16823 instructions run).
+- [x] The 9 left (27 bytes) are not forceable (`symbols.txt`): task_11 and coin_count_x (a jump table's phantom
+      entries: forced, they run on into the RAM) with task_0F_b's bytes behind task_11's entry; the object pools
+      found full (object_new, prop_new: only the stage's set-up asks without testing the count, in the frame that
+      starts the pools); the negative sines of crow_wave and window_flier_turn (bank 4's table, ROM, has none);
+      the stage after 6 (stage_key_next: with stage 6 written, 711F leaves for 71C3 before the objects run);
+      enemy_killed_1's EB71 (<$E1 cleared and made of the weapons' 5 bits in the same call). Their translation is
+      checked instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of
+      every instruction found, 50 states each), not in context
 
 ## M2. The reference (`tools/reference`, "gref")
 
