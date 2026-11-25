@@ -2381,7 +2381,7 @@ D2BE  func  zombie_rise          # start's step 1: out of the ground (its animat
 D2CA  func  zombie_rise_start    #   with no ground under it, removed
 D2F8  func  zombie_rising        #   at the end alive (state 1)
 D321  func  zombie_walk          # variant 0, by its substep:
-D32F  func  zombie_walk_start    #   towards the player, how long (walk_time) and how far past him (timer) at random
+D32F  func  zombie_walk_start    #   towards the player, how long (walk_time) and how far past him (timer) at random; the other walk (D369) for a wave's 4th zombie: its index in the wave (spawner_alive_1_2's, EC19) is 0, 2 or 4 in every script, never 3
 D37A  func  zombie_walking       #   to the ground's end, or walk_time; past the player, on (zombie_walk_on)
 D39B  func  zombie_passed_player
 D3C2  func  zombie_walk_on       #   timer's frames more
@@ -2510,7 +2510,7 @@ B49A  func  window_flier_remove
 # the window flier, alive by step (B0B2's switch)
 AFDE  func  window_flier_start_0      # variant 0: none in the game (spawner 4's lists: variants 1-2)
 AFEA  func  window_flier_animation
-B00D  func  window_flier_start_0_wait
+B00D  func  window_flier_start_0_wait  # off the screen (B01A): only a variant 0 flier waits here, which no list holds (arremer_forced1.txt forces one)
 B023  func  window_flier_start_check
 B03F  func  window_flier_start_1
 B066  func  window_flier_start_1_wait
