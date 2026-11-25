@@ -106,11 +106,69 @@ def service_pages():
     return s.text(dsw1=DSW1 & ~0x40)
 
 
+def service_dips():
+    s = Script("the test mode in a cocktail cabinet: the settings page through DSW1's changes, the sound test", 0x5E53)
+    # DSW1, read every frame (irq: dip1_settings), the page drawn every 16 frames (service_settings_draw): coin A's
+    # coinage (bits 0-3, all set: free play), coin B's slot (bit 4), the demo sounds (bit 5), each for 60 frames;
+    # DSW2 (read at the start only) bit 2 set: a cocktail cabinet
+    frame = 400
+    for dsw1 in (DSW1, DSW1 & ~0x0F, DSW1 & ~0x0E, DSW1 & ~0x0D, DSW1 & ~0x0B, DSW1 & ~0x07, DSW1 & ~0x10,
+                 DSW1 & ~0x1C, DSW1 & ~0x20, DSW1 ^ 0x2F):
+        s.press(frame, "dsw1", dsw1 & ~0x40)
+        frame += 60
+    s.press(frame, "dsw1", DSW1 & ~0x40)
+    # the sound test (the same page): its code up past 09 and 15 (0A-0B and 16-17 skipped), down past them again
+    for move in [RIGHT] * 24 + [LEFT] * 24:
+        s.tap(frame, "p1", move, 4)
+        frame += 12
+    # the next page (both starts) and back to the first (two pages without coin 1 held at the start)
+    s.tap(frame, "system", START1 | START2, 8)
+    s.tap(frame + 300, "system", START1 | START2, 8)
+    s.press(frame + 600, "p1", 0xFF)
+    return s.text(dsw1=DSW1 & ~0x40, dsw2=DSW2 | 0x04)
+
+
+def coinage():
+    s = Script("coin A at 4 coins a credit: the title's coinage, the service switch turned on in the attract mode, "
+               "10 lives", 0x5E54)
+    # the title's coinage drawn with "COINS" (task_draw_credit_count); DSW1 read every frame (irq: dip1_settings): the
+    # service switch on (<$0F) as coins go in, the credits not drawn then (task_draw_credits); off again, a game with
+    # its lives written 10 (a test's cheat: the bonus lives could give them), the icons drawn as 7 at the next life
+    # (task_draw_lives); then the continue
+    s.press(2000, "dsw1", DSW1 & ~0x0D & ~0x40)
+    for frame in range(2100, 2260, 40):
+        s.tap(frame, "system", COIN1)
+    s.press(2600, "dsw1", DSW1 & ~0x0D)
+    # one credit: start 2 refused (attract_demo_inputs), start 1
+    s.tap(2650, "system", START2)
+    s.tap(2700, "system", START1)
+    s.press(3000, "m0060", 0x0A)
+    # four coins more (a credit), the last life (the lives written 1), the continue taken: fire held and start 1
+    for frame in range(4000, 4160, 40):
+        s.tap(frame, "system", COIN1)
+    s.press(4200, "m0060", 0x01)
+    for frame in range(4300, 7000, 30):
+        s.tap(frame, "p1", FIRE, 20)
+        s.tap(frame + 10, "system", START1, 6)
+    s.press(8000, "p1", 0xFF)
+    return s.text(dsw1=DSW1 & ~0x0D)
+
+
 def ranking():
     s = Script("three games into the ranking (the score written: a test's cheat), the initials entered", 12345)
     # the scores (BCD, <$68-<$6B), the ranking's ten being 10000: first place, then second, then third; the lives
     # (<$60) left 1, the game over coming when a death takes them to 0 (0 would wrap to FF; the first game's score
     # gives two more lives, which its 0 + 2 stays as it was written)
+    # the initials, from the entry's start (name_entry_0, after game_over_ranking; the cursor on END): a direction
+    # moves the cursor as it is pressed, then every 10 frames held (name_entry_3_a, _b), the fire button picks the
+    # letter under it (name_entry_3_c); the letters in rows of 13, the last the signs, "@" (a space), RUB (the last
+    # letter taken back) and END. The first game: left to "@" and right to RUB, both picked, RUB again (nothing to
+    # take back), "@" again (the name a space, taken off as the ranking's name is drawn: name_entry_4_draw), down
+    # (the last row's wraps to the first), left to A and from A (to END), picked; the second: up to the first row
+    # (from the last row's END to its M), right past its end (onto the next row), left from that row's start
+    # (back), down, three letters; the third: nothing until the entry's time is up (name_entry_3: phase_timer)
+    steps = {3800: [LEFT, LEFT, FIRE, RIGHT, FIRE, FIRE, LEFT, FIRE, DOWN] + [LEFT] * 11 + [FIRE],
+             8550: [UP] * 4 + [RIGHT, LEFT, DOWN, FIRE, FIRE, FIRE], 14390: []}
     for start, score, lives in ((1300, (0x00, 0x09, 0x87, 0x60), 0x00), (7000, (0x00, 0x01, 0x05, 0x00), 0x01),
                                 (12700, (0x00, 0x01, 0x00, 0x10), 0x01)):
         s.tap(start, "system", COIN1)
@@ -118,10 +176,12 @@ def ranking():
         for i, value in enumerate(score):
             s.press(start + 400, f"m{0x68 + i:04x}", value)
         s.press(start + 400, "m0060", lives)
-        # standing still until the zombies take the last life; then the cursor moved about the letters
-        for frame in range(start + 3300, start + 5200, 6):
-            move = (RIGHT, LEFT, DOWN, UP, FIRE, FIRE, RIGHT | DOWN, LEFT | UP, 0, FIRE)[s.rand(10)]
-            s.tap(frame, "p1", move, 3)
+    # standing still until the zombies take the last life; then the entry
+    for frame, moves in steps.items():
+        for move in moves:
+            s.tap(frame, "p1", move, 6)
+            frame += 16
+    s.press(17900, "p1", 0xFF)      # the third entry's time running out
     return s.text()
 
 
@@ -178,13 +238,14 @@ def dips():
     for frame in range(12000, 20000, 2500):
         s.tap(frame, "system", START1)
         s.moves(frame + 100, frame + 2400)
-    return s.text(dsw1=(DSW1 & ~0x0F & ~0x10 & ~0x20), dsw2=DSW2 & ~0x60 & ~0x18)
+    return s.text(dsw1=(DSW1 & ~0x0F & ~0x10) | 0x20, dsw2=DSW2 & ~0x60 & ~0x18)  # bit 5 set: no demo sound
 
 
 if __name__ == "__main__":
     here = os.path.dirname(os.path.abspath(__file__))
     for name, text in (("service_mode", service_mode()), ("weapons", weapons()), ("cocktail", cocktail()),
                        ("dips", dips()), ("clears", clears(CLEARS)), ("service_pages", service_pages()),
+                       ("service_dips", service_dips()), ("coinage", coinage()),
                        ("ranking", ranking())):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:
             out.write(text)

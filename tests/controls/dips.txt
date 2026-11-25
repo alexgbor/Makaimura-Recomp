@@ -1,5 +1,5 @@
 # free play, very difficult, bonus lives at 30k and 80k only, no demo sound, coin B's coinage (tests/controls/make_features.py)
-0 dsw1 c0
+0 dsw1 e0
 0 dsw2 83
 1300 system fe
 1306 system ff
