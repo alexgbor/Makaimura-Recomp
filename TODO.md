@@ -43,10 +43,12 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Disassembler (`tools/m6809/disassembler.py`): the three pages, every addressing mode, control flow
 - [x] Disassembler checked against MAME's (`build/bin/oracle_m6809`, `tools/m6809/compare_with_mame.py`): the same
       at every address of 6000-FFFF and of each bank, and for every opcode with every postbyte
-- [~] Static analysis (`tools/m6809/analysis.py`): from the vectors, bank tracking through the 3E00 latch, the
-      jump tables found from `LDr #table` before `JMP/JSR [acc,r]` and `LDr acc,r / JSR ,r` (76% of the fixed
-      ROM so far); every instruction the reference ran in 1200 frames of the attract mode is found
-- [~] The dispatch tables in `symbols.txt` (IRQ states, round robin jobs, the main loop's tasks, the objects')
+- [x] Static analysis (`tools/m6809/analysis.py`): from the vectors, bank tracking through the 3E00 latch, the
+      jump tables found from `LDr #table` before `JMP/JSR [acc,r]` and `LDr acc,r / JSR ,r`, the 4 jumps through
+      registers by their tables in symbols.txt (below): 16823 instructions, 79.7% of the fixed ROM; every
+      instruction the reference ran in every script is found (the coverage, below)
+- [x] The dispatch tables in `symbols.txt` (IRQ states, round robin jobs, the main loop's tasks, the objects'):
+      the 21 tables the analysis reads, with their sizes where it read past their end
 - [x] No illegal opcode reached, no flow out of the ROM: the tables the analysis read past their end have their
       sizes in symbols.txt (7EFF, 9AA8, B103, B196: data after them that looked like addresses), and a table in the
       window is read in its own bank (4:55E4 at DD71, 4:4942 at A0BE: read with no bank they gave FFFF); a size in
@@ -55,12 +57,12 @@ Roughly in order; each milestone is checked against the reference before it is t
       translation's safety net stopping at it); 6F76: the stage's table 6F90 (stage 6) added
 - [x] The analysis' 4 jumps through registers (6F76, 9AF4, AA36 twice) have their tables in symbols.txt; every
       instruction the reference ran in every script is found statically (below)
-- [~] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing),
+- [x] Input scripts for the reference (`tests/controls/`): walk_right (a coin, start, walking, jumping, throwing),
       long_play (`make_long_play.py`: 40000 frames, four credits, a two-player game, pseudo-random moves, the
       service switch), stage1-6 and loop2_stage0, loop2_stage6 (`make_stages.py`: the stage, the loop <$7F, the
       weapon <$73 and the lives written: a test's cheat); every instruction they and the attract mode run is found
-      statically (10830 addresses, `gref --executed`, `disassemble.py --executed`); to do: the ending (Astaroth
-      beaten in the second loop), every weapon and enemy
+      statically (10830 addresses, `gref --executed`, `disassemble.py --executed`); then the ending (ending: Astaroth
+      beaten in the second loop), every weapon (weapons) and every enemy (the scenes of the coverage, below)
 - [x] The object dispatch at 9AF4: U from the table of tables at 9AFE by the object's type (0-5), JSR [A,U] by its
       state (0-3): its six tables in symbols.txt (long_play met the types walk_right had not)
 - [x] The two-level table at 6F6B: by <$72, the stage (6F78: 7 tables' addresses, stages 0-5 6F8A, stage 6 6F90),
