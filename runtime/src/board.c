@@ -22,8 +22,10 @@ gng_board gng;
 void gng_power_on(const gng_roms *roms)
 {
 	const gng_accuracy_mode accuracy = gng.accuracy;
+	const uint32_t faulty_cell = gng.faulty_cell;
 	memset(&gng, 0, sizeof(gng));
 	gng.accuracy = accuracy;
+	gng.faulty_cell = faulty_cell;
 	gng_video_reset();
 	if (roms)
 		gng.roms = *roms;
@@ -127,6 +129,8 @@ void gng_write(uint16_t address, uint8_t value)
 		gng.ram[address] = value;
 		return;
 	}
+	if (gng.faulty_cell && address + 1u == gng.faulty_cell)
+		value ^= 0x01;    /* a check's faulty board (gng_board.faulty_cell) */
 	if (address < 0x2000u) {
 		gng.sprite_ram[address - 0x1E00u] = value;
 		return;

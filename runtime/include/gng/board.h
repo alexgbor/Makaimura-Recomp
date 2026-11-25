@@ -70,6 +70,10 @@ typedef struct gng_board {
 	gng_inputs inputs;
 	gng_roms roms;
 	gng_accuracy_mode accuracy;   /* (kept over gng_power_on: set it before or after) */
+	/* a check's faulty board (never the game's): 0, or 1 + the address of a RAM cell in 1E00-2FFF whose bit 0 is
+	   stored inverted, as a bad chip would, for the boot's RAM test's failures (bank 3's 558C, 55A9: the sprite
+	   RAM is in its first loop, 0000-1FFF; the text layer's in its second). Kept over gng_power_on. */
+	uint32_t faulty_cell;
 	/* the host's hooks (may be NULL), called as the 6809 writes: the sound latch; an LS259 output that changes
 	   (Q1 is the sound board's reset) */
 	void (*on_sound_latch)(struct gng_board *board, uint8_t value);

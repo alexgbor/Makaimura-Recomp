@@ -237,6 +237,13 @@ static std::map<std::string, std::vector<u8>> read_regions(const char *path)
 
 struct input_change { int frame; std::string port; u8 value; };
 
+// A check's faulty board, from the input script (gng_board.faulty_cell: "0 faulty ADDR", a RAM cell in 1E00-2FFF
+// whose bit 0 is stored inverted; "0 rOFFSET VALUE", the program ROM region's byte at OFFSET changed: a bad ROM,
+// for the boot's checksums), set before the reset
+static unsigned script_faulty_cell;
+struct rom_patch { unsigned offset; u8 value; };
+static std::vector<rom_patch> rom_patches;
+
 static std::vector<input_change> read_inputs(const char *path)
 {
 	std::vector<input_change> changes;
@@ -249,7 +256,13 @@ static std::vector<input_change> read_inputs(const char *path)
 		char port[16];
 		int frame;
 		unsigned value;
-		if (std::sscanf(line.c_str(), "%d %15s %x", &frame, port, &value) == 3)
+		if (std::sscanf(line.c_str(), "%d %15s %x", &frame, port, &value) != 3)
+			continue;
+		if (!std::strcmp(port, "faulty"))
+			script_faulty_cell = value + 1;
+		else if (port[0] == 'r' && port[1])
+			rom_patches.push_back({unsigned(std::strtoul(port + 1, nullptr, 16)), u8(value)});
+		else
 			changes.push_back({frame, port, u8(value)});
 	}
 	return changes;
@@ -398,6 +411,11 @@ int main(int argc, char **argv)
 	m6809_host::instruction = host_instruction;
 	trace_executed = executed_path != nullptr;
 	trace_jumps = jumps_path != nullptr;
+
+	gng.faulty_cell = script_faulty_cell;
+	for (const auto &patch : rom_patches)
+		if (patch.offset < regions["maincpu"].size())
+			regions["maincpu"][patch.offset] = patch.value;
 
 	reference_cpu core;
 	cpu = &core;

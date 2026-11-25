@@ -20,7 +20,9 @@
  *      --inputs FILE     an input script: "FRAME PORT VALUE" (system, p1, p2, dsw1, dsw2; hex, active low; or
  *                        mADDR: the work RAM's byte at ADDR, hex, written: a test's cheat, AGENTS.md),
  *                        applied at that frame's VBLANK for the frames after (mADDR as the CPU takes the IRQ
- *                        after it, as gref)
+ *                        after it, as gref); and a check's faulty board from power-on: "0 faulty ADDR" (a RAM
+ *                        cell in 1E00-2FFF storing its bit 0 inverted: gng_board.faulty_cell), "0 rOFFSET VALUE"
+ *                        (the program ROM region's byte changed: a bad ROM), for the boot's tests' failures
  *      --dsw1 HEX, --dsw2 HEX   the DIP switches from power-on
  *      --sound FILE      the sound board too (the translated sound program, runtime/src/sound.c), and at each
  *                        VBLANK "frame hash 0000 time" (the Z80's RAM, its time), as gref --sound
@@ -128,6 +130,12 @@ typedef struct input_change { int frame; char port[16]; uint8_t value; } input_c
 static input_change *inputs;
 static int input_count, next_input;
 
+/* a check's faulty board, from the input script: "0 faulty ADDR" (gng_board.faulty_cell), "0 rOFFSET VALUE" (the
+   program ROM region's byte changed: a bad ROM), as gref takes them */
+static uint32_t script_faulty_cell;
+static struct { uint32_t offset; uint8_t value; } rom_patches[16];
+static int rom_patch_count;
+
 static void read_inputs(const char *path)
 {
 	FILE *file = fopen(path, "r");
@@ -146,6 +154,17 @@ static void read_inputs(const char *path)
 		unsigned value;
 		if (sscanf(line, "%d %15s %x", &change.frame, change.port, &value) == 3)
 		{
+			if (!strcmp(change.port, "faulty"))
+			{
+				script_faulty_cell = value + 1;
+				continue;
+			}
+			if (change.port[0] == 'r' && change.port[1] && rom_patch_count < 16)
+			{
+				rom_patches[rom_patch_count].offset = (uint32_t)strtoul(change.port + 1, NULL, 16);
+				rom_patches[rom_patch_count++].value = (uint8_t)value;
+				continue;
+			}
 			change.value = (uint8_t)value;
 			if (input_count == capacity)
 			{
@@ -515,12 +534,15 @@ int main(int argc, char **argv)
 	}
 	gng_roms roms = { 0 };
 	roms.maincpu = find_region("maincpu");
+	for (int i = 0; i < rom_patch_count; i++)
+		((uint8_t *)roms.maincpu)[rom_patches[i].offset % 0x18000u] = rom_patches[i].value;    /* a bad ROM */
 	roms.audiocpu = find_region("audiocpu");
 	roms.chars = find_region("chars");
 	roms.tiles = find_region("tiles");
 	roms.sprites = find_region("sprites");
 	gng_power_on(&roms);
 	gng.accuracy = accuracy;
+	gng.faulty_cell = script_faulty_cell;
 	gng.inputs.dsw1 = (uint8_t)dsw1;
 	gng.inputs.dsw2 = (uint8_t)dsw2;
 	gng_video_decode();
