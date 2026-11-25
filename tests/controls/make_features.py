@@ -108,14 +108,16 @@ def service_pages():
 
 def ranking():
     s = Script("three games into the ranking (the score written: a test's cheat), the initials entered", 12345)
-    # the scores (BCD, <$68-<$6B), the ranking's ten being 10000: first place, then second, then third
-    for start, score in ((1300, (0x00, 0x09, 0x87, 0x60)), (7000, (0x00, 0x01, 0x05, 0x00)),
-                         (12700, (0x00, 0x01, 0x00, 0x10))):
+    # the scores (BCD, <$68-<$6B), the ranking's ten being 10000: first place, then second, then third; the lives
+    # (<$60) left 1, the game over coming when a death takes them to 0 (0 would wrap to FF; the first game's score
+    # gives two more lives, which its 0 + 2 stays as it was written)
+    for start, score, lives in ((1300, (0x00, 0x09, 0x87, 0x60), 0x00), (7000, (0x00, 0x01, 0x05, 0x00), 0x01),
+                                (12700, (0x00, 0x01, 0x00, 0x10), 0x01)):
         s.tap(start, "system", COIN1)
         s.tap(start + 100, "system", START1)
         for i, value in enumerate(score):
             s.press(start + 400, f"m{0x68 + i:04x}", value)
-        s.press(start + 400, "m0060", 0x00)
+        s.press(start + 400, "m0060", lives)
         # standing still until the zombies take the last life; then the cursor moved about the letters
         for frame in range(start + 3300, start + 5200, 6):
             move = (RIGHT, LEFT, DOWN, UP, FIRE, FIRE, RIGHT | DOWN, LEFT | UP, 0, FIRE)[s.rand(10)]
