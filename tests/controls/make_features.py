@@ -14,6 +14,11 @@ service_pages.txt: the test mode entered with coin 1 held (service_start, frame 
 ranking.txt: three games whose score is written (a test's cheat) into the ranking (first, then second and third
     places' scores), their last life lost (<$60 = 0) and the initials entered (play_step3: the cursor moved about
     the letters by a pseudo-random sequence, letters taken, deleted, the end).
+faulty_sprite_ram.txt, faulty_text_ram.txt, bad_rom.txt, bad_bank.txt: a faulty board at power-on, for the boot's
+    tests' failures (bank 3's ram_rom_test, rom_test): "0 faulty ADDR" a RAM cell (1E00-2FFF) storing its bit 0
+    inverted (gng_board.faulty_cell: 1F00, the sprite RAM, in the first RAM loop; 2100, the text layer, in the
+    second), "0 rOFFSET VALUE" the program ROM region's byte changed (a bad ROM: F13A, fill in 6000-FFFF, breaks
+    its sum; 17E3D, fill in bank 3, breaks the sum the RAM copy at 1A00 makes). gref and gng_headless only.
 
 The lines are "FRAME PORT VALUE" (the byte as the board reads it, active low; dsw1 and dsw2 from the power on) and
 "FRAME mADDR VALUE" (the work RAM written: a test's cheat), for gref, gng_headless and makaimura --inputs. The moves
@@ -241,11 +246,20 @@ def dips():
     return s.text(dsw1=(DSW1 & ~0x0F & ~0x10) | 0x20, dsw2=DSW2 & ~0x60 & ~0x18)  # bit 5 set: no demo sound
 
 
+def faulty(title, line):
+    """a board with a fault from power-on (gng_board.faulty_cell, or a ROM byte changed): the boot's message"""
+    return f"# {title} (a check's faulty board; tests/controls/make_features.py)\n0 {line}\n"
+
+
 if __name__ == "__main__":
     here = os.path.dirname(os.path.abspath(__file__))
     for name, text in (("service_mode", service_mode()), ("weapons", weapons()), ("cocktail", cocktail()),
                        ("dips", dips()), ("clears", clears(CLEARS)), ("service_pages", service_pages()),
                        ("service_dips", service_dips()), ("coinage", coinage()),
-                       ("ranking", ranking())):
+                       ("ranking", ranking()),
+                       ("faulty_sprite_ram", faulty("the sprite RAM's cell 1F00 faulty", "faulty 1f00")),
+                       ("faulty_text_ram", faulty("the text layer's cell 2100 faulty", "faulty 2100")),
+                       ("bad_rom", faulty("a bad ROM: 6000-FFFF's sum wrong (fill at F13A)", "rf13a 01")),
+                       ("bad_bank", faulty("a bad ROM: bank 3's sum wrong (fill at its 5E3D)", "r17e3d 00"))):
         with open(os.path.join(here, f"{name}.txt"), "w", newline="\n") as out:
             out.write(text)

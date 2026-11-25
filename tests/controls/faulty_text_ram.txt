@@ -1,0 +1,2 @@
+# the text layer's cell 2100 faulty (a check's faulty board; tests/controls/make_features.py)
+0 faulty 2100

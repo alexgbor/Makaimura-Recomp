@@ -163,6 +163,16 @@ big_man_left5.txt: stage 5's Big Man, Arthur standing unhurt at its arena's left
 him: it walks to the left end (big_man_walk_way, x 1D98 or less).
 red_arremer_fly0.txt: stage 0's Red Arremer fought unhurt with weapon 4 thrown right: its flight's timer run out
 another way (red_arremer_fly_timer).
+ending_demon_forced6.txt: astaroth6, the ending's second demon (0880's record) put in state 2, which nothing in the
+game gives it (ending_demon_2).
+zombie4_forced0.txt: stage 0 walked unhurt; a zombie (0DF0) given wave index 3 as it rises: the wave's index is
+always even (EC19), so its fourth zombie's walk (zombie_walk_start's D369) is never taken.
+flier0_wait_forced1.txt: flier2_forced1's start, the window flier (0C30's record) made variant 0 in its wait, step 1:
+variant 0's wait off the screen (window_flier_start_0_wait's B01A).
+forced0.txt: stage 0 walked unhurt; map_column's bit 5 set as the stage's scroll starts (scroll_start_0_b: no stage
+start has one) and task 01 queued with the argument 9B (task_text_clear_row's bit 7: no caller sets it).
+satan_forced0.txt: stage 0 walked unhurt; a zombie (0DC0) made a Satan (type 6): the camera is low there, as
+nowhere Satan is (satan_keep_height).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -465,6 +475,22 @@ def scenes():
     yield "red_arremer_fly0", scene("stage 0: Red Arremer fought with weapon 4, unhurt", 0,
                                     [(2050, 0x0560, 0x0040, 0, "throw_right", "camera")], 9000,
                                     ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)], weapon=4)
+    stage0 = [(2050, None, None, 0, "walk")]
+    yield "ending_demon_forced6", scene("stage 6 of the second loop: the ending's second demon in state 2", 6,
+                                        [(2050, 0x1F30, 0x0A50, 2500, "throw_right", "camera")], 5000,
+                                        ram=[(1410, 0x7F, 1), (3000, 0x883, 2)], weapon=3)
+    yield "zombie4_forced0", scene("stage 0: a zombie of wave index 3", 0, stage0, 4000,
+                                   ram=[(frame, 0xAD, 0x78) for frame in range(2050, 4000, 60)] + [(2300, 0xE0B, 3)])
+    yield "flier0_wait_forced1", scene("stage 1: a window flier of variant 0 in its wait", 1, [
+        (2050, None, None, 0, "walk"), (2200, None, None, 0, "throw_right")], 6000,
+        ram=[(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)]
+        + [(2400, 0x0C42, 0), (2400, 0x0C43, 0), (2400, 0x0C44, 1), (2400, 0x0C46, 0x16)])
+    yield "forced0", scene("stage 0: an odd map row at the scroll's start, a text row's bit 7", 0, stage0, 4000,
+                           ram=[(frame, 0xAD, 0x78) for frame in range(2050, 4000, 60)]
+                           + [(1920, 0x6D, 0x20), (2620, 0x10E, 1), (2620, 0x10F, 0x9B), (2620, 0x11, 0x10)])
+    yield "satan_forced0", scene("stage 0: a zombie made a Satan", 0, stage0, 6000,
+                                 ram=[(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)]
+                                 + [(2295, 0x0DD5, 6)] + forced(2295, 0x0DC0, 0))
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 

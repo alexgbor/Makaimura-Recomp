@@ -1,0 +1,2 @@
+# a bad ROM: bank 3's sum wrong (fill at its 5E3D) (a check's faulty board; tests/controls/make_features.py)
+0 r17e3d 00

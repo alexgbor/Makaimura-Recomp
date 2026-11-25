@@ -1,0 +1,2 @@
+# the sprite RAM's cell 1F00 faulty (a check's faulty board; tests/controls/make_features.py)
+0 faulty 1f00
