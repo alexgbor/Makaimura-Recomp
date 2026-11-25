@@ -140,6 +140,27 @@ big_men_left1.txt: big_men1's big men, then Arthur put back left at 1A60 (the ca
 left and jump there (big_man_jump_start's stage 1 test, x 1A60 or less), and walk the other way.
 fliers_play1.txt: stage 1 from 1300 (the brick house's window fliers), Arthur moving at random, unhurt: a flier
 falling onto the ground (window_flier_step_4_move).
+zombie_ledge2.txt: stage 2's caves at 0770,0360 (a Red Arremer's ledge), Arthur moving at random, unhurt: a
+zombie rising where there is no ground under it, removed (zombie_rise_start).
+skeleton_leap4.txt: stage 4 at 1B40,0390 (a Red Arremer's ledge), Arthur moving at random, unhurt: a skeleton
+leaping down onto a ground below it (skeleton_leap_down).
+big_man_wake0.txt: stage 0 from 0B80, Arthur moving at random, unhurt, on past 0D00: the camera goes on to 0CF0 and
+the map's cell 0D (its event's sound with the high bit: map_event 8E27) as the big man wakes.
+ending_walk_forced6.txt: astaroth6, Arthur put at 1EF2 as Astaroth's death ends (left of the room's wall, 1F20): the
+ending's walk aims at his x + the low byte of (the princess's x - his) / 3, so at 1EF2 (the princess at 1FF3) he is
+there at once (ending_walk_1_1's end); from inside the room the low bytes are never 0-2 apart (beside her, 1FF1-1FF3,
+his state is taken first).
+pillar_wait2.txt: stage 2, Arthur standing unhurt before a pillar (0260,0248) that nothing hits: its counters run
+through their lists and back to their starts (pillar_count_a, pillar_count_b).
+petite_devils1.txt: stage 1 at 0E78,001D (the towers' windows), Arthur standing unhurt, the camera's record put with
+him: the petite devils come out of their window until its list is done (petite_devil_window_out).
+red_arremer_dodge0.txt: stage 0's Red Arremer, Arthur jumping and throwing daggers where he stands, unhurt (the camera's
+record put with him): a dagger threatens it as its dodge ends, so it dodges again (red_arremer_dodge_end's,
+red_arremer_dodge_start's second dodge).
+satan_wait5.txt: stage 5's top, Arthur hopping unhurt between the two Satans: one waits on the screen a second time
+(satan_wait's timer).
+big_man_left5.txt: stage 5's Big Man, Arthur standing unhurt at its arena's left (1D90), the camera's record put with
+him: it walks to the left end (big_man_walk_way, x 1D98 or less).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -169,6 +190,12 @@ def pattern(name, step):
             held |= JUMP
     elif name == "jump_throw":
         held = (JUMP, JUMP | FIRE, 0)[step] if step < 3 else (FIRE if step % 2 == 0 else 0)
+    elif name in ("jump_fire_left", "jump_fire_right"):
+        if step % 60 < 3:
+            held |= LEFT if name == "jump_fire_left" else RIGHT     # turned that way now and then
+        held |= (JUMP if step % 12 < 2 else 0) | (FIRE if step % 4 < 2 else 0)   # jumping and throwing, still
+    elif name == "hop":
+        held = JUMP if step % 12 < 2 else 0     # jumping where he stands
     elif name == "crouch_throw":
         held = DOWN | (FIRE if step % 4 < 2 else 0)
     elif name == "wander":
@@ -402,6 +429,37 @@ def scenes():
                                       [(2050, 0x1300, 0x004F, 40, "still", "camera")], 16000,
                                       [(1410, 0x81, 1)] + [(frame, 0xAD, 0x78) for frame in range(2050, 16000, 60)]
                                       + camera_at(2050, 0x1300, 0x004F), 1000, 2200)
+    yield "zombie_ledge2", played_from("stage 2: the caves' ledges, Arthur moving at random (seed 1301)", 2,
+                                       [(2050, 0x0770, 0x0360, 40, "still", "camera")], 12000,
+                                       [(frame, 0xAD, 0x78) for frame in range(2050, 12000, 60)]
+                                       + camera_at(2050, 0x0770, 0x0360), 1301, 2300)
+    yield "skeleton_leap4", played_from("stage 4: its ledges, Arthur moving at random (seed 1421)", 4,
+                                        [(2050, 0x1B40, 0x0390, 40, "still", "camera")], 12000,
+                                        [(frame, 0xAD, 0x78) for frame in range(2050, 12000, 60)]
+                                        + camera_at(2050, 0x1B40, 0x0390), 1421, 2300)
+    yield "big_man_wake0", played_from("stage 0's end: on to the big man, Arthur moving at random (seed 2004)", 0,
+                                       [(2050, 0x0B80, 0x0040, 40, "still", "camera")], 10000,
+                                       [(frame, 0xAD, 0x78) for frame in range(2050, 10000, 60)]
+                                       + camera_at(2050, 0x0B80, 0x0040) + in_map(2050, 0x0B80), 2004, 2300)
+    yield "ending_walk_forced6", scene("stage 6 of the second loop: the ending's walk from 1EF2 (forced)", 6, [
+        (2050, 0x1F30, 0x0A50, 1600, "throw_right", "camera"), (3650, 0x1EF2, 0x0A4E, 0, "still")], 7000,
+        ram=[(1410, 0x7F, 1)], weapon=3)
+    yield "pillar_wait2", scene("stage 2: a pillar left alone", 2, [(2050, 0x0200, 0x023E, 0, "still", "camera")], 12000,
+                                ram=[(frame, 0xAD, 0x78) for frame in range(2050, 12000, 60)] + camera_at(2050, 0x0200, 0x023E))
+    yield "petite_devils1", scene("stage 1: the petite devils' window", 1, [(2050, 0x0E78, 0x001D, 40, "still", "camera")],
+                                  9000, ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)]
+                                  + camera_at(2050, 0x0E78, 0x001D))
+    yield "red_arremer_dodge0", scene("stage 0: Red Arremer dodging twice", 0,
+                                      [(2050, 0x0560, 0x0040, 0, "jump_fire_right", "camera")], 12000,
+                                      ram=[(frame, 0xAD, 0x78) for frame in range(2050, 12000, 60)]
+                                      + camera_at(2050, 0x0560, 0x0040), weapon=1)
+    yield "satan_wait5", scene("stage 5's top: the Satans waiting", 5, [(2050, 0x1E70, 0x0A80, 0, "hop", "camera")], 12000,
+                               ram=[(frame, 0xAD, 0x78) for frame in range(2050, 12000, 60)]
+                               + camera_at(2050, 0x1E70, 0x0A80))
+    yield "big_man_left5", scene("stage 5: Big Man drawn to its arena's left", 5,
+                                 [(2050, 0x1D90, big_man, 0, "still", "camera")], 9000,
+                                 ram=[(frame, 0xAD, 0x78) for frame in range(2050, 9000, 60)]
+                                 + camera_at(2050, 0x1D90, big_man))
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
