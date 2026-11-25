@@ -73,7 +73,7 @@ Roughly in order; each milestone is checked against the reference before it is t
 - [x] Every jump through a register resolved, checked against the reference's executed addresses (all scripts)
 - [x] Coverage of the program ROM (`tools/coverage.py`: gref on the attract mode and every script): every address
       run is an instruction the analyses found (6809 and Z80); 99.9% of the 16823 instructions found are run by
-      the scripts (the Z80's: 98.0%); the fixed ROM is 79.6% code run, 9 bytes of code never run, 19% data, banks 0-2 and 4
+      the scripts (the Z80's: 98.8%, 1163 of 1177); the fixed ROM is 79.6% code run, 9 bytes of code never run, 19% data, banks 0-2 and 4
       data only (graphics' tables, the stages' maps), bank 3 code (the boot, the test mode, the ranking) and data
 - [x] The code never run: 249 routines (6.7 KB) down to none (`make_stages.py`: bosses5, red_arremer0,
       satan4_beaten, magician0, stage0_end, no_cross5, illusion6, astaroth6, window_giant1, pillar2,
@@ -114,6 +114,11 @@ Roughly in order; each milestone is checked against the reference before it is t
       enemy_killed_1's EB71 (<$E1 cleared and made of the weapons' 5 bits in the same call). Their translation is
       checked instruction by instruction against MAME's core (`compare_lift_with_mame.py`: the 3983 forms of
       every instruction found, 50 states each), not in context
+- [x] The sound program (Z80): the commands 11, 13 and 39, which the 6809 never sends, put in its sound queue
+      (sounds_forced0: their entries 09B2, 09C6, 381C in the table at 011F). The 14 instructions left are the
+      sound data's: sequence opcodes no sound uses (05A3's entry 1, 05C3; 0759's entry 3, 07AB; 07D6's entry 0,
+      0746), a note length of 0 (054D) and RST 20's index crossing a page (0024). All 64 commands sent in turn reach
+      none of them; the data is ROM: not forceable
 
 ## M2. The reference (`tools/reference`, "gref")
 

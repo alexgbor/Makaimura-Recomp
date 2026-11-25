@@ -185,6 +185,9 @@ big_man_jump_forced5.txt: big_man_edges5, Big Man (0C70's record) put at 1E40 wi
 a jump starts (big_man_jump_start's C6FB, and its arena's right end, C765-C76E).
 big_man_forced0.txt: big_man_end0, its big man (0DF0's record) started again as variant 3 (big_man_init's C416: no
 map event makes one), then put 0x400 right of the camera (big_man_walk's removal, C4C1).
+sounds_forced0.txt: stage 0 walked unhurt; the sound commands 11, 13 and 39, which the 6809 never sends, put in its
+sound queue (0140, its pointers <$14 and <$16 set round it), 300 frames apart: their entries in the Z80's table at
+011F (09B2, 09C6, 381C).
 illusion6.txt: stage 6 of the first loop cleared with the cross in the last room (<$71 = 2, as 7CF9 sets it):
 "THIS ROOM IS AN ILLUSION..." (7272), then the second loop.
 
@@ -503,6 +506,10 @@ def scenes():
     yield "satan_forced0", scene("stage 0: a zombie made a Satan", 0, stage0, 6000,
                                  ram=[(frame, 0xAD, 0x78) for frame in range(2050, 6000, 60)]
                                  + [(2295, 0x0DD5, 6)] + forced(2295, 0x0DC0, 0))
+    yield "sounds_forced0", scene("stage 0: the sound commands 11, 13 and 39", 0, stage0, 4000,
+                                  ram=[(frame, 0xAD, 0x78) for frame in range(2050, 4000, 60)]
+                                  + [(frame, address, value) for frame, command in ((2900, 0x11), (3200, 0x13), (3500, 0x39))
+                                     for address, value in ((0x140, command), (0x16, 1), (0x17, 0x40), (0x14, 1), (0x15, 0x41))])
     yield "illusion6", scene("stage 6 of the first loop cleared in the last room with the cross: the illusion", 6,
                              [(2050, None, None, 0, "still")], 6000, ram=[(2400, 0x71, 2)] + cleared(2400), weapon=3)
 
