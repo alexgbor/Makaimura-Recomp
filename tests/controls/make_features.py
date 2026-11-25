@@ -162,13 +162,13 @@ def ranking():
     # the initials, from the entry's start (name_entry_0, after game_over_ranking; the cursor on END): a direction
     # moves the cursor as it is pressed, then every 10 frames held (name_entry_3_a, _b), the fire button picks the
     # letter under it (name_entry_3_c); the letters in rows of 13, the last the signs, "@" (a space), RUB (the last
-    # letter taken back) and END. The first game: left to "@" and right to RUB, both picked, RUB again (nothing to
+    # letter taken back) and END. The first game: right from END (wrapped to A) and back left, left to "@" and right to RUB, both picked, RUB again (nothing to
     # take back), "@" again (the name a space, taken off as the ranking's name is drawn: name_entry_4_draw), down
     # (the last row's wraps to the first), left to A and from A (to END), picked; the second: up to the first row
     # (from the last row's END to its M), right past its end (onto the next row), left from that row's start
-    # (back), down, three letters; the third: nothing until the entry's time is up (name_entry_3: phase_timer)
-    steps = {3800: [LEFT, LEFT, FIRE, RIGHT, FIRE, FIRE, LEFT, FIRE, DOWN] + [LEFT] * 11 + [FIRE],
-             8550: [UP] * 4 + [RIGHT, LEFT, DOWN, FIRE, FIRE, FIRE], 14390: []}
+    # (back), up from the first row (wrapped to the last) and down again, three letters; the third: nothing until the entry's time is up (name_entry_3: phase_timer)
+    steps = {3800: [RIGHT, LEFT, LEFT, LEFT, FIRE, RIGHT, FIRE, FIRE, LEFT, FIRE, DOWN] + [LEFT] * 11 + [FIRE],
+             8550: [UP] * 4 + [RIGHT, LEFT, UP, DOWN, DOWN, FIRE, FIRE, FIRE], 14390: []}
     for start, score, lives in ((1300, (0x00, 0x09, 0x87, 0x60), 0x00), (7000, (0x00, 0x01, 0x05, 0x00), 0x01),
                                 (12700, (0x00, 0x01, 0x00, 0x10), 0x01)):
         s.tap(start, "system", COIN1)
