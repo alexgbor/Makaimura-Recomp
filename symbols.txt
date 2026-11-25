@@ -675,7 +675,7 @@ A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += 
 891F  func  map_row_colours
 8955  func  scroll_rows_c
 898F  func  scroll_rows_c_draw
-8DE7  func  map_event            # bank 2's map events (4300 by <$91): its sounds (sound_request); a sound with the high bit (8E27) only in cell 0D (stage 0's last), which the camera (stopped at 0C00) never enters
+8DE7  func  map_event            # bank 2's map events (4300 by <$91): its sounds (sound_request); a sound with the high bit (8E27) only in cell 0D (stage 0's last), entered as the camera goes on past 0C00 to the big man (big_man_wake0.txt)
 8B7D  func  background_wall_right  # the background's tile right of the player (player_walk, player_wall_right)
 8BAF  func  background_wall_left
 8B0A  func  background_check     # the background's tile under the object (background_tile, offset by the table 8C09 by -$1,X)
@@ -685,9 +685,9 @@ A2A3  func  move_by_table        # U += animation * 4; x += the step at U, y += 
 # ======== the records' pools (pools_init, at each stage's start): stacks of free records' addresses ========
 6DA4  func  pools_init           # the 40 objects at 0880 (stack 14D0, <$93-<$94), the 30 props at 1000 (150C, <$96-<$98),
                                  # the 6 enemy shots at 13C0 (1518, <$A7-<$A8)
-8C5F  func  object_new           # Y = a free object's record (+0x10); carry set if none is free
+8C5F  func  object_new           # Y = a free object's record (+0x10); carry set if none is free; none free (8C6D): never (the spawners test objects_free first: E9FB, D4EF; the stage's set-up starts the pools again before it places its objects)
 8C6F  func  object_free          # the object at X back to the free ones
-8C78  func  prop_new             # Y = a free prop's record (8C88: one back)
+8C78  func  prop_new             # Y = a free prop's record (8C88: one back); none free (8C86): never (only the stage's set-up asks, its lists within the 30)
 8C91  func  enemy_shot_new       # Y = a free enemy shot's record (8C9B: one back)
 0093  var  objects_free          # how many of the 40 objects are free
 0094  var  objects_free_top  count=2
@@ -1409,7 +1409,7 @@ F783  func  items_draw
 7CE5  func  ending_princess_2
 7D0C  func  ending_demon
 7D3B  func  ending_demon_1
-7D3E  func  ending_demon_2
+7D3E  func  ending_demon_2       # a state nothing puts it in (nothing hits it): never
 7D5C  func  ending_walk
 7D68  func  ending_walk_0
 7D72  func  ending_walk_1
