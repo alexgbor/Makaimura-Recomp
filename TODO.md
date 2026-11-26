@@ -429,8 +429,10 @@ Roughly in order; each milestone is checked against the reference before it is t
       SDL2 2.30.9 built and carried beside the program ($ORIGIN), the same allow list and checks as Windows', the
       packed game run from an empty folder with no display or sound device, recording the attract mode through
       ffmpeg (601 frames at 2560 x 1440). The updater takes `-linux-x86_64.tar.gz`
-- [ ] The Linux package's updater checked end to end against a real release (`--update-test`), and the game played
-      on a Linux desktop (X11 and Wayland, a gamepad)
+- [x] The Linux package's updater checked end to end against v0.4.0's release (in Docker: `--update-test
+      alexgbor/Makaimura-Recomp 0.3.9`, UPDATE on the menu): the .tar.gz downloaded, its SHA-256 checked, its files
+      put in place (the old ones .old, the program's executable bit kept, the same bytes as the package's)
+- [ ] The game played on a Linux desktop (X11 and Wayland, a gamepad)
 - [x] CRT look (`ports/sdl2/crt.c`; PICTURE AND SOUND > CRT, `crt` in makaimura.ini): in linear light, each line a
       Gaussian beam that widens with its brightness, a narrow horizontal spot, drawn by the CPU's threads at the
       picture's size on the screen (1.5-3.4 ms a frame at 896-1440 lines here); SCANLINES (the beam alone: the
