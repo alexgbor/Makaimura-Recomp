@@ -1,7 +1,7 @@
 /**
  *    Name:        recorder.c
- *    Description: the game recorded into an uncompressed AVI (recorder.h)
- *    Version:     0.1.0
+ *    Description: the game recorded: the video (an MP4) or the board's uncompressed AVI (recorder.h)
+ *    Version:     0.2.0
  *    Created:     19-11-2026
  *
  *    license:BSD-3-Clause
@@ -17,9 +17,13 @@
 #endif
 #include "recorder.h"
 
+#include "encoder.h"
 #include "gng/sound.h"
 #include "gng/video.h"
+#include "hud.h"
 #include "resampler.h"
+
+#include <SDL.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -203,7 +207,7 @@ static void end_part(void)
 	part++;
 }
 
-int recorder_open(const char *path)
+static int avi_open(const char *path)
 {
 	file = fopen(path, "wb");
 	if (!file)
@@ -323,20 +327,35 @@ int recorder_open(const char *path)
 	return 1;
 }
 
+static int video_on;
+static uint32_t video_frames;
+
 int recorder_on(void)
 {
-	return file != NULL;
+	return file != NULL || video_on;
+}
+
+int recorder_video(void)
+{
+	return video_on;
 }
 
 uint32_t recorder_frames(void)
 {
-	return picture.length;
+	return video_on ? video_frames : picture.length;
 }
 
 void recorder_sample(int16_t sample)
 {
-	if (file)
+	if (file || video_on)
 		resampler_push(&converter, sample);
+}
+
+/* the sound up to this VBLANK, at a fixed step: 125000 / 48000 (the board's time, no host clock in it) */
+static int pull_sound(void)
+{
+	return resampler_pull(&converter, (double)GNG_SOUND_RATE / RECORDER_SOUND_RATE, 1.0f, samples,
+		(int)(sizeof(samples) / sizeof(samples[0])));
 }
 
 static void chunk(stream *s, const char *id, int is_sound, const void *data, uint32_t size, uint32_t length)
@@ -358,10 +377,8 @@ static void chunk(stream *s, const char *id, int is_sound, const void *data, uin
 	s->part_length += length;
 }
 
-void recorder_frame(const uint32_t *pixels)
+static void avi_frame(const uint32_t *pixels)
 {
-	if (!file)
-		return;
 	if (file_tell(file) - riff_at > PART_LIMIT)
 	{
 		if (part == 0)
@@ -382,9 +399,7 @@ void recorder_frame(const uint32_t *pixels)
 		}
 	}
 	chunk(&picture, "00db", 0, row_buffer, PICTURE_BYTES, 1);
-	/* the sound up to this VBLANK, at a fixed step: 125000 / 48000 (the board's time, no host clock in it) */
-	const int count = resampler_pull(&converter, (double)GNG_SOUND_RATE / RECORDER_SOUND_RATE, 1.0f, samples,
-		(int)(sizeof(samples) / sizeof(samples[0])));
+	const int count = pull_sound();
 	if (count)
 	{
 		for (int i = 0; i < count; i++)
@@ -396,10 +411,8 @@ void recorder_frame(const uint32_t *pixels)
 	}
 }
 
-void recorder_close(void)
+static void avi_close(void)
 {
-	if (!file)
-		return;
 	if (part == 0)
 		first_part_frames = picture.length;
 	end_part();
@@ -418,4 +431,225 @@ void recorder_close(void)
 	picture.entries = sound.entries = old_index = NULL;
 	old_index_ids = NULL;
 	old_capacity = 0;
+}
+
+/* ---- the video: the view drawn and encoded on a thread of its own ---- */
+
+#define JOBS 4                           /* the frames the thread may be behind the game */
+#define VIDEO_RATE 15625u                /* 6000000 / 100608 in lowest terms: 15625 / 262 frames a second */
+#define VIDEO_SCALE 262u
+
+typedef struct job
+{
+	uint32_t picture[WIDTH * HEIGHT];
+	uint32_t left[HUD_W * HUD_H], right[HUD_W * HUD_H];
+	int panels;
+	view_style style;
+	int16_t sound[4096];
+	int sound_count;
+} job;
+
+static job *jobs;
+static int job_first, job_count, video_ending, video_failed, video_opened;
+static SDL_mutex *video_lock;
+static SDL_cond *video_changed;
+static SDL_Thread *video_thread;
+static char video_path[1300], video_problem[200];
+static const char *video_encoder = "";
+static int video_width, video_height;
+
+static int video_run(void *data)
+{
+	(void)data;
+	char why[200] = "";
+	encoder *e = encoder_open(video_path, video_width, video_height, VIDEO_RATE, VIDEO_SCALE,
+		/* about YouTube's rate for 1440p at 60 frames a second (24 Mb/s), by the pixels */
+		(unsigned)(24000000.0 * video_width * video_height / (2560.0 * 1440.0)), RECORDER_SOUND_RATE, why,
+		sizeof(why));
+	view *v = e ? view_create() : NULL;
+	uint32_t *out = v ? malloc(sizeof(uint32_t) * (size_t)video_width * (size_t)video_height) : NULL;
+	SDL_LockMutex(video_lock);
+	video_opened = out ? 1 : -1;
+	if (out)
+		video_encoder = encoder_name(e);
+	else
+		snprintf(video_problem, sizeof(video_problem), "%s", why[0] ? why : "no memory for the video");
+	SDL_CondBroadcast(video_changed);
+	SDL_UnlockMutex(video_lock);
+	if (!out)
+	{
+		view_destroy(v);
+		if (e)
+		{
+			encoder_close(e);
+			remove(video_path);
+		}
+		return 0;
+	}
+	for (;;)
+	{
+		SDL_LockMutex(video_lock);
+		while (job_count == 0 && !video_ending)
+			SDL_CondWait(video_changed, video_lock);
+		if (job_count == 0)
+		{
+			SDL_UnlockMutex(video_lock);
+			break;
+		}
+		job *j = &jobs[job_first];
+		SDL_UnlockMutex(video_lock);
+
+		view_draw(v, &j->style, j->picture, j->panels ? j->left : NULL, j->panels ? j->right : NULL, out,
+			video_width, video_height);
+		const int ok = encoder_picture(e, out) && encoder_sound(e, j->sound, j->sound_count);
+
+		SDL_LockMutex(video_lock);
+		job_first = (job_first + 1) % JOBS;
+		job_count--;
+		if (!ok && !video_failed)
+		{
+			video_failed = 1;
+			snprintf(video_problem, sizeof(video_problem), "the video's encoder failed");
+		}
+		SDL_CondBroadcast(video_changed);
+		SDL_UnlockMutex(video_lock);
+	}
+	const int closed = encoder_close(e);
+	SDL_LockMutex(video_lock);
+	if (!closed && !video_failed)
+	{
+		video_failed = 1;
+		snprintf(video_problem, sizeof(video_problem), "the video could not be finished");
+	}
+	SDL_UnlockMutex(video_lock);
+	view_destroy(v);
+	free(out);
+	return 0;
+}
+
+static int video_open(const char *path, int height, const view_style *style, char *why, size_t why_size)
+{
+	if (!jobs && !(jobs = malloc(sizeof(job) * JOBS)))
+		return 0;
+	if (!video_lock)
+	{
+		video_lock = SDL_CreateMutex();
+		video_changed = SDL_CreateCond();
+	}
+	snprintf(video_path, sizeof(video_path), "%s", path);
+	video_height = height & ~1;
+	video_width = view_width(style, video_height);
+	job_first = job_count = video_ending = video_failed = video_opened = 0;
+	video_frames = 0;
+	video_problem[0] = 0;
+	video_thread = SDL_CreateThread(video_run, "recording", NULL);
+	if (!video_thread)
+		return 0;
+	SDL_LockMutex(video_lock);
+	while (!video_opened)
+		SDL_CondWait(video_changed, video_lock);
+	SDL_UnlockMutex(video_lock);
+	if (video_opened < 0)
+	{
+		SDL_WaitThread(video_thread, NULL);
+		video_thread = NULL;
+		if (why && why_size)
+			snprintf(why, why_size, "%s", video_problem);
+		return 0;
+	}
+	resampler_init(&converter, GNG_SOUND_RATE, RECORDER_SOUND_RATE);
+	video_on = 1;
+	return 1;
+}
+
+static int video_frame(const uint32_t *pixels, const uint32_t *left, const uint32_t *right, const view_style *style)
+{
+	SDL_LockMutex(video_lock);
+	while (job_count == JOBS && !video_failed)
+		SDL_CondWait(video_changed, video_lock);
+	const int failed = video_failed;
+	SDL_UnlockMutex(video_lock);
+	if (failed)
+		return 0;
+	/* (the slot past the queued ones: the thread's only once it is queued) */
+	job *j = &jobs[(job_first + job_count) % JOBS];
+	memcpy(j->picture, pixels, sizeof(j->picture));
+	j->panels = left && right;
+	if (j->panels)
+	{
+		memcpy(j->left, left, sizeof(j->left));
+		memcpy(j->right, right, sizeof(j->right));
+	}
+	j->style = *style;
+	j->sound_count = pull_sound();
+	memcpy(j->sound, samples, sizeof(int16_t) * (size_t)j->sound_count);
+	SDL_LockMutex(video_lock);
+	job_count++;
+	SDL_CondBroadcast(video_changed);
+	SDL_UnlockMutex(video_lock);
+	video_frames++;
+	return 1;
+}
+
+static int video_close(void)
+{
+	SDL_LockMutex(video_lock);
+	video_ending = 1;
+	SDL_CondBroadcast(video_changed);
+	SDL_UnlockMutex(video_lock);
+	SDL_WaitThread(video_thread, NULL);
+	video_thread = NULL;
+	video_on = 0;
+	return !video_failed;
+}
+
+/* ---- either ---- */
+
+static int is_avi(const char *path)
+{
+	const size_t n = strlen(path);
+	return n >= 4 && path[n - 4] == '.' && (path[n - 3] | 32) == 'a' && (path[n - 2] | 32) == 'v'
+		&& (path[n - 1] | 32) == 'i';
+}
+
+int recorder_open(const char *path, int height, const view_style *style, char *why, size_t why_size)
+{
+	if (why && why_size)
+		why[0] = 0;
+	if (recorder_on())
+		return 0;
+	if (is_avi(path))
+		return avi_open(path);
+	return video_open(path, height, style, why, why_size);
+}
+
+int recorder_frame(const uint32_t *pixels, const uint32_t *left, const uint32_t *right, const view_style *style)
+{
+	if (file)
+		avi_frame(pixels);
+	else if (video_on)
+		return video_frame(pixels, left, right, style);
+	return 1;
+}
+
+int recorder_close(void)
+{
+	if (file)
+	{
+		avi_close();
+		return 1;
+	}
+	if (video_on)
+		return video_close();
+	return 1;
+}
+
+const char *recorder_problem(void)
+{
+	return video_problem;
+}
+
+const char *recorder_encoder(void)
+{
+	return video_on ? video_encoder : "AVI";
 }

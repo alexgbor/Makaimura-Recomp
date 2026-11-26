@@ -77,6 +77,7 @@ typedef struct settings
 	int scaling;
 	bool smooth;          /* a soft picture instead of sharp pixels */
 	int crt;              /* crt.h's style: off, scanlines, arcade, pvm */
+	int recording;        /* RECORD_*: what F12 records (recorder.h) */
 	bool vsync;
 	bool panels;          /* the side panels (hud.h) where the window is wider than the picture */
 	bool panels_debug;    /* the panels' sections for checking the port (the palette's flashes) */
@@ -104,6 +105,11 @@ extern const char *const settings_action_names[ACTIONS];
 extern const char *const settings_aspect_names[ASPECTS];
 extern const char *const settings_scaling_names[SCALINGS];
 extern const char *const settings_crt_names[4];
+
+/* what F12 records: the video at 1440 or 1080 lines (the window's view: an MP4), or the board's own picture and
+   sound (an uncompressed AVI) */
+enum { RECORD_1440, RECORD_1080, RECORD_BOARD, RECORDINGS };
+extern const char *const settings_recording_names[RECORDINGS];
 
 /* The game's options (the DIP switches) for the menu: how many, each one's name ("bonus_life") and value's name
    ("20k 70k every 70k"), the next or previous value (direction 1 or -1) */

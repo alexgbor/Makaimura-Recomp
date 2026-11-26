@@ -22,7 +22,7 @@
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
 	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
 	PRACTICE_PAGE, PRACTICE, PRACTICE_AREA, PRACTICE_LOOP, PRACTICE_WEAPON, PRACTICE_LIVES, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY, UPDATE, UPDATE_YES, UPDATE_NO,
-	CHECK_UPDATES, CRT };
+	CHECK_UPDATES, CRT, RECORDING };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
@@ -101,6 +101,7 @@ static void build_video(void)
 	add(CRT, 0, "CRT");
 	add(FULLSCREEN, 0, "FULL SCREEN");
 	add(PANELS, 0, "SIDE PANELS");
+	add(RECORDING, 0, "RECORDING");
 	add(VOLUME, 0, "VOLUME");
 	add(BLANK, 0, "");
 	add(BACK, 0, "BACK");
@@ -420,6 +421,9 @@ static void step(settings *s, int direction, int *changed)
 	case CRT:
 		s->crt = (s->crt + direction + 4) % 4;
 		break;
+	case RECORDING:
+		s->recording = (s->recording + direction + RECORDINGS) % RECORDINGS;    /* (from the next recording) */
+		break;
 	case PRACTICE_AREA:
 		practice.area = (practice.area + direction + PRACTICE_AREAS) % PRACTICE_AREAS;
 		break;
@@ -709,6 +713,8 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 		default: return "";
 		}
 	case PANELS: return s->panels ? "ON" : "OFF";
+	case RECORDING: return s->recording == RECORD_1440 ? "VIDEO 1440P" : s->recording == RECORD_1080 ? "VIDEO 1080P"
+		: "BOARD AVI";
 	case SAVE_STATE: case LOAD_STATE: snprintf(buffer, size, "SLOT %d", s->state_slot); return buffer;
 	case PRACTICE_AREA: snprintf(buffer, size, "%d", practice.area + 1); return buffer;
 	case PRACTICE_LOOP: return practice.loop ? "2ND" : "1ST";
@@ -729,6 +735,7 @@ static const char *hint_of(const item *it)
 	case DIP: return "READ AS THE BOARD STARTS: F3";
 	case ACCURACY: return "FROM THE BOARD'S START: F3";
 	case ASPECT: return "AS THE ARCADE'S MONITOR, OR 1:1";
+	case RECORDING: return "WHAT THE RECORDING KEY MAKES";
 	case RESET: return "THE BOARD'S POWER CYCLED";
 	case SAVE_STATE: case LOAD_STATE: return "LEFT, RIGHT: THE SLOT";
 	case PRACTICE_AREA: case PRACTICE_LOOP: case PRACTICE_WEAPON: case PRACTICE_LIVES: return "LEFT, RIGHT: CHANGE";
@@ -772,13 +779,17 @@ static const char *help_of(const item *it)
 	case LOAD_STATE: return "THE GAME BACK AS THE SLOT KEPT IT (LEFT, RIGHT: WHICH ONE). A STATE IS FOR THE ACCURACY MODE "
 		"IT WAS SAVED IN.";
 	case GAME_PAGE: return "THE BOARD'S DIP SWITCHES: LIVES, DIFFICULTY, BONUS LIFE, COINAGE... READ AS THE BOARD STARTS (F3).";
-	case VIDEO_PAGE: return "THE PICTURE'S SHAPE AND SIZE, SHARP OR SMOOTH PIXELS, FULL SCREEN, THESE PANELS, THE VOLUME.";
+	case VIDEO_PAGE: return "THE PICTURE'S SHAPE AND SIZE, SHARP OR SMOOTH PIXELS, FULL SCREEN, THESE PANELS, THE "
+		"RECORDINGS, THE VOLUME.";
 	case CONTROLS: return "EVERY KEY AND BUTTON, PLAYER 2'S TOO, AND THE WINDOW'S OWN KEYS.";
 	case ACCURACY: return "MAME 1:1: THE BOARD AS MAME 0.289 MODELS IT. BOARD: WHAT THE REAL BOARD ALSO DOES: THE SPRITE "
 		"COPY HALTING THE CPU (MORE SLOWDOWN) AND THE PALETTE'S FLASHES. FROM THE BOARD'S START (F3).";
 	case RESET: return "THE BOARD'S POWER CYCLED: ITS CHECKS AND THE BOOT AGAIN.";
 	case QUIT: return "THE SETTINGS ARE KEPT IN MAKAIMURA.INI.";
 	case PANELS: return "THESE PANELS, WHERE THE WINDOW IS WIDER THAN THE PICTURE.";
+	case RECORDING: return "WHAT THE RECORDING KEY MAKES. VIDEO: AN MP4 TO SHARE, THE PICTURE AS THE WINDOW SHOWS IT "
+		"(THE CRT TOO) AND THESE PANELS IF ON. BOARD AVI: THE BOARD'S OWN PICTURE AND SOUND, "
+		"UNCOMPRESSED.";
 	case ASPECT: return "4:3 AS THE ARCADE'S MONITOR SHOWS IT, OR EACH PIXEL SQUARE.";
 	case SCALING: return "FIT: AS LARGE AS IT GOES. INTEGER: WHOLE TIMES THE PICTURE'S LINES. STRETCH: THE WHOLE WINDOW.";
 	case SMOOTH: return "SHARP PIXELS, OR A SOFT PICTURE.";

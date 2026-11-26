@@ -23,7 +23,15 @@ enum
 	CRT_STYLES
 };
 
-/* The picture 'source' (sw x sh, 0x00RRGGBB) drawn into 'out' (dw x dh) in 'style' */
+/* The picture 'source' (sw x sh, 0x00RRGGBB) drawn into 'out' (dw x dh) in 'style' (the window's: one thread) */
 void crt_render(const uint32_t *source, int sw, int sh, uint32_t *out, int dw, int dh, int style);
+
+/* The same with its own buffers, for another thread (the recording's: view.h), into a larger frame ('stride'
+   pixels a row) */
+typedef struct crt_context crt_context;
+crt_context *crt_create(void);
+void crt_destroy(crt_context *context);
+void crt_render_in(crt_context *context, const uint32_t *source, int sw, int sh, uint32_t *out, int stride, int dw,
+	int dh, int style);
 
 #endif

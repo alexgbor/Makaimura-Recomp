@@ -19,7 +19,9 @@
  *      --shot N FILE    (for checks) the window hidden; frame N's window, as the renderer drew it, into FILE (BMP),
  *                       then quit
  *      --accuracy MODE  mame or board, instead of the settings' (not saved)
- *      --record FILE    the game recorded from the power on into FILE (an AVI: recorder.h); [keyboard] record (F12)
+ *      --record FILE    the game recorded from the power on into FILE (recorder.h): FILE.avi the board's own
+ *                       picture and sound, uncompressed; else the video (an MP4: the window's view, at the
+ *                       settings' recording height); [keyboard] record (F12)
  *                       starts and stops one at any time, beside the settings
  *      --record-inputs FILE  the controls written as an input script from the power on (the DIP switches too):
  *                       --inputs plays the same game again, in the other accuracy mode for one
@@ -121,7 +123,11 @@ static int segment_played, segment_sync;
 static int segment_asking;               /* its game is over: kept or not, as the player answers */
 /* the update (updater.h): the releases' repository, the package's end (tools/make_release.ps1) */
 #define UPDATE_REPOSITORY "alexgbor/Makaimura-Recomp"
+#ifdef _WIN32
 #define UPDATE_PACKAGE "-win64.zip"
+#else
+#define UPDATE_PACKAGE "-linux-x86_64.tar.gz"    /* (tools/make_release_linux.sh) */
+#endif
 static int update_restart;               /* installed: the new program started as this one closes */
 static const char *update_test_repository, *update_test_version;    /* --update-test */
 
@@ -197,14 +203,12 @@ static SDL_Rect picture_place(int width, int height)
 	return place;
 }
 
-/* the side panels, where the window leaves room beside the picture (at least a third of a panel's width) */
-static void draw_panels(SDL_Rect place, int width, int height)
+/* the panels' pixels (panel_pixels): the window's, with the menu's help while it is open; the recording's
+   (for_recording), the game's sections only */
+static void fill_panels(int for_recording)
 {
-	const int side = place.x;
-	if (!options.panels || side < HUD_W / 2 || width - (place.x + place.w) < HUD_W / 2)
-		return;
 	/* (--menu's frame shows the menu without stopping the run: the panels show its help too) */
-	if (menu_shown || (long)current_frame == menu_frame)
+	if (!for_recording && (menu_shown || (long)current_frame == menu_frame))
 	{
 		hud.menu = 1;
 		menu_help(&hud.help_title, &hud.help_text);
@@ -214,7 +218,7 @@ static void draw_panels(SDL_Rect place, int width, int height)
 	hud.paused = paused;
 	hud.replay = replay_playing;
 	hud.debug = options.panels_debug;
-	hud.recording = recorder_on();
+	hud.recording = recorder_on() && !for_recording;    /* (the video does not say it is one) */
 	/* the window's keys: each one's first key, its name in capitals (as the menu's) cut to fit */
 	static const int hotkeys[HUD_HOTKEYS] = { HOTKEY_MENU, HOTKEY_PAUSE, HOTKEY_SAVE_STATE, HOTKEY_LOAD_STATE,
 		HOTKEY_STATE_SLOT, HOTKEY_RESET, HOTKEY_RECORD };
@@ -229,6 +233,15 @@ static void draw_panels(SDL_Rect place, int width, int height)
 		hud.hot_keys[i][n] = 0;
 	}
 	hud_draw(panel_pixels[0], panel_pixels[1], &hud);
+}
+
+/* the side panels, where the window leaves room beside the picture (at least a third of a panel's width) */
+static void draw_panels(SDL_Rect place, int width, int height)
+{
+	const int side = place.x;
+	if (!options.panels || side < HUD_W / 2 || width - (place.x + place.w) < HUD_W / 2)
+		return;
+	fill_panels(0);
 	/* a panel as large as its side lets it, a margin around it, centred in its side: the same room above and
 	   below, left and right */
 	const int margin = side / 16 + 2;
@@ -867,15 +880,28 @@ static void update_title(void)
 
 /* ---- the recordings ---- */
 
+/* the window's view as the recording draws it (view.h) */
+static view_style recording_style(void)
+{
+	return (view_style){ options.aspect == ASPECT_MONITOR, options.smooth, options.crt, options.panels };
+}
+
 static void start_recording(const char *path)
 {
-	if (recorder_open(path))
+	char why[200];
+	const view_style style = recording_style();
+	if (recorder_open(path, options.recording == RECORD_1080 ? 1080 : 1440, &style, why, sizeof(why)))
 	{
 		snprintf(recording_name, sizeof(recording_name), "%s", file_name(path));
-		fprintf(stderr, "makaimura: recording into %s\n", path);
+		fprintf(stderr, "makaimura: recording into %s (%s)\n", path, recorder_encoder());
+		tell("RECORDING");
 	}
 	else
-		fprintf(stderr, "makaimura: %s could not be made\n", path);
+	{
+		fprintf(stderr, "makaimura: %s could not be made%s%s\n", path, why[0] ? ": " : "", why);
+		/* (the notice is short: the whole reason is in the log) */
+		tell(strstr(why, "ffmpeg") ? "NOT RECORDING: NO FFMPEG" : "NOT RECORDING");
+	}
 	update_title();
 }
 
@@ -884,8 +910,17 @@ static void stop_recording(void)
 	if (!recorder_on())
 		return;
 	const uint32_t frames = recorder_frames();
-	recorder_close();
-	fprintf(stderr, "makaimura: %s recorded: %u frames (%.1f s)\n", recording_name, frames, frames / FRAME_RATE);
+	const int ok = recorder_close();
+	if (ok)
+	{
+		fprintf(stderr, "makaimura: %s recorded: %u frames (%.1f s)\n", recording_name, frames, frames / FRAME_RATE);
+		tell("RECORDING SAVED");
+	}
+	else
+	{
+		fprintf(stderr, "makaimura: %s failed: %s\n", recording_name, recorder_problem());
+		tell("THE RECORDING FAILED");
+	}
 	update_title();
 }
 
@@ -901,8 +936,9 @@ static void toggle_recording(void)
 	const time_t now = time(NULL);
 	char stamp[32];
 	strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", localtime(&now));
-	snprintf(path, sizeof(path), "%.*smakaimura-%s-%s.avi", (int)(file_name(settings_path) - settings_path),
-		settings_path, stamp, gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame");
+	snprintf(path, sizeof(path), "%.*smakaimura-%s-%s.%s", (int)(file_name(settings_path) - settings_path),
+		settings_path, stamp, gng.accuracy == GNG_ACCURACY_BOARD ? "board" : "mame",
+		options.recording == RECORD_BOARD ? "avi" : "mp4");
 	start_recording(path);
 }
 
@@ -1318,7 +1354,17 @@ static void on_vblank(uint64_t frame)
 	if (sound_on)
 		audio_out_frame(speed);
 	gng_video_render(pixels);
-	recorder_frame(pixels);
+	if (recorder_video())
+	{
+		const view_style style = recording_style();
+		if (options.panels)
+			fill_panels(1);
+		if (!recorder_frame(pixels, options.panels ? panel_pixels[0] : NULL, options.panels ? panel_pixels[1] : NULL,
+				&style))
+			stop_recording();
+	}
+	else
+		recorder_frame(pixels, NULL, NULL, NULL);
 	if ((long)frame == menu_frame)
 	{
 		refresh_replays();

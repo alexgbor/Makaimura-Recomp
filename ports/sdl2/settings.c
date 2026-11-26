@@ -30,6 +30,7 @@ static const char *const hotkey_names[HOTKEYS] = { "reset", "pause", "fullscreen
 const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
 const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
 const char *const settings_crt_names[4] = { "off", "scanlines", "arcade", "pvm" };    /* (crt.h's order) */
+const char *const settings_recording_names[RECORDINGS] = { "1440p", "1080p", "board" };
 #define aspect_names settings_aspect_names
 #define scaling_names settings_scaling_names
 static const char *const sync_names[SYNCS] = { "board", "display" };
@@ -146,6 +147,7 @@ void settings_defaults(settings *s)
 	s->scaling = SCALING_FIT;
 	s->smooth = false;
 	s->crt = 0;
+	s->recording = RECORD_1440;
 	s->vsync = true;
 	s->panels = true;
 	s->keep_high_scores = true;
@@ -351,6 +353,8 @@ static int set(settings *s, const char *section, const char *name, char *value)
 			return s->smooth = n, 1;
 		if (!SDL_strcasecmp(name, "crt") && (n = choice(value, settings_crt_names, 4)) >= 0)
 			return s->crt = n, 1;
+		if (!SDL_strcasecmp(name, "recording") && (n = choice(value, settings_recording_names, RECORDINGS)) >= 0)
+			return s->recording = n, 1;
 		if (!SDL_strcasecmp(name, "vsync") && (n = boolean(value)) >= 0)
 			return s->vsync = n, 1;
 		if (!SDL_strcasecmp(name, "panels") && (n = boolean(value)) >= 0)
@@ -516,6 +520,10 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "; the picture as a CRT shows it: off; scanlines (the beam's lines); arcade (a slot mask, a soft\n"
 		"; beam); pvm (an aperture grille, a sharper beam). Best full screen or in a large window\ncrt = %s\n",
 		settings_crt_names[s->crt]);
+	fprintf(file, "; what F12 records: 1440p or 1080p (a video to share, an MP4: the picture as the window shows it,\n"
+		"; the CRT too, and the side panels when they are on, 16:9); board (the board's own 256 x 224 picture\n"
+		"; and its sound, uncompressed: an AVI, about 10 MB a second)\nrecording = %s\n",
+		settings_recording_names[s->recording]);
 	fprintf(file, "; the picture shown at the display's refresh (no tearing)\nvsync = %s\n", s->vsync ? "true" : "false");
 	fprintf(file, "; the side panels beside the picture (the player, the board; the menu's help), where the window "
 		"is wider\n; than the picture (full screen on a wide display; the window opens wide for them)\npanels = %s\n",

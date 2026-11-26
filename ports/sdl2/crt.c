@@ -72,24 +72,30 @@ static void make_tables(void)
 	tables_ready = 1;
 }
 
-/* the horizontal pass's buffers: each source line sampled at the output's columns, in linear light */
-static uint16_t *lines;        /* (each source line at the output's columns: its linear light's level, 0-LEVELS-1) */
-static float *factors;         /* (the mask, the gain and the vignette's columns: 4 rows' patterns x columns x 3) */
-static int factors_style, factors_dw;
-static int lines_width, lines_height;
-static int *taps_start;
-static float *taps_weight;
-static int taps_style, taps_sw, taps_dw;
+/* a drawing's buffers, kept between frames (crt.h's crt_context): each source line at the output's columns in
+   linear light, the mask's factors, the horizontal taps */
+struct crt_context
+{
+	uint16_t *lines;       /* (each source line at the output's columns: its linear light's level, 0-LEVELS-1) */
+	float *factors;        /* (the mask, the gain and the vignette's columns: 4 rows' patterns x columns x 3) */
+	int factors_style, factors_dw;
+	int lines_width, lines_height;
+	int *taps_start;
+	float *taps_weight;
+	int taps_style, taps_sw, taps_dw;
+};
 #define TAPS 5
 
-static void horizontal_taps(int style, int sw, int dw)
+static void horizontal_taps(crt_context *c, int style, int sw, int dw)
 {
-	if (taps_start && taps_style == style && taps_sw == sw && taps_dw == dw)
+	if (c->taps_start && c->taps_style == style && c->taps_sw == sw && c->taps_dw == dw)
 		return;
-	free(taps_start);
-	free(taps_weight);
-	taps_start = malloc(sizeof(int) * (size_t)dw);
-	taps_weight = malloc(sizeof(float) * (size_t)dw * TAPS);
+	free(c->taps_start);
+	free(c->taps_weight);
+	c->taps_start = malloc(sizeof(int) * (size_t)dw);
+	c->taps_weight = malloc(sizeof(float) * (size_t)dw * TAPS);
+	int *const taps_start = c->taps_start;
+	float *const taps_weight = c->taps_weight;
 	const float sigma = looks[style].spot;
 	for (int x = 0; x < dw; x++)
 	{
@@ -105,9 +111,9 @@ static void horizontal_taps(int style, int sw, int dw)
 			taps_weight[x * TAPS + k] /= total;
 		taps_start[x] = first;
 	}
-	taps_style = style;
-	taps_sw = sw;
-	taps_dw = dw;
+	c->taps_style = style;
+	c->taps_sw = sw;
+	c->taps_dw = dw;
 }
 
 /* the mask's light for a sub-pixel (c: 0 red, 1 green, 2 blue) at an output pixel */
@@ -127,8 +133,10 @@ static inline float mask_at(int style, int x, int y, int c, float dark)
 /* the frame's work, shared by the passes' threads */
 typedef struct
 {
+	crt_context *c;
 	const uint32_t *source;
 	uint32_t *out;
+	int stride;
 	int sw, sh, dw, dh, style;
 	float gain;
 } frame;
@@ -171,23 +179,50 @@ static void parallel(const frame *f, void (*rows)(const frame *, int, int), int 
 static void horizontal_rows(const frame *fr, int first, int end);
 static void vertical_rows(const frame *fr, int first, int end);
 
+static SDL_SpinLock tables_lock;
+static crt_context shared;    /* (crt_render's) */
+
+crt_context *crt_create(void)
+{
+	return calloc(1, sizeof(crt_context));
+}
+
+void crt_destroy(crt_context *c)
+{
+	if (!c)
+		return;
+	free(c->lines);
+	free(c->factors);
+	free(c->taps_start);
+	free(c->taps_weight);
+	free(c);
+}
+
 void crt_render(const uint32_t *source, int sw, int sh, uint32_t *out, int dw, int dh, int style)
+{
+	crt_render_in(&shared, source, sw, sh, out, dw, dw, dh, style);
+}
+
+void crt_render_in(crt_context *c, const uint32_t *source, int sw, int sh, uint32_t *out, int stride, int dw, int dh,
+	int style)
 {
 	if (style <= CRT_OFF || style >= CRT_STYLES || dw <= 0 || dh <= 0)
 		return;
+	SDL_AtomicLock(&tables_lock);    /* (the window's and the recording's threads: the tables made once) */
 	if (!tables_ready)
 		make_tables();
-	horizontal_taps(style, sw, dw);
-	if (!lines || lines_width != dw || lines_height != sh)
+	SDL_AtomicUnlock(&tables_lock);
+	horizontal_taps(c, style, sw, dw);
+	if (!c->lines || c->lines_width != dw || c->lines_height != sh)
 	{
-		free(lines);
-		lines = malloc(sizeof(uint16_t) * 3 * (size_t)dw * (size_t)sh);
-		lines_width = dw;
-		lines_height = sh;
+		free(c->lines);
+		c->lines = malloc(sizeof(uint16_t) * 3 * (size_t)dw * (size_t)sh);
+		c->lines_width = dw;
+		c->lines_height = sh;
 	}
 	const look *l = &looks[style];
 
-	frame fr = { source, out, sw, sh, dw, dh, style, 1.0f };
+	frame fr = { c, source, out, stride, sw, sh, dw, dh, style, 1.0f };
 	parallel(&fr, horizontal_rows, sh);
 
 	/* the mask's light given back: its average over a triad (and the slot's dark row) */
@@ -195,20 +230,20 @@ void crt_render(const uint32_t *source, int sw, int sh, uint32_t *out, int dw, i
 		: style == CRT_PVM ? (1.0f + 2.0f * l->mask) / 3.0f : 1.0f;
 	/* (the beams' light on a flat field: about their width x 2.5 lines' worth; the mask's taken in part) */
 	fr.gain = 1.30f * (1.0f + 0.7f * (1.0f / mask_mean - 1.0f));
-	if (!factors || factors_style != style || factors_dw != dw)
+	if (!c->factors || c->factors_style != style || c->factors_dw != dw)
 	{
-		free(factors);
-		factors = malloc(sizeof(float) * 4 * 3 * (size_t)dw);
+		free(c->factors);
+		c->factors = malloc(sizeof(float) * 4 * 3 * (size_t)dw);
 		for (int r = 0; r < 4; r++)
 			for (int x = 0; x < dw; x++)
 			{
 				const float nx = 2.0f * x / dw - 1.0f;
-				for (int c = 0; c < 3; c++)
-					factors[((size_t)r * dw + x) * 3 + c] = fr.gain * mask_at(style, x, r, c, l->mask) *
+				for (int k = 0; k < 3; k++)
+					c->factors[((size_t)r * dw + x) * 3 + k] = fr.gain * mask_at(style, x, r, k, l->mask) *
 						(1.0f - 0.5f * l->vignette * nx * nx);
 			}
-		factors_style = style;
-		factors_dw = dw;
+		c->factors_style = style;
+		c->factors_dw = dw;
 	}
 
 	parallel(&fr, vertical_rows, dh);
@@ -220,6 +255,9 @@ static void horizontal_rows(const frame *fr, int first, int end)
 	uint32_t *out = fr->out;
 	const int sw = fr->sw, sh = fr->sh, dw = fr->dw, dh = fr->dh, style = fr->style;
 	const look *l = &looks[style];
+	const int *const taps_start = fr->c->taps_start;
+	const float *const taps_weight = fr->c->taps_weight;
+	uint16_t *const lines = fr->c->lines;
 	(void)source; (void)out; (void)dh; (void)l;
 	/* the horizontal pass: each source line at the output's columns */
 	for (int y = first; y < end; y++)
@@ -254,6 +292,8 @@ static void vertical_rows(const frame *fr, int first, int end)
 	uint32_t *out = fr->out;
 	const int sw = fr->sw, sh = fr->sh, dw = fr->dw, dh = fr->dh, style = fr->style;
 	const look *l = &looks[style];
+	const uint16_t *const lines = fr->c->lines;
+	const float *const factors = fr->c->factors;
 	(void)source; (void)out; (void)dh; (void)l;
 	/* the vertical pass: the two beams nearest each output row, the mask, back to the display's gamma */
 	for (int oy = first; oy < end; oy++)
@@ -268,7 +308,7 @@ static void vertical_rows(const frame *fr, int first, int end)
 		const float ny = 2.0f * oy / dh - 1.0f;
 		const float row_shade = (1.0f - 0.5f * l->vignette * ny * ny) * (TONES - 1) / 2.0f;
 		const float *factor = factors + (size_t)(oy & 3) * dw * 3;
-		uint32_t *outrow = out + (size_t)oy * dw;
+		uint32_t *outrow = out + (size_t)oy * fr->stride;
 		for (int x = 0; x < dw; x++)
 		{
 			uint32_t pixel = 0;
