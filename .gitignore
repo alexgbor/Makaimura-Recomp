@@ -6,6 +6,8 @@
 /build/
 *.dat
 *.lst
+# (but MAME's cores' opcode lists, its own sources: tools/reference/mame)
+!/tools/reference/mame/**/*.lst
 *.wav
 *.ppm
 *.bmp
