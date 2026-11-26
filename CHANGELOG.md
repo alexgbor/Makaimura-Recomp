@@ -3,7 +3,7 @@
 What changes from one version to the next, for players. The version is set in `CMakeLists.txt` (the menu shows it);
 `tools/make_release.ps1` takes it from there and wants its section here.
 
-## Unreleased
+## v0.4.0 (2026-11-26)
 
 - **F12 records a video ready to share**: an MP4 of what the window shows, the CRT look included, with the side
   panels when they are on (16:9 at 2560 x 1440), at the board's own 59.637 frames a second. Around a megabyte or
