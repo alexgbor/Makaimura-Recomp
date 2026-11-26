@@ -1,7 +1,8 @@
 <#
     Name:        make_release.ps1
-    Description: the player's package of the game: release\Makaimura-<version>-win64.zip, for a GitHub Release
-    Version:     0.1.0
+    Description: the player's package of the game: release\Makaimura-<version>-win64.zip (or, with -Linux,
+                 release\Makaimura-<version>-linux-x86_64.tar.gz), for a GitHub Release
+    Version:     0.2.0
     Created:     20-11-2026
 
     license:BSD-3-Clause
@@ -23,11 +24,18 @@
     set, no settings, high scores, states or replays of yours, and an .exe that needs nothing but SDL2.dll beside it.
     Any problem stops it before the .zip is made. The player brings the ROM set (MAME's makaimurg.zip and gng.zip),
     which the game asks for on its first run.
+
+    -Linux: the Linux package instead, built in Docker (Docker Desktop running): tools\linux\Dockerfile's machine
+    (made the first time: some minutes) runs tools/linux/make_release.sh on this folder, which builds the game in
+    build\linux, packs it with its own SDL2 and checks it as this script checks Windows' (and runs it from an empty
+    folder, recording the attract mode). The readable C (src\) or the translation must be written first, as for
+    Windows. Both packages go on the same GitHub release: the game's updater takes the one for its system.
 #>
 param(
     [string]$Version = "",
     [ValidateSet("translated", "readable")]
-    [string]$Program = "readable"
+    [string]$Program = "readable",
+    [switch]$Linux
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,6 +83,14 @@ if ($changes -match "(?ms)^## Unreleased\s*(.*?)^## v") {
     if ($waiting -ne "" -and $waiting -ne "Nothing yet.") {
         throw "CHANGELOG.md lists changes under '## Unreleased' that v$Version doesn't have: make them a new version first"
     }
+}
+
+# ---- Linux: built and packed in Docker (tools/linux) ----
+if ($Linux) {
+    docker build -t makaimura-linux tools/linux
+    if ($LASTEXITCODE -ne 0) { throw "The Linux build machine could not be made (is Docker Desktop running?)" }
+    docker run --rm -v "${root}:/work" makaimura-linux sh /work/tools/linux/make_release.sh $Version $Program
+    exit $LASTEXITCODE
 }
 
 # the .exe newer than the sources: a build made after the last change

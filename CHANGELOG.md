@@ -5,9 +5,15 @@ What changes from one version to the next, for players. The version is set in `C
 
 ## Unreleased
 
-- README.txt says how to make a recording (F12) ready for YouTube: it is the board's 256 x 224 uncompressed, which
-  YouTube shows as 240p; one ffmpeg command enlarges it with sharp pixels to 1440p and makes it some tens of times
-  smaller (`tools/youtube_export.py` does the same from the repository).
+- **F12 records a video ready to share**: an MP4 of what the window shows, the CRT look included, with the side
+  panels when they are on (16:9 at 2560 x 1440), at the board's own 59.637 frames a second. Around a megabyte or
+  three a second instead of the ten of before, and at 1440p YouTube keeps the pixels sharp. Windows encodes it
+  with its own encoders (the graphics card's when it has one); nothing else to install.
+- PICTURE AND SOUND > RECORDING: VIDEO 1440P (the default), VIDEO 1080P (smaller files) or BOARD AVI (the board's
+  own 256 x 224 picture and sound, uncompressed, as F12 recorded until now).
+- **A Linux package** (`-linux-x86_64.tar.gz`): x86-64, glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36,
+  SteamOS 3 and later), X11 or Wayland, its own SDL2 inside. It updates itself as the Windows one does. Its videos
+  are encoded by ffmpeg, which the system's packages install.
 
 ## v0.3.0 (2026-11-24)
 

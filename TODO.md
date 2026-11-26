@@ -362,6 +362,13 @@ Roughly in order; each milestone is checked against the reference before it is t
       through the resampler at 48 kHz (`resample_check`); `--record-inputs FILE` writes the controls as an input
       script (the DIPs too) that `--inputs` plays again: the same AVI byte for byte; `--accuracy` for the mode;
       `tools/side_by_side.py` puts two recordings side by side (ffmpeg)
+- [x] Videos to share (`ports/sdl2/view.c`, `encoder.c`; PICTURE AND SOUND > RECORDING, the default): the window's
+      view drawn by the CPU (the picture sharp, smooth or the CRT's, the panels: 2560 x 1440, 1920 x 1080) into an
+      MP4, H.264 and AAC, on a thread of its own a few frames behind; Media Foundation on Windows, ffmpeg elsewhere
+      (`MAKAIMURA_FFMPEG`). Checked: the board AVI the same byte for byte as before; the video's frames as many as
+      the AVI's, its sound the AVI's (correlation 0.9999, no lag), the picture right side up and in BT.709
+      (33 dB on a test pattern), the CRT's window shot unchanged; 1500 frames recorded at the board's pace (both
+      encoders; about 115 frames a second drawn and encoded sharp, 88 with the CRT, here)
 - [x] The keys and buttons changed from the menu (CONTROLS: Enter, then the key, the pad's button or trigger; a key
       taken from whatever had it; Delete: its defaults; Esc: as it was), kept in makaimura.ini; checked with
       `makaimura --menu N --menu-keys LIST --shot N FILE` (the keys pressed on the menu, the settings saved)
@@ -418,7 +425,12 @@ Roughly in order; each milestone is checked against the reference before it is t
       renamed .old, gone at the next start), the game started again; CHECK FOR UPDATES in GAME OPTIONS and
       makaimura.ini; the version in the window's title and on the menu. Checked end to end in a sandbox against a
       public repository's release (`makaimura --update-test REPO VERSION`)
-- [ ] A Linux build and package (the sources are portable C and SDL2; not built yet: no Linux toolchain here)
+- [x] A Linux build and package (`tools/make_release.ps1 -Linux`: Docker, `tools/linux`): Ubuntu 22.04's gcc,
+      SDL2 2.30.9 built and carried beside the program ($ORIGIN), the same allow list and checks as Windows', the
+      packed game run from an empty folder with no display or sound device, recording the attract mode through
+      ffmpeg (601 frames at 2560 x 1440). The updater takes `-linux-x86_64.tar.gz`
+- [ ] The Linux package's updater checked end to end against a real release (`--update-test`), and the game played
+      on a Linux desktop (X11 and Wayland, a gamepad)
 - [x] CRT look (`ports/sdl2/crt.c`; PICTURE AND SOUND > CRT, `crt` in makaimura.ini): in linear light, each line a
       Gaussian beam that widens with its brightness, a narrow horizontal spot, drawn by the CPU's threads at the
       picture's size on the screen (1.5-3.4 ms a frame at 896-1440 lines here); SCANLINES (the beam alone: the

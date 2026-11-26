@@ -35,7 +35,8 @@ first, then downloads it, checks it and starts again, keeping your settings, sco
 (GAME OPTIONS > CHECK FOR UPDATES turns the look-up off).
 
 The release's `README.txt` has the controls, the menu and the files the game keeps. What's new in each version:
-[CHANGELOG.md](CHANGELOG.md). A Linux build is made from the sources (below); there is no Linux package yet.
+[CHANGELOG.md](CHANGELOG.md). Each release has a Windows package (`-win64.zip`) and a Linux one
+(`-linux-x86_64.tar.gz`: x86-64, glibc 2.35 or newer, its own SDL2 beside the program; run `./makaimura`).
 
 ## Building
 
@@ -57,6 +58,10 @@ python tools/mame_trace.py --frames 7001 --inputs tests/controls/walk_right.txt 
 ```
 
 `tools/mame_trace.py` needs MAME 0.289 (`MAME` environment variable, or `D:/repositories/mame0289/mame.exe`).
+
+The packages: `tools/make_release.ps1` (Windows' .zip) and `tools/make_release.ps1 -Linux` (Linux's .tar.gz, built
+and checked in Docker: `tools/linux/Dockerfile`, Ubuntu 22.04 with SDL2 built from its release; `tools/linux/
+make_release.sh` runs the packed game from an empty folder, recording the attract mode through ffmpeg).
 
 ## Reading the game's code
 
@@ -136,9 +141,16 @@ the menu (CONTROLS: Enter, then the key or the pad's button; Delete gives it its
 
 ## Recording
 
-F12 starts a recording beside `makaimura.ini` (`makaimura-DATE-TIME-MODE.avi`) and stops it; the window's title says
-while it records. It is the board's own picture (256 x 224, shown 4:3) and sound (48 kHz), frame for frame in the
-board's time, uncompressed (about 10 MB a second: ffmpeg makes it small). From the command line:
+F12 starts a recording beside `makaimura.ini` (`makaimura-DATE-TIME-MODE.mp4`) and stops it; the window's title says
+while it records. By default it is a video to share (`ports/sdl2/recorder.c`, `view.c`, `encoder.c`): the window's
+view drawn by the CPU at 2560 x 1440 (16:9 with the side panels; 1920 x 1440, the picture alone, without them),
+the picture sharp, smooth or the CRT's as the window has it, encoded into an MP4 (H.264 at about 24 Mb/s, AAC at
+192 kb/s) on a thread of its own, frame for frame in the board's time (59.637 frames a second). Windows encodes it
+with Media Foundation (nothing for the package to carry; the graphics card's encoder when there is one); Linux,
+or Windows with `MAKAIMURA_FFMPEG` set, through the ffmpeg program. PICTURE AND SOUND > RECORDING (`recording` in
+makaimura.ini) chooses 1440p, 1080p or `board`: the board's own picture (256 x 224, shown 4:3) and sound (48 kHz),
+uncompressed into an AVI (about 10 MB a second), what the checks compare. `--record FILE` takes the kind from the
+name: `.avi` the board's, anything else the video. From the command line:
 
 ```
 makaimura --accuracy mame --record mame.avi --record-inputs game.txt     # play; the controls kept too
@@ -147,10 +159,9 @@ python tools/side_by_side.py mame.avi board.avi comparison.mp4           # side 
 python tools/youtube_export.py game.avi                                  # for YouTube: game_youtube.mp4
 ```
 
-The window's size and the CRT look are not in the recording: it is the board's 256 x 224. YouTube names a video's
-quality by its height and shows 224 lines as 240p, blurred; `tools/youtube_export.py` enlarges it with sharp pixels
-to the monitor's 4:3 at 1440p (`--height 1080` or `2160` too) and encodes it with ffmpeg (10 seconds of the
-attract mode: 104 MB to 3). Without Python, the package's README.txt has the ffmpeg command.
+A board AVI is the board's 256 x 224; `tools/youtube_export.py` enlarges one with sharp pixels to the monitor's
+4:3 at 1440p (`--height 1080` or `2160` too) and encodes it with ffmpeg, for an AVI recorded before the videos
+were or one made with `--inputs`.
 
 The same controls at the same frames give the same game in the same mode (the same file, byte for byte); in the
 other mode the game can part ways where board mode slows down.

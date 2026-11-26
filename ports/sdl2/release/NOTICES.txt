@@ -69,4 +69,4 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 SDL2
 ----
 
-SDL2.dll is the Simple DirectMedia Layer (zlib license): SDL2.txt.
+SDL2.dll (Windows) and libSDL2-2.0.so.0 (Linux) are the Simple DirectMedia Layer (zlib license): SDL2.txt.
