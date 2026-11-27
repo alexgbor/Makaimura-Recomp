@@ -41,6 +41,10 @@ typedef struct hud_info
 	char hot_keys[HUD_HOTKEYS][7];    /* the window's keys' names: menu, pause, save and load a state, the slot,
 	                                     reset, record */
 	int state_slot;           /* the save states' slot */
+	bool timer;               /* the speedrun timer's section (speedrun.h) */
+	int timer_status;         /* SPEEDRUN_IDLE, _RUNNING, _FINISHED, _OVER */
+	uint64_t timer_frames;    /* its time, in the board's frames */
+	int timer_end;            /* where its runs end: SPEEDRUN_END_* */
 } hud_info;
 
 /* The panels into two HUD_W x HUD_H buffers (0x00RRGGBB) */

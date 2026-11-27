@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "hud.h"
+#include "speedrun.h"
 
 #include "gng/board.h"
 #include "gng/video.h"
@@ -160,11 +161,12 @@ static void left_panel(uint32_t *p, const hud_info *info)
 	static const char *const weapons[] = { "TORCH", "LANCE", "AXE", "CROSS", "DAGGER" };
 	const uint8_t *ram = gng.ram;
 	char line[32];
-	enum { PLAYER, STAGE, CONTROLS, COUNT };
+	enum { PLAYER, STAGE, TIMER, CONTROLS, COUNT };
 	/* (the contents' heights: as they are drawn below) */
 	const int heights[COUNT] = {
 		TITLE_ROOM + 30 + 30 + 20 + 18 + PAD,
 		TITLE_ROOM + 3 * LINE + 5 + PAD,
+		info->timer ? TITLE_ROOM + LINE + 10 + 8 + PAD : 0,
 		TITLE_ROOM + 2 * CONTROLS_H + 4 + 8 + PAD,
 	};
 	layout at[COUNT];
@@ -214,6 +216,24 @@ static void left_panel(uint32_t *p, const hud_info *info)
 	/* the rank as a bar */
 	box(p, PAD, y + 3 * LINE, HUD_W - 2 * PAD, 5, unlit);
 	box(p, PAD, y + 3 * LINE, (HUD_W - 2 * PAD) * (ram[0x61] & 0x3F) / 63, 5, red);
+
+	/* the speedrun timer: the run's time, how it stands at the title's right; where it ends */
+	if (info->timer)
+	{
+		static const char *const ends[SPEEDRUN_ENDS] = { "1ST LOOP", "2ND LOOP", "NEVER" };
+		section(p, at[TIMER].top, at[TIMER].height, "TIMER", yellow);
+		if (info->timer_status == SPEEDRUN_FINISHED)
+			right_text(p, at[TIMER].top + 7, "CLEAR", green);
+		else if (info->timer_status == SPEEDRUN_OVER)
+			right_text(p, at[TIMER].top + 7, "OVER", red);
+		y = at[TIMER].content;
+		speedrun_format(line, sizeof(line), info->timer_frames);
+		right_text(p, y, line, info->timer_status == SPEEDRUN_RUNNING ? white :
+			info->timer_status == SPEEDRUN_FINISHED ? green : info->timer_status == SPEEDRUN_OVER ? grey : unlit);
+		text(p, y + LINE + 4, "END", grey);
+		right_text(p, y + LINE + 4, info->timer_end >= 0 && info->timer_end < SPEEDRUN_ENDS ? ends[info->timer_end] :
+			"-", cyan);
+	}
 
 	section(p, at[CONTROLS].top, at[CONTROLS].height, "CONTROLS", yellow);
 	y = at[CONTROLS].content;

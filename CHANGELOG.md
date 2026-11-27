@@ -3,6 +3,14 @@
 What changes from one version to the next, for players. The version is set in `CMakeLists.txt` (the menu shows it);
 `tools/make_release.ps1` takes it from there and wants its section here.
 
+## Unreleased
+
+- **A speedrun timer** in the left side panel: a game's time from the START that begins it, counted in the
+  board's own frames (59.637 a second), so the slowdown is in it as on the arcade and a pause, the menu or a hitch
+  of the computer are not; a replay gives the same time to the hundredth. The menu's SPEEDRUN page chooses where a
+  run ends: the hit that beats Astaroth in the 1st loop, in the 2nd (the ending: the default), or never (on to the
+  game over); TIMER turns the panel's section off. A game over, a reset or a loaded state ends the run.
+
 ## v0.4.0 (2026-11-26)
 
 - **F12 records a video ready to share**: an MP4 of what the window shows, the CRT look included, with the side

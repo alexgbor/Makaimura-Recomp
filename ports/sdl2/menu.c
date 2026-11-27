@@ -22,12 +22,12 @@
 enum { HEADER, BLANK, DIP, ACCURACY, ASPECT, SCALING, SMOOTH, FULLSCREEN, VOLUME, CONTROLS, RESUME, RESET, QUIT,
 	ACTION, HOTKEY, DEFAULTS, BACK, GAME_PAGE, VIDEO_PAGE, PANELS, SAVE_STATE, LOAD_STATE,
 	PRACTICE_PAGE, PRACTICE, PRACTICE_AREA, PRACTICE_LOOP, PRACTICE_WEAPON, PRACTICE_LIVES, REPLAYS_PAGE, REPLAY, KEEP_REPLAY, DROP_REPLAY, UPDATE, UPDATE_YES, UPDATE_NO,
-	CHECK_UPDATES, CRT, RECORDING };
+	CHECK_UPDATES, CRT, RECORDING, SPEEDRUN_PAGE, SPEEDRUN_TIMER, SPEEDRUN_END };
 
 typedef struct item { int kind; int dip; const char *label; } item;
 
-static item main_items[40], control_items[40], game_items[40], video_items[40], practice_items[16];
-static int main_count, control_count, game_count, video_count, practice_count;
+static item main_items[40], control_items[40], game_items[40], video_items[40], practice_items[16], speedrun_items[8];
+static int main_count, control_count, game_count, video_count, practice_count, speedrun_count;
 static practice_setup practice = { 0, 0, 1, 0 };    /* (kept while the window is open) */
 static item replay_items[MENU_REPLAYS + 4];
 static int replay_count, replay_chosen;
@@ -121,6 +121,18 @@ static void build_practice(void)
 	add(PRACTICE, 0, "START");
 	add(BACK, 0, "BACK");
 	practice_count = item_count;
+}
+
+static void build_speedrun(void)
+{
+	items = speedrun_items;
+	item_count = 0;
+	add(HEADER, 0, "SPEEDRUN");
+	add(SPEEDRUN_TIMER, 0, "TIMER");
+	add(SPEEDRUN_END, 0, "RUN ENDS");
+	add(BLANK, 0, "");
+	add(BACK, 0, "BACK");
+	speedrun_count = item_count;
 }
 
 practice_setup menu_practice_setup(void)
@@ -219,6 +231,7 @@ static void build_main(void)
 	add(LOAD_STATE, 0, "LOAD STATE");
 	add(PRACTICE_PAGE, 0, "PRACTICE");
 	add(REPLAYS_PAGE, 0, "REPLAYS");
+	add(SPEEDRUN_PAGE, 0, "SPEEDRUN");
 	add(BLANK, 0, "");
 	add(GAME_PAGE, 0, "GAME OPTIONS");
 	add(VIDEO_PAGE, 0, "PICTURE AND SOUND");
@@ -274,6 +287,7 @@ void menu_open(void)
 		build_controls();
 		build_video();
 		build_practice();
+		build_speedrun();
 		build();
 		build_main();
 	}
@@ -424,6 +438,12 @@ static void step(settings *s, int direction, int *changed)
 	case RECORDING:
 		s->recording = (s->recording + direction + RECORDINGS) % RECORDINGS;    /* (from the next recording) */
 		break;
+	case SPEEDRUN_TIMER:
+		s->speedrun_timer = !s->speedrun_timer;
+		break;
+	case SPEEDRUN_END:
+		s->speedrun_end = (s->speedrun_end + direction + 3) % 3;    /* (the run going on ends by the new one) */
+		break;
 	case PRACTICE_AREA:
 		practice.area = (practice.area + direction + PRACTICE_AREAS) % PRACTICE_AREAS;
 		break;
@@ -555,6 +575,10 @@ int menu_event(const SDL_Event *event, settings *s, int *changed)
 		case PRACTICE_PAGE:
 			main_selected = selected;
 			show_page(practice_items, practice_count, 0);
+			break;
+		case SPEEDRUN_PAGE:
+			main_selected = selected;
+			show_page(speedrun_items, speedrun_count, 0);
 			break;
 		case REPLAYS_PAGE:
 			main_selected = selected;
@@ -699,7 +723,10 @@ static const char *value_of(const item *it, const settings *s, char *buffer, siz
 	case SMOOTH: return s->smooth ? "SMOOTH" : "SHARP";
 	case FULLSCREEN: return s->fullscreen ? "ON" : "OFF";
 	case VOLUME: snprintf(buffer, size, "%d", s->volume); return buffer;
-	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: case PRACTICE_PAGE: case REPLAYS_PAGE: return ">";
+	case CONTROLS: case GAME_PAGE: case VIDEO_PAGE: case PRACTICE_PAGE: case REPLAYS_PAGE: case SPEEDRUN_PAGE:
+		return ">";
+	case SPEEDRUN_TIMER: return s->speedrun_timer ? "ON" : "OFF";
+	case SPEEDRUN_END: return s->speedrun_end == 0 ? "1ST LOOP" : s->speedrun_end == 1 ? "2ND LOOP" : "NEVER";
 	case REPLAY: return confirming >= 0 && it == &items[confirming] ? "DELETE? ENTER" : replay_values[it->dip];
 	case CHECK_UPDATES: return s->check_updates ? "ON" : "OFF";
 	case CRT: upper(buffer, size, settings_crt_names[s->crt]); return buffer;
@@ -738,7 +765,8 @@ static const char *hint_of(const item *it)
 	case RECORDING: return "WHAT THE RECORDING KEY MAKES";
 	case RESET: return "THE BOARD'S POWER CYCLED";
 	case SAVE_STATE: case LOAD_STATE: return "LEFT, RIGHT: THE SLOT";
-	case PRACTICE_AREA: case PRACTICE_LOOP: case PRACTICE_WEAPON: case PRACTICE_LIVES: return "LEFT, RIGHT: CHANGE";
+	case PRACTICE_AREA: case PRACTICE_LOOP: case PRACTICE_WEAPON: case PRACTICE_LIVES: case SPEEDRUN_END:
+		return "LEFT, RIGHT: CHANGE";
 	case REPLAY: return "ENTER: PLAY  DELETE: DELETE IT";
 	case ACTION: case HOTKEY: return "ENTER: CHANGE  DELETE: DEFAULT";
 	default: return "";
@@ -758,6 +786,12 @@ static const char *help_of(const item *it)
 	case PRACTICE_LOOP: return "THE FIRST TIME THROUGH THE GAME, OR THE SECOND (WHERE THE LAST ROOM LEADS TO THE ENDING).";
 	case PRACTICE_WEAPON: return "WHAT ARTHUR CARRIES AS THE AREA STARTS. THE ITEMS ON THE WAY CHANGE IT AS IN THE GAME.";
 	case PRACTICE_LIVES: return "ARTHUR'S LIVES, OR AS MANY AS THE GAME OPTIONS GIVE.";
+	case SPEEDRUN_PAGE: return "A TIMER FOR WHOLE GAMES IN THE LEFT PANEL, AND WHERE A RUN ENDS.";
+	case SPEEDRUN_TIMER: return "THE GAME'S TIME IN THE LEFT PANEL, FROM THE START THAT BEGINS IT. COUNTED IN THE "
+		"BOARD'S FRAMES (59.637 A SECOND): THE SLOWDOWN IS IN IT, A PAUSE IS NOT, AND A REPLAY GIVES THE SAME TIME. "
+		"A GAME OVER, A RESET OR A STATE LOADED ENDS THE RUN.";
+	case SPEEDRUN_END: return "WHERE THE TIMER STOPS: THE HIT THAT BEATS ASTAROTH IN THE 1ST LOOP, OR IN THE 2ND (THE "
+		"ENDING), OR NEVER (ON TO THE GAME OVER).";
 	case REPLAYS_PAGE: return "THE GAMES KEPT, AS THEY WERE PLAYED: AT EACH GAME OVER, KEEP ITS REPLAY OR LET IT GO. "
 		"THEY ARE IN REPLAYS/.";
 	case REPLAY: return "THIS GAME AGAIN, FRAME FOR FRAME, FROM ITS COIN (OR THE STATE IT STARTED FROM: +) TO ITS GAME "

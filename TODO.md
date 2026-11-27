@@ -404,6 +404,14 @@ Roughly in order; each milestone is checked against the reference before it is t
       before it lets it go); played from the menu in its mode, the player's game from its end (`# end FRAME`);
       Delete, then Enter, deletes one from the list; `keep_replays` in makaimura.ini; a game and its replay give the
       same picture (`makaimura --keep-replays`: kept without asking, with --inputs too)
+- [x] Speedrun timer (`ports/sdl2/speedrun.c`, the menu's SPEEDRUN, `speedrun_timer` and `speedrun_end` in
+      makaimura.ini; asked for on Reddit): the board's frames (384 x 262 at 6 MHz each) from the VBLANK a START with
+      no game on (<$28) is read from, the game on within 30 frames of it (a START in the game changes nothing), to
+      the hit that beats Astaroth (his record, <$A5 - 0x10: type 0D, state 2) in the loop chosen (<$7F 0 or 1), or
+      to the game over; a reset or a state loaded ends it; the left panel's TIMER section (CLEAR, OVER). Checked
+      hidden: astaroth6 (2nd loop) and astaroth_first6 (1st) stop at frame 3611, 2211 frames (0:37.07), the other
+      loop's and never's run on; walk_right's game over 4545 frames, the same with a START in the game or one
+      without credits before; none from a loaded state (the transitions on stdout: "speedrun: ...")
 - [x] High scores kept between sessions (`ports/sdl2/hiscore.c`, makaimura.hi): the ranking 1518-1571 and the top
       score <$D0 (symbols.txt) written back at the first VBLANK with the program's own in place (as MAME's hiscore
       plugin), kept a second after the program changes it (a name entered: checked with long_play's game over, its

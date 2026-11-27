@@ -92,6 +92,9 @@ Besides the arcade game, the window has:
 - **Save states**: F5 saves the whole board into a slot, F7 loads it, F6 picks the slot (8); SAVE STATE and LOAD STATE
   on the menu. A game loaded from a state goes on exactly as it would have (`tools/check_states.py`).
 - **Practice**: PRACTICE on the menu starts a game at any area of the first loop (prepared once, then kept in `states/`).
+- **Speedrun timer**: in the left panel, a game's time from its START in the board's frames (the slowdown in it, a
+  pause not; a replay gives the same time), to Astaroth beaten in the 1st or the 2nd loop, or never (SPEEDRUN on
+  the menu).
 - **Replays**: at each game over the game asks whether to keep the game's replay (from its coin, or the state it was
   played from); REPLAYS on the menu plays them again, frame for frame (Delete, then Enter, deletes one).
 - **High scores** kept between sessions (`makaimura.hi`): the game's own ranking written back as the board starts.

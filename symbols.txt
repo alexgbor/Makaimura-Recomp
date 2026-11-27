@@ -1447,7 +1447,7 @@ local objects_handlers 9F11 x object object+10
 # ======== the objects' types: object_handlers (4:4712) by the type, +5,X; where each runs (gref, the scripts; stageN is
 # <$72 = N). What each is: the sprites it draws (gref --registers-at F79D: X the object + 0x10, Y its first sprite in the
 # sprite RAM; their codes, the pictures around them), checked over every stage's script; a type whose sprites were never
-# seen keeps its number ========
+# seen keeps its number (the types in decimal: Astaroth's 13 is 0D at +0x15) ========
 9F41  func  object_type_00     # stages 4, 5; the attract mode's demo; several things: a small flier out of stage 4-5's walls (sprites 060-07F), the points (030)
 A2C4  func  object_crow        # type 1; every stage, the attract mode: the graveyard's crows (sprites 0C0-0CF), the caves' bats (0E0-0EF)
 A716  func  object_petite_devil  # type 2; stages 1, 4: the small blue devils out of the towers' windows (sprites 0F0-0FF)

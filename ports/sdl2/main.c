@@ -58,6 +58,7 @@
 #include "menu.h"
 #include "recorder.h"
 #include "replays.h"
+#include "speedrun.h"
 #include "rom_drop.h"
 #include "updater.h"
 #include "settings.h"
@@ -218,6 +219,11 @@ static void fill_panels(int for_recording)
 	hud.paused = paused;
 	hud.replay = replay_playing;
 	hud.debug = options.panels_debug;
+	const speedrun_view run = speedrun_get();
+	hud.timer = options.speedrun_timer;
+	hud.timer_status = run.status;
+	hud.timer_frames = run.frames;
+	hud.timer_end = options.speedrun_end;
 	hud.recording = recorder_on() && !for_recording;    /* (the video does not say it is one) */
 	/* the window's keys: each one's first key, its name in capitals (as the menu's) cut to fit */
 	static const int hotkeys[HUD_HOTKEYS] = { HOTKEY_MENU, HOTKEY_PAUSE, HOTKEY_SAVE_STATE, HOTKEY_LOAD_STATE,
@@ -774,6 +780,7 @@ static int load_state(const char *path, int slot, const char *done)
 	tell(done ? done : slot ? text : "STATE LOADED");
 	hiscore_after_load = 1;
 	irq_seen = 1;
+	speedrun_clear();    /* (a run is played through: a state loaded ends it) */
 	begin_segment(path, frame, -1);
 	static uint8_t *loaded;
 	free(loaded);
@@ -1448,6 +1455,23 @@ static void on_vblank(uint64_t frame)
 	   (free play); its game over (<$28 cleared) ends it */
 	const uint8_t pressed = (uint8_t)(last_system & ~gng.inputs.system);
 	last_system = gng.inputs.system;
+	/* the speedrun timer: from the START the board reads from this VBLANK on */
+	speedrun_vblank(gng.ram, frame, pressed, options.speedrun_end);
+	{
+		/* (each change of the run's said on the standard output, for the checks) */
+		static int last_status;
+		const speedrun_view run = speedrun_get();
+		if (run.status != last_status && run.status != SPEEDRUN_IDLE)
+		{
+			static const char *const names[] = { "idle", "started", "clear", "game over" };
+			char time[24];
+			speedrun_format(time, sizeof(time), run.frames);
+			printf("speedrun: %s at frame %llu: %s (%llu frames)\n", names[run.status], (unsigned long long)frame,
+				time, (unsigned long long)run.frames);
+			fflush(stdout);
+		}
+		last_status = run.status;
+	}
 	if (irq_seen && !gng.ram[0x28] && !replay_playing && !segment_asking &&
 		(((pressed & 0xC0) && (!segment_base[0] || !segment_played)) || ((pressed & 0x03) && !segment_base[0])))
 		request_boundary(&boundary_segment);
@@ -1770,6 +1794,7 @@ int main(int argc, char *argv[])
 		else
 			stop_replay();
 		power_on();
+		speedrun_clear();
 		drop_segment();
 		last_system = 0xFF;
 		if (replay_playing && replay_state[0])

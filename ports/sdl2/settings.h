@@ -69,6 +69,8 @@ typedef struct settings
 	bool keep_high_scores;    /* the ranking kept between sessions (hiscore.h) */
 	bool keep_replays;        /* each game recorded, kept as a replay if the player says so (replays.h) */
 	bool check_updates;       /* the newest release looked up as the program starts (updater.h) */
+	bool speedrun_timer;      /* the speedrun timer in the left side panel (speedrun.h) */
+	int speedrun_end;         /* where its runs end: speedrun.h's SPEEDRUN_END_* */
 	/* [window] */
 	int scale;            /* the window's height, in the picture's lines (224 each) */
 	bool fullscreen;
@@ -110,6 +112,9 @@ extern const char *const settings_crt_names[4];
    sound (an uncompressed AVI) */
 enum { RECORD_1440, RECORD_1080, RECORD_BOARD, RECORDINGS };
 extern const char *const settings_recording_names[RECORDINGS];
+
+/* where a speedrun ends (speedrun.h's SPEEDRUN_END_*: Astaroth beaten in the first loop, in the second, never) */
+extern const char *const settings_speedrun_end_names[3];
 
 /* The game's options (the DIP switches) for the menu: how many, each one's name ("bonus_life") and value's name
    ("20k 70k every 70k"), the next or previous value (direction 1 or -1) */

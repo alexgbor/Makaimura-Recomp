@@ -167,7 +167,7 @@ if(MAKAIMURA_PROGRAM AND MAKAIMURA_SOUND_PROGRAM)
 		endif()
 		foreach(window IN LISTS MAKAIMURA_WINDOWS)
 			add_executable(${window} ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/audio_out.c
-				ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/hiscore.c
+				ports/sdl2/resampler.c ports/sdl2/menu.c ports/sdl2/recorder.c ports/sdl2/hud.c ports/sdl2/speedrun.c ports/sdl2/hiscore.c
 				ports/sdl2/replays.c ports/sdl2/rom_drop.c ports/sdl2/updater.c ports/sdl2/crt.c ports/sdl2/view.c
 				ports/sdl2/encoder.c)
 			if(window STREQUAL "makaimura" AND TARGET gng_decompiled)

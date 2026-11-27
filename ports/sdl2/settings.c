@@ -31,6 +31,7 @@ const char *const settings_aspect_names[ASPECTS] = { "4:3", "pixels" };
 const char *const settings_scaling_names[SCALINGS] = { "fit", "integer", "stretch" };
 const char *const settings_crt_names[4] = { "off", "scanlines", "arcade", "pvm" };    /* (crt.h's order) */
 const char *const settings_recording_names[RECORDINGS] = { "1440p", "1080p", "board" };
+const char *const settings_speedrun_end_names[3] = { "loop1", "loop2", "never" };
 #define aspect_names settings_aspect_names
 #define scaling_names settings_scaling_names
 static const char *const sync_names[SYNCS] = { "board", "display" };
@@ -153,6 +154,8 @@ void settings_defaults(settings *s)
 	s->keep_high_scores = true;
 	s->keep_replays = true;
 	s->check_updates = true;
+	s->speedrun_timer = true;
+	s->speedrun_end = 1;    /* (the game's own end: the second loop's Astaroth) */
 	s->panels_debug = false;
 	s->sync = SYNC_BOARD;
 	s->sound = true;
@@ -321,6 +324,10 @@ static int set(settings *s, const char *section, const char *name, char *value)
 			return s->keep_replays = n, 1;
 		if (!SDL_strcasecmp(name, "check_updates") && (n = boolean(value)) >= 0)
 			return s->check_updates = n, 1;
+		if (!SDL_strcasecmp(name, "speedrun_timer") && (n = boolean(value)) >= 0)
+			return s->speedrun_timer = n, 1;
+		if (!SDL_strcasecmp(name, "speedrun_end") && (n = choice(value, settings_speedrun_end_names, 3)) >= 0)
+			return s->speedrun_end = n, 1;
 		for (i = 0; i < DIPS; i++)
 			if (!SDL_strcasecmp(name, dips[i].name))
 			{
@@ -501,6 +508,11 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "; the newest release looked up on GitHub as the game starts: offered on the menu (UPDATE TO ...),\n"
 		"; downloaded and installed only when it is chosen (this file, the scores, states and replays are kept)\n"
 		"check_updates = %s\n", s->check_updates ? "true" : "false");
+	fprintf(file, "; the speedrun timer in the left side panel: a game's time in the board's frames (59.637 a second,\n"
+		"; the slowdown in it, a pause not), from the START that began it\nspeedrun_timer = %s\n",
+		s->speedrun_timer ? "true" : "false");
+	fprintf(file, "; where a run ends: loop1 (Astaroth beaten in the first loop), loop2 (in the second: the ending),\n"
+		"; never (on to the game over)\nspeedrun_end = %s\n", settings_speedrun_end_names[s->speedrun_end]);
 	for (int i = 0; i < DIPS; i++)
 	{
 		const uint8_t port = dips[i].port == 1 ? s->dsw1 : s->dsw2;

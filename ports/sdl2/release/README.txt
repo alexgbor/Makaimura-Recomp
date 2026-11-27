@@ -58,6 +58,8 @@ Esc pauses the game and opens the menu:
   PRACTICE                 a game from the start of any area (1-7), in either loop, with the weapon and the
                            lives you choose
   REPLAYS                  the games you kept, played again frame for frame (Delete, then Enter: delete one)
+  SPEEDRUN                 the timer in the left panel (on or off) and where a run ends: Astaroth beaten in the
+                           1st loop, in the 2nd (the ending), or never
   GAME OPTIONS             the board's DIP switches: lives, difficulty, bonus life, coinage, free play...
   PICTURE AND SOUND        4:3 or square pixels, scaling, sharp or smooth, a CRT look (SCANLINES, ARCADE, PVM),
                            full screen, the side panels, what F12 records, volume
@@ -67,6 +69,10 @@ Esc pauses the game and opens the menu:
 
 On a wide window or screen, side panels beside the picture show the score, lives, weapon, area, loop, rank, the
 controls and the slowdown; the right one explains the menu's options while it is open.
+
+The speedrun timer (left panel) starts with the START that begins a game and stops where the SPEEDRUN page says
+(green, CLEAR), or at the game over (OVER). It counts the board's frames, 59.637 a second: the slowdown is in it as
+on the arcade, a pause is not, and a replay gives the same time. A reset or a loaded state ends the run.
 
 At each game over the game asks whether to keep its replay (KEEP REPLAY, LET IT GO).
 
