@@ -3,7 +3,7 @@
 What changes from one version to the next, for players. The version is set in `CMakeLists.txt` (the menu shows it);
 `tools/make_release.ps1` takes it from there and wants its section here.
 
-## Unreleased
+## v0.4.1 (2026-11-27)
 
 - **A speedrun timer** in the left side panel: a game's time from the START that begins it, counted in the
   board's own frames (59.637 a second), so the slowdown is in it as on the arcade and a pause, the menu or a hitch
